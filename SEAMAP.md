@@ -33,3 +33,11 @@ Pushed to GitHub, with the docs up to date. A fresh `/plugin marketplace add` an
 - A general-purpose document editor or review tool. This is for agent-and-human turn-taking.
 - Formats beyond markdown and HTML, like Word, Google Docs, or PDF.
 - Running html-with-comments as a hosted or shared service. It runs locally, for one person.
+
+## Tracking
+
+Where the live work for this project is recorded. (Contract: the seamapping plugin's
+`TRACKING-ADAPTER.md`.)
+
+- inbox: `TODO.md` — raw captures, pre-decision. Format: the plugin's `INBOX.md`.
+- tracker: `docs/agents/issue-tracker.md` — specs and tickets, post-decision. (None configured yet.)
