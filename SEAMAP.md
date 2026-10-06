@@ -39,5 +39,4 @@ Pushed to GitHub, with the docs up to date. A fresh `/plugin marketplace add` an
 Where the live work for this project is recorded. (Contract: the seamapping plugin's
 `TRACKING-ADAPTER.md`.)
 
-- inbox: `TODO.md` — raw captures, pre-decision. Format: the plugin's `INBOX.md`.
-- tracker: `docs/agents/issue-tracker.md` — specs and tickets, post-decision. (None configured yet.)
+- inbox: `TODO.md` — raw captures and the work itself. Format: the plugin's `INBOX.md`. No tracker.
