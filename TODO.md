@@ -12,6 +12,7 @@
   - The output should be iterable with `html-iteration`.
 - [ ] `marketplace-json` Make this repo its own marketplace  ← mountain: published
   - Add `.claude-plugin/marketplace.json` and `plugin.json`. Do the one-time install-from-GitHub check to prove the config.
+  - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Remaining: push to github.com/jessitron/iterate-on-docs, then `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
 - [ ] `local-install` Install the plugin locally from this directory for Jessitron's projects  ← mountain: successful
 - [ ] `readme` Write a README intelligible to someone unfamiliar with any of this  ← mountain: published
 

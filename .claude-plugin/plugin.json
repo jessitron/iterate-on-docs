@@ -1,0 +1,11 @@
+{
+  "name": "iterate-on-docs",
+  "version": "0.1.0",
+  "description": "Refine a document with Claude by trading turns. You edit the file and leave instructions for Claude in it; Claude applies your edits' intent and follows the instructions; repeat until it's good. Works on markdown and on static HTML, which you comment on in the browser.",
+  "author": {
+    "name": "Jessica Kerr"
+  },
+  "homepage": "https://github.com/jessitron/iterate-on-docs",
+  "repository": "https://github.com/jessitron/iterate-on-docs",
+  "keywords": ["documents", "writing", "editing", "markdown", "html", "review"]
+}
