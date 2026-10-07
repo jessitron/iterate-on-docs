@@ -21,9 +21,10 @@
 ## Backlog
 
 - [ ] `rename-viewer` Decide whether html-with-comments needs a better name
-- [ ] `git-opinions` Decide how opinionated the published loop is about git and committing
-  - The current skill assumes git and commits the user's edits each turn. Other people have other habits.
 - [ ] `share-it` Invite someone else to try it
   - Treasure, not a requirement: someone else installs it and gets use out of it.
 
 ## Done
+
+- [x] `git-opinions` Decide how opinionated the published loop is about git and committing
+  - Decided 2026-10-07: keep the commits. They make each turn's edits legible. People can rewrite history afterward.
