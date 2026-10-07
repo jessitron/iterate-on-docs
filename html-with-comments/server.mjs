@@ -9,7 +9,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parseHTML } from 'linkedom';
+import { parseHTML } from './vendor/linkedom.mjs';
 
 // ======================================================================
 // Tier I: orchestration

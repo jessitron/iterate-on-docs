@@ -15,6 +15,8 @@ You can also fix wording directly. When the clicked element holds only text (no 
 - The server prints a URL on startup. Open an `.html` file under it.
 - First load normalizes the file's formatting and rewrites it on disk. It also adds `<html>`, `<head>` and `<body>` if the file lacks them, the way a browser would. These files are agent-generated documents we control, so the tool rewrites them into the shape it needs.
 
+Needs Node 20 or later. No `npm install`: the one dependency, linkedom, is bundled into `vendor/linkedom.mjs`.
+
 Tests: `npm test`.
 
 ## Try it
@@ -84,6 +86,8 @@ Open `try-me.html` in a browser (see [Try it](#try-it)).
 ## Design
 
 Everything is in `server.mjs`, in three tiers. Dependencies point down.
+
+The HTML parser is [linkedom](https://github.com/WebReflection/linkedom), bundled with its dependencies into `vendor/linkedom.mjs` (licenses in `vendor/linkedom.LICENSES.txt`) so the tool runs where `npm install` can't, such as behind a corporate proxy. To upgrade it: change the version in `package.json`'s devDependencies, then `npm install && npm run vendor`, and commit `vendor/`.
 
 - **Tier I, orchestration**: CLI arguments, the HTTP request handler, and the GET and PUT flows (normalize, stamp, collect or inject; read, strip notes, place notes, write).
 - **Tier II, domain**: pure functions. The formatter (`normalize`), the notes language (`collectNotes`, `removeNotes`, `placeNote`, escaping), text edits (`isTextElement`, `setText`), and element identity (`stamp`, `unstamp`: `data-n` is the element's document-order index).

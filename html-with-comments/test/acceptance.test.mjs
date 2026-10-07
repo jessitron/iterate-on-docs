@@ -8,7 +8,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseHTML } from 'linkedom';
+import { parseHTML } from '../vendor/linkedom.mjs';
 import { normalize } from '../server.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));

@@ -6,12 +6,14 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "vendor": "scripts/vendor-linkedom"
   },
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "linkedom": "^0.18.13"
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "linkedom": "0.18.13"
   }
 }
