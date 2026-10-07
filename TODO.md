@@ -2,9 +2,14 @@
 
 ## Next
 
-- [ ] `html-iteration` Iterate on HTML files the same way as markdown  ← mountain: successful; blocked-by: vendor-hwc, markdown-iteration
+- [ ] `html-iteration` Iterate on HTML files the same way as markdown  ← mountain: successful
   - Write the HTML in a format html-with-comments accepts, run its formatter, open it in the viewer, read the comments, iterate.
   - The server reformats the file. Treat its output as the baseline so formatting changes don't read as the user's edits.
+  - Launch: `node "${CLAUDE_PLUGIN_ROOT}/html-with-comments/server.mjs" <dir> --port 0 --author <name>`. Takes a directory, not a file. Startup prints `html-notes: http://localhost:<port>/ serving <root>`; read the port from it. The default 7777 crashes when taken. Opening a page (GET) rewrites the file in place.
+- [ ] `hwc-author-default` The server's comment prefix defaults to `jess` (`parseArgs` in `server.mjs`; spec, README, tests too)  ← mountain: published
+  - Self-contained constraint. Pick a neutral default, or have the skill always pass `--author`.
+- [ ] `hwc-deps` Decide how a fresh plugin install gets `linkedom`  ← mountain: published
+  - `node_modules` is gitignored, so `server.mjs` fails on import after install. Options: launch via `run` (runs `npm install` on first use; needs npm + network, writes into the plugin cache), commit `node_modules`, bundle into one file, or a README install step. Needs Node 20+.
 - [ ] `overview-skill` Skill that makes an HTML project overview  ← mountain: successful
   - No existing skill found. The seed is `VISUAL-OVERVIEW-CONVENTION.md` in the seamapping plugin (marked DRAFT): a single `OVERVIEW.html` at repo root.
   - The output should be iterable with `html-iteration`.
