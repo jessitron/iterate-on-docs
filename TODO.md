@@ -15,6 +15,8 @@
   - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Remaining: push to github.com/jessitron/iterate-on-docs, then `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
 - [ ] `local-install` Install the plugin locally from this directory for Jessitron's projects  ← mountain: successful
 - [ ] `readme` Write a README intelligible to someone unfamiliar with any of this  ← mountain: published
+- [ ] `license` Add a LICENSE at repo root and a `license` field in plugin.json  ← mountain: published
+  - The vendored html-with-comments carries its own LICENSE; the plugin as a whole has none yet.
 
 ## Backlog
 
