@@ -2,9 +2,6 @@
 
 ## Next
 
-- [ ] `markdown-iteration` Bring the iterate-on-a-document skill over for markdown  ← mountain: successful
-  - Source: the seamapping plugin's `iterate-on-a-document` skill (tronijess-skills). It works for markdown today.
-  - Strip references to seamapping, tronijess-skills, and Jessitron's conventions (Self-contained constraint).
 - [ ] `vendor-hwc` Vendor the html-with-comments script into this plugin  ← mountain: successful
   - Source: `~/code/jessitron/html-with-comments`. Its purpose is here; copy it in, don't depend on it.
 - [ ] `html-iteration` Iterate on HTML files the same way as markdown  ← mountain: successful; blocked-by: vendor-hwc, markdown-iteration
@@ -28,3 +25,7 @@
 
 - [x] `git-opinions` Decide how opinionated the published loop is about git and committing
   - Decided 2026-10-07: keep the commits. They make each turn's edits legible. People can rewrite history afterward.
+- [x] `markdown-iteration` Bring the iterate-on-a-document skill over for markdown  ← mountain: successful
+  - Source: the seamapping plugin's `iterate-on-a-document` skill (tronijess-skills). It works for markdown today.
+  - Strip references to seamapping, tronijess-skills, and Jessitron's conventions (Self-contained constraint).
+  - Done 2026-10-07: `skills/iterate-on-a-document/SKILL.md`. Commits kept; asks about `git init` when the file is not in a repo.
