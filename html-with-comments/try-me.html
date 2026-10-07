@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Try me: html-notes sample page</title>
+    <style>
+  body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  .card { border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; margin: 1rem 0; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 0.25rem 0.75rem; text-align: left; }
+  pre { background: #f4f4f4; padding: 0.75rem; }
+</style>
+  </head>
+  <body>
+    <h1>Project overview</h1>
+    <p>This page exercises html-notes. Click anything to comment on it.</p>
+    <h2>Text you can edit</h2>
+    <p>This paragraph holds only text, so the box offers a Text field.</p>
+    <p>
+      This one has <b>bold</b> and <em>emphasis</em> inside, so the paragraph itself gets only a comment. Click the bold word to edit just that word.
+    </p>
+    <p>Entities survive editing: Fish &amp; chips &lt;tasty&gt; cost&nbsp;$5.</p>
+    <p>
+      A <a href="test/fixtures/other.html">plain click on this link</a> comments; ⌘-click navigates.
+    </p>
+    <h2>Lists</h2>
+    <ul>
+      <li>First item</li>
+      <li>Second item</li>
+      <li>Third item with <code>code</code> inside</li>
+    </ul>
+    <h2>A table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Server</td>
+          <td>Done</td>
+        </tr>
+        <tr>
+          <td>Client</td>
+          <td>In progress</td>
+        </tr>
+      </tbody>
+    </table>
+    <h2>Elements whose notes sit beside them</h2>
+    <hr>
+    <pre>  preformatted text
+    keeps its   spacing</pre>
+    <div class="card">
+      <h3>A card</h3>
+      <p>
+        Cards are wrappers: clicking the margin inside the card comments on the card itself.
+      </p>
+    </div>
+  </body>
+</html>

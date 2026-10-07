@@ -2,8 +2,6 @@
 
 ## Next
 
-- [ ] `vendor-hwc` Vendor the html-with-comments script into this plugin  ← mountain: successful
-  - Source: `~/code/jessitron/html-with-comments`. Its purpose is here; copy it in, don't depend on it.
 - [ ] `html-iteration` Iterate on HTML files the same way as markdown  ← mountain: successful; blocked-by: vendor-hwc, markdown-iteration
   - Write the HTML in a format html-with-comments accepts, run its formatter, open it in the viewer, read the comments, iterate.
   - The server reformats the file. Treat its output as the baseline so formatting changes don't read as the user's edits.
@@ -32,3 +30,5 @@
   - Source: the seamapping plugin's `iterate-on-a-document` skill (tronijess-skills). It works for markdown today.
   - Strip references to seamapping, tronijess-skills, and Jessitron's conventions (Self-contained constraint).
   - Done 2026-10-07: `skills/iterate-on-a-document/SKILL.md`. Commits kept; asks about `git init` when the file is not in a repo.
+- [x] `vendor-hwc` Vendor the html-with-comments script into this plugin
+  - Done 2026-10-07: copied into `html-with-comments/` from source HEAD 2bdfe8d. Tests pass from the new home.

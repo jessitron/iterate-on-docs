@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Tidewater — project overview</title>
+<style>
+  :root { --ink:#1d2330; --accent:#2a6f97; --paper:#faf8f4; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 16px/1.55 Georgia, serif; color:var(--ink); background:var(--paper); }
+  .layout { display:grid; grid-template-columns: 220px 1fr; min-height:100vh; }
+  nav.side { background:#e8e2d6; padding:24px 18px; }
+  nav.side a { display:block; padding:4px 0; color:var(--ink); text-decoration:none; }
+  nav.side a:hover { color:var(--accent); }
+  main { padding:32px 48px; max-width:860px; }
+  h1 { font-size:2.1rem; margin:0 0 .3em; letter-spacing:-.01em; }
+  h2 { margin-top:2em; border-bottom:2px solid var(--accent); padding-bottom:.2em; }
+  code { background:#eee9dd; padding:1px 5px; border-radius:3px; font-size:.92em; }
+  pre { background:#1d2330; color:#e9eef5; padding:14px 18px; border-radius:6px; overflow:auto; }
+  table { border-collapse:collapse; width:100%; margin:1em 0; }
+  th, td { border:1px solid #cfc7b6; padding:6px 10px; text-align:left; }
+  th { background:#efe9db; }
+  .callout { background:#fff3cd; border-left:5px solid #e0a800; padding:10px 16px; margin:1.2em 0; }
+  figure { margin:1.5em 0; text-align:center; }
+  figcaption { font-size:.85rem; color:#667; }
+</style></head>
+<body>
+<div class="layout">
+<nav class="side"><strong>Tidewater</strong>
+<a href="#goals">Goals</a><a href="#status">Status</a><a href="#design">Design</a><a href="other.html">Other page</a></nav>
+<main>
+<!-- TODO: replace placeholder numbers before sharing -->
+<h1>Tidewater: <em>project overview</em></h1>
+<p class="lede">Tidewater syncs <b>tide-gauge readings</b> from coastal sensors into one queryable store, so the <a href="https://example.com/harbor">harbor team</a> can plan around the water instead of guessing.   It replaces the old nightly <code>cron</code> scripts.</p>
+
+<h2 id="goals">Goals</h2>
+<ul>
+<li>Ingest readings within <b>60 seconds</b> of capture</li>
+<li>Keep 10 years of history at 1-minute resolution &mdash; about 5&nbsp;million rows per gauge</li>
+<li>Expose a small HTTP API (<code>GET /readings?gauge=ID&amp;from=ISO</code>)</li>
+<li>Alert when two neighboring gauges disagree by more than 15&nbsp;cm for ten minutes in a row, which usually means a stuck float rather than a real surge</li>
+</ul>
+
+<div class="callout">Heads up: gauge <code>T-07</code> reports in feet. Conversion happens at ingest, not at query time.</div>
+
+<h2 id="status">Status</h2>
+<table>
+<thead><tr><th>Area</th><th>State</th><th>Owner</th></tr></thead>
+<tbody>
+<tr><td>Ingest pipeline</td><td>Done</td><td>Ana</td></tr>
+<tr><td>Query API</td><td>In review</td><td>Ben</td></tr>
+<tr><td>Alerting</td><td>Not started</td><td><i>unassigned</i></td></tr>
+</tbody></table>
+
+<h2 id="design">Design</h2>
+<figure><img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='120'%3E%3Crect width='320' height='120' fill='%23d7e6f0'/%3E%3Cpath d='M0 70 Q40 40 80 70 T160 70 T240 70 T320 70 V120 H0Z' fill='%232a6f97'/%3E%3C/svg%3E" alt="Waves diagram" width="320" height="120"><figcaption>Sensors feed a queue; workers write to the store.</figcaption></figure>
+<p>Each worker runs a loop like this:</p>
+<pre>
+for reading in queue.drain():
+    row = convert(reading)      # feet -&gt; meters happens here
+    if row.valid:
+        store.insert(row)
+    else:
+        log.warn("bad reading", <b>reading.id</b>)
+</pre>
+<p>See the <a href="other.html">runbook</a> for deployment, or the <a href="missing.html">missing page</a> to check how 404s look.</p>
+</main>
+</div>
+<script>
+  // tiny page behavior, so there is a script in the file
+  document.querySelectorAll('h2').forEach(function (h) { h.title = 'section: ' + h.textContent; });
+</script>
+</body></html>

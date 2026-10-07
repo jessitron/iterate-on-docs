@@ -1,0 +1,17 @@
+{
+  "name": "html-notes",
+  "version": "0.1.0",
+  "description": "Local server for leaving comments in HTML files, stored as HTML comments in the file itself",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "linkedom": "^0.18.13"
+  }
+}
