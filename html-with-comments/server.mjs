@@ -16,7 +16,7 @@ import { parseHTML } from './vendor/linkedom.mjs';
 // ======================================================================
 
 export function parseArgs(argv) {
-  const config = { root: process.cwd(), port: 7777, author: 'jess' };
+  const config = { root: process.cwd(), port: 7777, author: '@AI' };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].split(/=(.*)/s);
     if (flag === '--port') config.port = Number(inline ?? argv[++i]);

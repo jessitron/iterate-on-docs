@@ -18,7 +18,7 @@ A small local HTTP server, one command to run, that:
 Suggested stack: Node ≥ 20, ES modules, `linkedom` for server-side DOM parsing (fast, no browser emulation). Python + BeautifulSoup is acceptable if preferred. No framework; no build step; no client-side dependencies. One source file plus `package.json` and a README is the expected size.
 
 ```
-node server.mjs [rootDir] [--port 7777] [--author jess]
+node server.mjs [rootDir] [--port 7777] [--author @AI]
 ```
 
 Default root is the current directory. Print the URL on startup.
@@ -28,10 +28,10 @@ Default root is the current directory. Print the URL on startup.
 A comment is an HTML comment node whose text, after trimming leading whitespace, starts with `<author>:`:
 
 ```html
-<!-- jess: this section is out of date -->
+<!-- @AI: this section is out of date -->
 ```
 
-- `--author` sets the prefix (default `jess`). Comments without the prefix are not notes; leave them alone.
+- `--author` sets the prefix (default `@AI`). Comments without the prefix are not notes; leave them alone.
 - The note text is everything after the prefix, trimmed.
 - When writing, escape `--` inside the text as `- -` and `>` as `&gt;` so the comment can't terminate early. (Do not unescape on read; it's fine for the agent to see `- -`.)
 - Multi-line text is allowed.
@@ -133,7 +133,7 @@ Respect `prefers-color-scheme: dark` for the box. Keyboard: textarea gets focus 
 2. I open it in the browser. First load normalizes the file.
 3. I click around and leave comments. Each one is on disk within half a second.
 4. I close the tab, come back later, keep going — comments are still there.
-5. I tell the agent: *address the comments in overview.html*. It finds `<!-- jess:` comments, acts on each, deletes it. I reload: clean page.
+5. I tell the agent: *address the comments in overview.html*. It finds `<!-- @AI:` comments, acts on each, deletes it. I reload: clean page.
 
 The viewer never deletes a note on its own. Only I (emptying the box) or the agent (addressing it) remove notes.
 
@@ -158,7 +158,7 @@ For the client, a short manual checklist in the README is sufficient: hover outl
 
 - Run instructions.
 - The comment format and placement rule, stated for a human.
-- A paste-able paragraph of **agent instructions**: how to find notes, that each must be addressed then deleted, and that before regenerating an HTML file from scratch the agent must check `grep -c 'jess:' file.html` is 0 so unresolved comments aren't thrown away.
+- A paste-able paragraph of **agent instructions**: how to find notes, that each must be addressed then deleted, and that before regenerating an HTML file from scratch the agent must check `grep -c '@AI:' file.html` is 0 so unresolved comments aren't thrown away.
 
 ## Non-goals
 

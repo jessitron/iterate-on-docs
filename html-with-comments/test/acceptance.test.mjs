@@ -142,10 +142,10 @@ test('4. round-trip: PUT notes, file placement, GET returns the same map', () =>
     assert.equal(body.count, 4);
 
     const file = s.read('page.html');
-    assert.match(file, /<body>\n {4}<!-- jess: about the whole page -->/);
-    assert.match(file, /<p>\n {6}<!-- jess: about the paragraph -->\n {6}First paragraph\n {4}<\/p>/);
-    assert.match(file, /<!-- jess: about the picture -->\n {4}<img /);
-    assert.match(file, /<!-- jess: about the code -->\n {4}<pre>/);
+    assert.match(file, /<body>\n {4}<!-- @AI: about the whole page -->/);
+    assert.match(file, /<p>\n {6}<!-- @AI: about the paragraph -->\n {6}First paragraph\n {4}<\/p>/);
+    assert.match(file, /<!-- @AI: about the picture -->\n {4}<img /);
+    assert.match(file, /<!-- @AI: about the code -->\n {4}<pre>/);
 
     const again = await s.page('page.html');
     assert.deepEqual(again.notes, notes);
@@ -167,18 +167,18 @@ test('6. PUT is the full set', () =>
     const p = idOf(document, 'p');
     const img = idOf(document, 'img');
     await s.put('page.html', { [p]: 'one', [img]: 'two' });
-    assert.equal(countOf(s.read('page.html'), '<!-- jess:'), 2);
+    assert.equal(countOf(s.read('page.html'), '<!-- @AI:'), 2);
 
     await s.put('page.html', { [img]: 'two' });
     const file = s.read('page.html');
-    assert.equal(countOf(file, '<!-- jess:'), 1);
-    assert.ok(file.includes('<!-- jess: two -->'));
+    assert.equal(countOf(file, '<!-- @AI:'), 1);
+    assert.ok(file.includes('<!-- @AI: two -->'));
 
     const res = await s.put('page.html', {});
     const body = await res.json();
     assert.equal(body.ok, true);
     assert.equal(body.count, 0);
-    assert.equal(countOf(s.read('page.html'), '<!-- jess:'), 0);
+    assert.equal(countOf(s.read('page.html'), '<!-- @AI:'), 0);
   }));
 
 test('7. escaping: -- and > cannot end the comment', () =>
@@ -187,7 +187,7 @@ test('7. escaping: -- and > cannot end the comment', () =>
     const elementsOnDisk = parseHTML(s.read('page.html')).document.querySelectorAll('*').length;
     await s.put('page.html', { [idOf(before.document, 'p')]: '-- really -->' });
     const file = s.read('page.html');
-    assert.ok(file.includes('<!-- jess: - - really - -&gt; -->'), file);
+    assert.ok(file.includes('<!-- @AI: - - really - -&gt; -->'), file);
     assert.equal(parseHTML(file).document.querySelectorAll('*').length, elementsOnDisk);
     assert.deepEqual(Object.values((await s.page('page.html')).notes), ['- - really - -&gt;']);
   }));
@@ -208,7 +208,7 @@ test('9. served page has no note comments and data-n everywhere; disk has no dat
     await s.put('page.html', { [idOf(document, 'p')]: 'visible only as data', [idOf(document, 'pre')]: 'x' });
     const { html, document: served, notes } = await s.page('page.html');
     assert.equal(Object.keys(notes).length, 2);
-    assert.ok(!/<!--\s*jess:/.test(html));
+    assert.ok(!/<!--\s*@AI:/.test(html));
     assert.ok(html.includes('<!-- TODO: not a note -->'));
 
     const unstamped = [...served.querySelectorAll('*')].filter((el) => !el.hasAttribute('data-n'));
@@ -315,7 +315,7 @@ test('text edits: PUT texts rewrites the text of text-only elements, alongside n
     assert.equal((await res.json()).count, 1);
 
     const file = s.read('page.html');
-    assert.match(file, /<p>\n {6}<!-- jess: reworded -->\n {6}First &lt;para&gt; &amp; more\n {4}<\/p>/);
+    assert.match(file, /<p>\n {6}<!-- @AI: reworded -->\n {6}First &lt;para&gt; &amp; more\n {4}<\/p>/);
     assert.ok(file.includes('<p>Second <b>strong</b> paragraph</p>'), 'mixed content keeps its markup');
     assert.ok(file.includes('<li>one</li>'), 'blank text is ignored');
     assert.equal(file, normalize(file));
@@ -361,7 +361,7 @@ test('idempotence holds for fixtures and for the output of a PUT', () =>
       await s.put(name, Object.fromEntries(ids.map((id) => [id, `note ${id}`])));
       const written = s.read(name);
       assert.equal(normalize(written), written, `${name} after PUT`);
-      assert.ok(countOf(written, '<!-- jess:') > 0);
+      assert.ok(countOf(written, '<!-- @AI:') > 0);
       // a second PUT with the notes the page reports changes nothing
       const { notes } = await s.page(name);
       await s.put(name, notes);

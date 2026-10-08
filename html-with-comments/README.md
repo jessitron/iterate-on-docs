@@ -1,17 +1,17 @@
 # html-notes
 
-Review agent-generated HTML in a browser and leave comments on specific elements. Comments are saved in the HTML file itself as `<!-- jess: ... -->` comments. Nothing lives in the browser or a sidecar file.
+Review agent-generated HTML in a browser and leave comments on specific elements. Comments are saved in the HTML file itself as `<!-- @AI: ... -->` comments. Nothing lives in the browser or a sidecar file.
 
 You can also fix wording directly. When the clicked element holds only text (no child elements), the box shows a Text field above the comment. Edits show on the page as you type and are written into the file.
 
 ## Run
 
 ```
-./run [rootDir] [--port 7777] [--author jess]
+./run [rootDir] [--port 7777] [--author @AI]
 ```
 
 - `rootDir` defaults to the directory you run it from.
-- `--author` sets the comment prefix (default `jess`).
+- `--author` sets the comment prefix (default `@AI`).
 - The server prints a URL on startup. Open an `.html` file under it.
 - First load normalizes the file's formatting and rewrites it on disk. It also adds `<html>`, `<head>` and `<body>` if the file lacks them, the way a browser would. These files are agent-generated documents we control, so the tool rewrites them into the shape it needs.
 
@@ -30,7 +30,7 @@ Your comments and text edits write into the file, so it shows as changed in git.
 A comment is an HTML comment whose text starts with `<author>:`.
 
 ```html
-<!-- jess: this section is out of date -->
+<!-- @AI: this section is out of date -->
 ```
 
 - Comments without the prefix are not notes. The server leaves them alone.
@@ -49,13 +49,13 @@ Paste this into the agent's instructions:
 
 ```
 HTML files in this project may hold review comments written as HTML comments that
-start with "jess:", for example <!-- jess: this section is out of date -->.
-To find them, run: grep -n 'jess:' file.html
+start with "@AI:", for example <!-- @AI: this section is out of date -->.
+To find them, run: grep -n '@AI:' file.html
 Each comment is a request about the element that contains it (it is the element's
 first child), or about the element right after it when that element is an img, hr,
 br, input, pre, textarea, script, or style. Address every comment, then delete the
-comment from the file. Leave comments that do not start with "jess:" alone.
-Before you regenerate an HTML file from scratch, run grep -c 'jess:' file.html.
+comment from the file. Leave comments that do not start with "@AI:" alone.
+Before you regenerate an HTML file from scratch, run grep -c '@AI:' file.html.
 The count must be 0. If it is not, address those comments first so no unresolved
 comment is thrown away.
 ```
