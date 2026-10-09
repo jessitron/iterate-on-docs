@@ -1,5 +1,7 @@
 # SEAMAP — iterate-on-docs-plugin
 
+This document helps people and agents working on this project understand its purpose and direction.
+
 ## Quest
 
 Let anyone refine a document with an agent by trading turns — mark it up, hand it back, repeat — whether it's markdown or a rendered HTML page.

@@ -4,7 +4,7 @@ An agent skill for refining a document with your coding agent by trading turns. 
 file and leave instructions for the agent in it. The agent applies the intent of your edits,
 follows your instructions, and hands it back. Repeat until it's good.
 
-Works on markdown and on static HTML. For HTML, you comment in the browser.
+Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you comment in the browser.
 
 ## Install
 
@@ -35,14 +35,16 @@ Ask your agent:
 
 Then trade turns:
 
-1. **Your turn.** Edit the file however you like. Anywhere you want the agent to do something,
-   write an annotation:
+1. **Your turn.** Edit the file however you like. If you change something in one place, it's the agents job to make the rest of the document consistent with that change.
 
-   ```
-   @AI: make this section shorter
-   ```
+Anywhere you want the agent to do something,
+write an annotation:
 
-   Then tell the agent you're done.
+```
+@AI: make this section shorter
+```
+
+Then tell the agent "Your turn"
 
 2. **The agent's turn.** It commits your edits as you made them, applies them everywhere else
    they fit, carries out each `@AI:` instruction, and removes the annotations. It summarizes
