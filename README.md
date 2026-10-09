@@ -24,6 +24,8 @@ own directory.
 
 HTML needs Node 20 or later. Markdown needs nothing extra.
 
+To run the plugin from a clone while you work on it, see [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ## Use
 
 The file must be in a git repository. The agent commits at each turn, so every change shows in
