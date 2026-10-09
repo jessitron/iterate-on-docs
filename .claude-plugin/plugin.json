@@ -7,5 +7,6 @@
   },
   "homepage": "https://github.com/jessitron/iterate-on-docs",
   "repository": "https://github.com/jessitron/iterate-on-docs",
+  "license": "CC0-1.0",
   "keywords": ["documents", "writing", "editing", "markdown", "html", "review"]
 }
