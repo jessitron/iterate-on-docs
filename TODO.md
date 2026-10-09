@@ -11,8 +11,6 @@
 - [ ] `local-install` Install the plugin locally from this directory for Jessitron's projects  ← mountain: successful
 - [ ] `readme` Write a README intelligible to someone unfamiliar with any of this  ← mountain: published
   - Drafted 2026-10-09. Install commands are unverified until `marketplace-json` is pushed and tested. Needs a read by someone unfamiliar with it.
-- [ ] `license` Add a LICENSE at repo root and a `license` field in plugin.json  ← mountain: published
-  - The vendored html-with-comments carries its own LICENSE; the plugin as a whole has none yet.
 
 ## Backlog
 
@@ -22,6 +20,9 @@
 
 ## Done
 
+- [x] `license` Add a LICENSE at repo root and a `license` field in plugin.json  ← mountain: published
+  - The vendored html-with-comments carries its own LICENSE; the plugin as a whole has none yet.
+  - Done 2026-10-09: CC0 1.0 at root, same as the vendored server. `license: CC0-1.0` in plugin.json.
 - [x] `git-opinions` Decide how opinionated the published loop is about git and committing
   - Decided 2026-10-07: keep the commits. They make each turn's edits legible. People can rewrite history afterward.
 - [x] `markdown-iteration` Bring the iterate-on-a-document skill over for markdown  ← mountain: successful
