@@ -8,7 +8,6 @@
 - [ ] `marketplace-json` Make this repo its own marketplace  ← mountain: published
   - Add `.claude-plugin/marketplace.json` and `plugin.json`. Do the one-time install-from-GitHub check to prove the config.
   - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Remaining: push to github.com/jessitron/iterate-on-docs, then `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
-- [ ] `local-install` Install the plugin locally from this directory for Jessitron's projects  ← mountain: successful
 - [ ] `readme` Write a README intelligible to someone unfamiliar with any of this  ← mountain: published
   - Drafted 2026-10-09. Install commands are unverified until `marketplace-json` is pushed and tested. Needs a read by someone unfamiliar with it.
 
@@ -41,3 +40,5 @@
   - The server reformats the file. Treat its output as the baseline so formatting changes don't read as the user's edits.
   - Launch: `node "${CLAUDE_PLUGIN_ROOT}/html-with-comments/server.mjs" <dir> --port 0`. Takes a directory, not a file. Startup prints `html-notes: http://localhost:<port>/ serving <root>`; read the port from it. The default 7777 crashes when taken. Opening a page (GET) rewrites the file in place.
   - Done 2026-10-08: folded into `skills/iterate-on-a-document/SKILL.md` as **HTML** steps (one loop). Fetch the page before every commit so normalization lands with its cause.
+- [x] `local-install` Install the plugin locally from this directory for Jessitron's projects  ← mountain: successful
+  - Done 2026-10-11: installed at user scope from this directory (`iterate-on-docs@iterate-on-docs`), enabled. Markdown and HTML iteration both confirmed working. How-to in `DEVELOPMENT.md`.
