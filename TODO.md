@@ -5,7 +5,9 @@
 - [ ] `overview-skill` Skill that makes an HTML project overview  ← mountain: successful
   - No existing skill found. The seed is `VISUAL-OVERVIEW-CONVENTION.md` in the seamapping plugin (marked DRAFT): a single `OVERVIEW.html` at repo root.
   - The output should be iterable with `html-iteration`.
-  - Drafted 2026-10-11: `skills/make-a-project-overview/SKILL.md`, a sanitized version of the convention (no seamap, no personal conventions). The Jess-specific version stays in seamapping under a different name; rename requested there. Remaining: try it on a real project.
+  - Drafted 2026-10-11: `skills/make-a-project-overview/SKILL.md`, a sanitized version of the convention (no seamap, no personal conventions). The Jess-specific version stays in seamapping under a different name. Remaining: try it on a real project.
+- [ ] `rename-seamap-overview` File a skill-change request (JES, Personal task system, label `skill-change-request`): rename seamapping's `VISUAL-OVERVIEW-CONVENTION.md` to `SEAMAP-OVERVIEW-CONVENTION.md` and update its references, so it doesn't share a name with `make-a-project-overview`. A future skill that draws it gets a seamap name, like `draw-seamap-overview`, and can hand iterating to `iterate-on-a-document`.
+  - Approved by Jessitron 2026-10-11. Not filed yet: the Linear MCP wasn't connected in that session.
 - [ ] `marketplace-json` Make this repo its own marketplace  ← mountain: published
   - Add `.claude-plugin/marketplace.json` and `plugin.json`. Do the one-time install-from-GitHub check to prove the config.
   - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Remaining: push to github.com/jessitron/iterate-on-docs, then `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
