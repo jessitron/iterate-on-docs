@@ -3,9 +3,7 @@ name: make-a-project-overview
 description: >-
   Draw a visual overview of a whole project: one self-contained HTML page, `OVERVIEW.html` at the
   repo root, with diagrams of where the project is headed, its architecture, and the current work.
-  Stingy with words, made for a human to take in fast. Then refine it with the user by trading
-  turns. Use when the user says "make a project overview", "draw me a picture of this project",
-  "give me an overview page", or "update the overview".
+  Stingy with words, made for a human to take in fast. Then refine it with the user. Use when the user says "make a project overview", "draw me a picture of this project", "give me an overview page", or "update the overview".
 ---
 
 # Make a project overview
@@ -30,14 +28,15 @@ project needs no context map; another needs a picture nobody else would draw.
 - **Direction:** what the project is for and where it is headed: its purpose, goals, and what
   "done for now" looks like. Draw it. A journey toward a destination works, or a picture that suits
   the project better.
+- **Where it runs:** links to dashboards, traces, or deployments, when the project has them.
 - **Context map:** the parts of the domain and the language boundaries between them, when the
   project has more than one.
 - **Architecture:** the major pieces and how they depend on each other.
-- **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a
-  task list.
 - **Invariants:** properties that must stay true. Give them a section, or show them inside the
-  other views, whichever reads faster.
-- **Where it runs:** links to dashboards, traces, or deployments, when the project has them.
+  task list.
+- **Domain terms:** The top few terms that are central to understanding the project. Include technical terms that people might not intuitively guess. Like 2-6 key terms that clarify things.
+- **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a
+  other views, whichever reads faster.  
 
 Context map and architecture show **reality** first and **direction** second. Anything not yet true
 carries a visible **directional** label.
@@ -51,6 +50,7 @@ with those few sources and no others.
 code. The overview summarizes what a human needs to see at a glance.
 
 **What it leaves out:**
+
 - Task lists and ticket status. Link to the tracker instead.
 - Complete API or domain definitions. The code holds those.
 - Decision history. That belongs in git.
