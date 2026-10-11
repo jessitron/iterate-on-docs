@@ -11,7 +11,7 @@ Start Claude Code in any project with:
 claude --plugin-dir ~/code/jessitron/iterate-on-docs
 ```
 
-Claude reads the skill and the HTML server straight from the clone. Edits show up the next time
+Claude reads the skills and the HTML server straight from the clone. Edits show up the next time
 you start a session. Nothing is installed, so nothing goes stale.
 
 To make this the default, add an alias to your shell profile:
