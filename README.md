@@ -18,7 +18,8 @@ The skill is `skills/iterate-on-a-document/SKILL.md`, in the
 /plugin install iterate-on-docs@iterate-on-docs
 ```
 
-**Other agents:** clone this repo and add `skills/iterate-on-a-document` to your agent's skills.
+**Other agents:** clone this repo and add `skills/iterate-on-a-document` (and, if you want it,
+`skills/make-a-project-overview`) to your agent's skills.
 Keep the repo together: the skill finds the HTML server at `../../html-with-comments/` from its
 own directory.
 
@@ -66,6 +67,14 @@ iterated on, not for live or generated web pages.
 
 The server is in [`html-with-comments/`](html-with-comments/README.md), with details on the
 comment format.
+
+## Project overview
+
+A second skill, `skills/make-a-project-overview/SKILL.md`, draws a picture of a whole project:
+one HTML page, `OVERVIEW.html` at the repo root, with diagrams of where the project is headed, its
+architecture, and the current work. Then you iterate on it the same way, commenting in the browser.
+
+> Make a project overview
 
 ## License
 

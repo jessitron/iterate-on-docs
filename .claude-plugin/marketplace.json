@@ -10,7 +10,7 @@
     {
       "name": "iterate-on-docs",
       "source": "./",
-      "description": "Refine a document with Claude by trading turns. You edit the file and leave instructions for Claude in it; Claude applies your edits' intent and follows the instructions; repeat until it's good. Works on markdown and static HTML.",
+      "description": "Refine a document with Claude by trading turns. You edit the file and leave instructions for Claude in it; Claude applies your edits' intent and follows the instructions; repeat until it's good. Works on markdown and static HTML. Also draws a visual HTML overview of a project.",
       "category": "productivity",
       "keywords": ["documents", "writing", "editing", "markdown", "html", "review"]
     }
