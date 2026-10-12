@@ -29,9 +29,12 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
      directory. It needs Node 20 or later and nothing else.
    - It prints `html-revisor: http://localhost:<port>/ serving <dir>`. The page URL is that address
      plus the file's path under `<dir>`.
-   - Fetch the page URL once (`curl -s -o /dev/null <url>`). The server rewrites the file into
-     its normalized formatting on each load. Commit that rewrite as its own commit.
-   - From here on, fetch the page URL before every commit in the loop. Formatting then lands in
+   - Run `node <formatter> <file>`, where `<formatter>` is `../../html-revisor/formatter.mjs`
+     resolved from this skill's base directory. It rewrites the file into the normalized
+     formatting the server also applies on each page load, and prints nothing when all is well.
+     If it exits nonzero, fix what it prints on stderr and run it again. Commit that rewrite as
+     its own commit.
+   - From here on, run the formatter before every commit in the loop. Formatting then lands in
      the commit that caused it and never reads as the user's next edit.
 1. Tell the user to take their turn. Give them the full path to the file. Tell them to make any
    edits they like, and to add `@AI: <command>` directives anywhere in the document.

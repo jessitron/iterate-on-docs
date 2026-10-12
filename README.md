@@ -69,7 +69,8 @@ edits save into the HTML file as you type. You can still edit the file by hand.
 
 The server rewrites the file into its own formatting when it loads the page. The agent commits
 that rewrite by itself, so it doesn't mix with your edits. This is for HTML written to be
-iterated on, not for live or generated web pages.
+iterated on, not for live or generated web pages. The same formatter runs on its own as
+`html-revisor/formatter.mjs`; the agent runs it after writing a page and before each commit.
 
 The server is in [`html-revisor/`](html-revisor/README.md), with details on the
 directive format.
