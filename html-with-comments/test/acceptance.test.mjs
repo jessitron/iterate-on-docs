@@ -30,31 +30,31 @@ async function withServer(fn, args = []) {
     read: (name) => fs.readFileSync(path.join(dir, name), 'utf8'),
     write: (name, text) => fs.writeFileSync(path.join(dir, name), text),
     get: (p) => fetch(server.base + p),
-    // GET a page and return the parsed served document plus its notes JSON.
+    // GET a page and return the parsed served document plus its directives JSON.
     async page(name) {
       const res = await server.get(name);
       const html = await res.text();
       const { document } = parseHTML(html);
-      const json = document.querySelector('script#hn-notes');
-      return { res, html, document, notes: JSON.parse(json.textContent) };
+      const json = document.querySelector('script#hn-directives');
+      return { res, html, document, directives: JSON.parse(json.textContent) };
     },
-    put: (name, notes) =>
+    put: (name, directives) =>
       fetch(server.base + name, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ directives }),
       }),
-    putTexts: (name, notes, texts) =>
+    putTexts: (name, directives, texts) =>
       fetch(server.base + name, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes, texts }),
+        body: JSON.stringify({ directives, texts }),
       }),
-    putVersioned: (name, version, notes) =>
+    putVersioned: (name, version, directives) =>
       fetch(server.base + name, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version, notes }),
+        body: JSON.stringify({ version, directives }),
       }),
     // Wait until the log has a line matching re (stdout arrives slightly after the response).
     async waitForLog(re, count = 1) {
@@ -121,7 +121,7 @@ test('3. preformatted content is untouched', () =>
     assert.ok(after.includes(script), after);
   }));
 
-test('4. round-trip: PUT notes, file placement, GET returns the same map', () =>
+test('4. round-trip: PUT directives, file placement, GET returns the same map', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     const ids = {
@@ -130,13 +130,13 @@ test('4. round-trip: PUT notes, file placement, GET returns the same map', () =>
       pre: idOf(document, 'pre'),
       body: idOf(document, 'body'),
     };
-    const notes = {
+    const directives = {
       [ids.p]: 'about the paragraph',
       [ids.img]: 'about the picture',
       [ids.pre]: 'about the code',
       [ids.body]: 'about the whole page',
     };
-    const res = await s.put('page.html', notes);
+    const res = await s.put('page.html', directives);
     const body = await res.json();
     assert.equal(body.ok, true);
     assert.equal(body.count, 4);
@@ -148,7 +148,7 @@ test('4. round-trip: PUT notes, file placement, GET returns the same map', () =>
     assert.match(file, /<!-- @AI: about the code -->\n {4}<pre>/);
 
     const again = await s.page('page.html');
-    assert.deepEqual(again.notes, notes);
+    assert.deepEqual(again.directives, directives);
   }));
 
 test('5. ids are stable across a PUT', () =>
@@ -156,7 +156,7 @@ test('5. ids are stable across a PUT', () =>
     const first = await s.page('page.html');
     const selectors = ['body', 'h1', 'p', 'img', 'pre', 'ul', 'li'];
     const before = selectors.map((sel) => idOf(first.document, sel));
-    await s.put('page.html', { [before[2]]: 'a note', [before[3]]: 'another', [before[0]]: 'third' });
+    await s.put('page.html', { [before[2]]: 'a directive', [before[3]]: 'another', [before[0]]: 'third' });
     const second = await s.page('page.html');
     assert.deepEqual(selectors.map((sel) => idOf(second.document, sel)), before);
   }));
@@ -189,27 +189,27 @@ test('7. escaping: -- and > cannot end the comment', () =>
     const file = s.read('page.html');
     assert.ok(file.includes('<!-- @AI: - - really - -&gt; -->'), file);
     assert.equal(parseHTML(file).document.querySelectorAll('*').length, elementsOnDisk);
-    assert.deepEqual(Object.values((await s.page('page.html')).notes), ['- - really - -&gt;']);
+    assert.deepEqual(Object.values((await s.page('page.html')).directives), ['- - really - -&gt;']);
   }));
 
-test('8. non-note comments are preserved', () =>
+test('8. non-directive comments are preserved', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    assert.ok(s.read('page.html').includes('<!-- TODO: not a note -->'));
-    await s.put('page.html', { [idOf(document, 'p')]: 'a note' });
-    assert.ok(s.read('page.html').includes('<!-- TODO: not a note -->'));
+    assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
+    await s.put('page.html', { [idOf(document, 'p')]: 'a directive' });
+    assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
     await s.put('page.html', {});
-    assert.ok(s.read('page.html').includes('<!-- TODO: not a note -->'));
+    assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
   }));
 
-test('9. served page has no note comments and data-n everywhere; disk has no data-n', () =>
+test('9. served page has no directive comments and data-n everywhere; disk has no data-n', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     await s.put('page.html', { [idOf(document, 'p')]: 'visible only as data', [idOf(document, 'pre')]: 'x' });
-    const { html, document: served, notes } = await s.page('page.html');
-    assert.equal(Object.keys(notes).length, 2);
+    const { html, document: served, directives } = await s.page('page.html');
+    assert.equal(Object.keys(directives).length, 2);
     assert.ok(!/<!--\s*@AI:/.test(html));
-    assert.ok(html.includes('<!-- TODO: not a note -->'));
+    assert.ok(html.includes('<!-- TODO: not a directive -->'));
 
     const unstamped = [...served.querySelectorAll('*')].filter((el) => !el.hasAttribute('data-n'));
     // the injected style and two scripts come after stamping
@@ -221,13 +221,13 @@ test('9b. injection: json script escapes <, client assets are last and unstamped
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     await s.put('page.html', { [idOf(document, 'p')]: '</script><b>hi</b>' });
-    const { html, notes } = await s.page('page.html');
-    const jsonScript = html.match(/<script [^>]*id="hn-notes"[^>]*>(.*?)<\/script>/s)[1];
+    const { html, directives } = await s.page('page.html');
+    const jsonScript = html.match(/<script [^>]*id="hn-directives"[^>]*>(.*?)<\/script>/s)[1];
     assert.ok(!jsonScript.includes('<'));
     assert.ok(jsonScript.includes('\\u003c'));
-    assert.equal(Object.values(notes)[0], '</script&gt;<b&gt;hi</b&gt;'); // > is escaped on write, not unescaped on read
+    assert.equal(Object.values(directives)[0], '</script&gt;<b&gt;hi</b&gt;'); // > is escaped on write, not unescaped on read
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'));
-    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hn-notes'));
+    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hn-directives'));
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/);
   }));
 
@@ -271,7 +271,7 @@ test('other files: assets, directory listing, 404', () =>
 test('versioned PUT: current version succeeds, stale version gets 409, missing version still works', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    const v0 = document.querySelector('script#hn-notes').getAttribute('data-version');
+    const v0 = document.querySelector('script#hn-directives').getAttribute('data-version');
     assert.match(v0, /^[0-9a-f]{12}$/);
 
     const first = await s.putVersioned('page.html', v0, { 1: 'one' });
@@ -298,7 +298,7 @@ test('versioned PUT: current version succeeds, stale version gets 409, missing v
     assert.equal((await s.put('page.html', { 1: 'curl' })).status, 200);
   }));
 
-test('text edits: PUT texts rewrites the text of text-only elements, alongside notes', () =>
+test('text edits: PUT texts rewrites the text of text-only elements, alongside directives', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     const p = idOf(document, 'p');
@@ -323,14 +323,14 @@ test('text edits: PUT texts rewrites the text of text-only elements, alongside n
     // texts are idempotent: sending the same set again changes nothing
     await s.putTexts('page.html', { [p]: 'reworded' }, { [p]: 'First <para> & more', [b]: 'strong' });
     assert.equal(s.read('page.html'), file);
-    assert.deepEqual((await s.page('page.html')).notes, { [p]: 'reworded' });
+    assert.deepEqual((await s.page('page.html')).directives, { [p]: 'reworded' });
   }));
 
 test('texts must be an object of strings when present', () =>
   withServer(async (s) => {
     const res = await fetch(s.base + 'page.html', {
       method: 'PUT',
-      body: JSON.stringify({ notes: {}, texts: ['x'] }),
+      body: JSON.stringify({ directives: {}, texts: ['x'] }),
     });
     assert.equal(res.status, 400);
   }));
@@ -358,13 +358,13 @@ test('idempotence holds for fixtures and for the output of a PUT', () =>
       const ids = [...document.querySelectorAll('[data-n]')]
         .filter((_, i) => i % 3 === 0)
         .map((el) => el.getAttribute('data-n'));
-      await s.put(name, Object.fromEntries(ids.map((id) => [id, `note ${id}`])));
+      await s.put(name, Object.fromEntries(ids.map((id) => [id, `directive ${id}`])));
       const written = s.read(name);
       assert.equal(normalize(written), written, `${name} after PUT`);
       assert.ok(countOf(written, '<!-- @AI:') > 0);
-      // a second PUT with the notes the page reports changes nothing
-      const { notes } = await s.page(name);
-      await s.put(name, notes);
+      // a second PUT with the directives the page reports changes nothing
+      const { directives } = await s.page(name);
+      await s.put(name, directives);
       assert.equal(s.read(name), written, `${name} PUT round trip`);
     }
   }));
@@ -375,7 +375,7 @@ test('--author changes the prefix', () =>
       const { document } = await s.page('page.html');
       await s.put('page.html', { [idOf(document, 'p')]: 'hello' });
       assert.ok(s.read('page.html').includes('<!-- sam: hello -->'));
-      assert.deepEqual(Object.values((await s.page('page.html')).notes), ['hello']);
+      assert.deepEqual(Object.values((await s.page('page.html')).directives), ['hello']);
     },
     ['--author', 'sam'],
   ));
@@ -385,7 +385,7 @@ test('served page carries the client and still re-parses with the same element c
     const { html, document } = await s.page('demo.html');
     assert.ok(html.includes('#hn-layer'), 'client CSS present');
     assert.ok(html.includes("id = 'hn-layer'"), 'client JS present');
-    // exactly one client script plus the notes JSON, appended after stamping
+    // exactly one client script plus the directives JSON, appended after stamping
     const stamped = document.querySelectorAll('[data-n]').length;
     const onDisk = parseHTML(s.read('demo.html')).document.querySelectorAll('*').length;
     assert.equal(stamped, onDisk);

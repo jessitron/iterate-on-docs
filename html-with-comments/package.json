@@ -1,7 +1,7 @@
 {
   "name": "html-notes",
   "version": "0.1.0",
-  "description": "Local server for leaving comments in HTML files, stored as HTML comments in the file itself",
+  "description": "Local server for leaving directives in HTML files, stored as HTML comments in the file itself",
   "type": "module",
   "main": "server.mjs",
   "scripts": {

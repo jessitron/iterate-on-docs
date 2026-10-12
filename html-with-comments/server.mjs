@@ -1,8 +1,8 @@
-// html-notes: leave comments on HTML files; they live in the file as <!-- author: text -->.
+// html-notes: leave directives on HTML files; they live in the file as <!-- author: text -->.
 //
 // Three tiers, dependencies point downward only:
 //   Tier I   orchestration: CLI, request routing, the GET and PUT flows
-//   Tier II  domain: formatter, notes, text edits, element identity (pure functions over a DOM)
+//   Tier II  domain: formatter, directives, text edits, element identity (pure functions over a DOM)
 //   Tier III interface: filesystem gateway, content types, listings, client assets
 import crypto from 'node:crypto';
 import http from 'node:http';
@@ -51,7 +51,7 @@ async function route(req, res, config) {
   res.end(await fs.readFile(file));
 }
 
-// GET: normalize on disk, then serve a stamped copy with notes lifted out into JSON.
+// GET: normalize on disk, then serve a stamped copy with directives lifted out into JSON.
 async function getPage(res, file, urlPath, { author }) {
   const onDisk = await fs.readFile(file, 'utf8');
   const formatted = normalize(onDisk);
@@ -61,29 +61,29 @@ async function getPage(res, file, urlPath, { author }) {
   }
   const document = parse(formatted);
   stamp(document);
-  const notes = collectNotes(document, author);
-  removeNotes(document, author);
-  injectClient(document, notes, versionOf(formatted));
-  console.log(`${urlPath} — ${Object.keys(notes).length} pending notes`);
+  const directives = collectDirectives(document, author);
+  removeDirectives(document, author);
+  injectClient(document, directives, versionOf(formatted));
+  console.log(`${urlPath} — ${Object.keys(directives).length} pending directives`);
   sendHtml(res, document.toString());
 }
 
 // A short fingerprint of the file bytes. The client sends it back to prove its view is current.
 const versionOf = (bytes) => crypto.createHash('sha1').update(bytes).digest('hex').slice(0, 12);
 
-// PUT: the body is the complete set of notes, plus the new text of any edited text elements.
-// Rewrite the notes into the file and replace the texts. Both maps are idempotent to resend.
+// PUT: the body is the complete set of directives, plus the new text of any edited text elements.
+// Rewrite the directives into the file and replace the texts. Both maps are idempotent to resend.
 // Optimistic concurrency: a "version" that differs from the file on disk is rejected with 409.
 async function putEdits(req, res, file, urlPath, { author }) {
-  let notes, texts, version;
+  let directives, texts, version;
   try {
-    ({ notes, texts = {}, version } = JSON.parse(await readBody(req)));
+    ({ directives, texts = {}, version } = JSON.parse(await readBody(req)));
   } catch {
     throw new HttpError(400, 'body must be JSON');
   }
   const isMap = (m) => m && typeof m === 'object' && !Array.isArray(m);
-  if (!isMap(notes) || !isMap(texts)) {
-    throw new HttpError(400, 'body must look like {"notes": {"<id>": "text"}, "texts": {"<id>": "text"}}');
+  if (!isMap(directives) || !isMap(texts)) {
+    throw new HttpError(400, 'body must look like {"directives": {"<id>": "text"}, "texts": {"<id>": "text"}}');
   }
   const onDisk = await fs.readFile(file);
   // A missing version skips the check, so curl and scripts can PUT without a GET first.
@@ -94,22 +94,22 @@ async function putEdits(req, res, file, urlPath, { author }) {
   }
   const document = parse(onDisk.toString("utf8"));
   const elements = [...document.querySelectorAll('*')]; // snapshot: ids are indices into this
-  removeNotes(document, author);
+  removeDirectives(document, author);
   let textCount = 0;
   for (const [id, text] of Object.entries(texts)) {
     if (elements[id] && typeof text === 'string' && setText(elements[id], text)) textCount++;
   }
   let count = 0;
-  for (const [id, text] of Object.entries(notes)) {
+  for (const [id, text] of Object.entries(directives)) {
     const element = elements[id];
     if (!element || typeof text !== 'string' || !text.trim()) continue;
-    placeNote(element, text, author);
+    placeDirective(element, text, author);
     count++;
   }
   unstamp(document);
   const written = serialize(document);
   await fs.writeFile(file, written);
-  console.log(`${urlPath} — saved ${count} notes` + (textCount ? `, ${textCount} texts` : ''));
+  console.log(`${urlPath} — saved ${count} directives` + (textCount ? `, ${textCount} texts` : ''));
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ ok: true, count, version: versionOf(written) }));
 }
@@ -179,7 +179,7 @@ function ensureSkeleton(document) {
     if (n === head) continue;
     if (n === body) { seenBody = true; inHead = false; continue; }
     if (inHead) {
-      // Comments and blank text before the content stay put, so a note on <html> stays there.
+      // Comments and blank text before the content stay put, so a directive on <html> stays there.
       if (n.nodeType === 8 || (n.nodeType === 3 && !n.data.trim())) continue;
       if (n.nodeType === 1 && HEAD_CONTENT.has(n.localName)) { head.appendChild(n); continue; }
       inHead = false;
@@ -306,7 +306,7 @@ function rawInner(el) {
 // ---- Element identity ---------------------------------------------------
 
 // data-n is the element's index in document order. Comments are not elements,
-// so adding and removing notes never shifts an index.
+// so adding and removing directives never shifts an index.
 export function stamp(document) {
   document.querySelectorAll('*').forEach((el, i) => el.setAttribute('data-n', String(i)));
 }
@@ -315,17 +315,17 @@ export function unstamp(document) {
   document.querySelectorAll('[data-n]').forEach((el) => el.removeAttribute('data-n'));
 }
 
-// ---- Notes --------------------------------------------------------------
+// ---- Directives ---------------------------------------------------------
 
-// Notes go before these elements; for everything else a note is the first child.
+// Directives go before these elements; for everything else a directive is the first child.
 // Elements whose content is parsed as plain text (title, iframe, ...) cannot hold a comment.
 const TEXT_ONLY = 'title iframe xmp noembed noframes'.split(' ');
-const NOTE_BEFORE = new Set([...VOID, ...RAW, ...TEXT_ONLY]);
-const noteGoesBefore = (el) => NOTE_BEFORE.has(el.localName);
+const DIRECTIVE_BEFORE = new Set([...VOID, ...RAW, ...TEXT_ONLY]);
+const directiveGoesBefore = (el) => DIRECTIVE_BEFORE.has(el.localName);
 
-// A note is a comment inside an element whose text starts with "<author>:".
-// Comments outside any element (before <html>) are never notes.
-export function isNote(node, author) {
+// A directive is an HTML comment inside an element whose text starts with "<author>:".
+// Comments outside any element (before <html>) are never directives.
+export function isDirective(node, author) {
   return (
     node.nodeType === 8 &&
     node.parentNode?.nodeType === 1 &&
@@ -333,12 +333,12 @@ export function isNote(node, author) {
   );
 }
 
-export function noteText(comment, author) {
+export function directiveText(comment, author) {
   return comment.data.trimStart().slice(author.length + 1).trim();
 }
 
 // Escape so the text cannot end the comment early. Repeat for runs like "---".
-export function escapeNoteText(text) {
+export function escapeDirectiveText(text) {
   let out = text;
   while (out.includes('--')) out = out.replaceAll('--', '- -');
   return out.replaceAll('>', '&gt;');
@@ -352,47 +352,47 @@ function allComments(node, found = []) {
   return found;
 }
 
-// The reading rule: a note belongs to its parent, unless the next sibling (skipping
+// The reading rule: a directive belongs to its parent, unless the next sibling (skipping
 // whitespace-only text) is a void or preformatted element; then it belongs to that sibling.
-// Only whitespace is skipped, not other notes. Skipping notes would make a parent's
-// note and the note of its first-child <img> ambiguous; since writing merges to one
-// note per element, they sit in order [parent note][img note][img] and read back correctly.
-// Known limit: a parent's note directly before an un-noted <img> first child reads as the img's.
-function noteOwner(comment) {
+// Only whitespace is skipped, not other directives. Skipping directives would make a parent's
+// directive and the directive of its first-child <img> ambiguous; since writing merges to one
+// directive per element, they sit in order [parent directive][img directive][img] and read back correctly.
+// Known limit: a parent's directive directly before an <img> first child that has no directive reads as the img's.
+function directiveOwner(comment) {
   let next = comment.nextSibling;
   while (next?.nodeType === 3 && trimAscii(next.data) === '') next = next.nextSibling;
-  return next?.nodeType === 1 && noteGoesBefore(next) ? next : comment.parentNode;
+  return next?.nodeType === 1 && directiveGoesBefore(next) ? next : comment.parentNode;
 }
 
-// { [element index]: note text }; several notes on one element join with newlines.
-export function collectNotes(document, author) {
+// { [element index]: directive text }; several directives on one element join with newlines.
+export function collectDirectives(document, author) {
   const index = new Map([...document.querySelectorAll('*')].map((el, i) => [el, i]));
-  const notes = {};
+  const directives = {};
   for (const comment of allComments(document)) {
-    if (!isNote(comment, author)) continue;
-    const id = index.get(noteOwner(comment));
+    if (!isDirective(comment, author)) continue;
+    const id = index.get(directiveOwner(comment));
     if (id === undefined) continue;
-    const text = noteText(comment, author);
-    notes[id] = id in notes ? `${notes[id]}\n${text}` : text;
+    const text = directiveText(comment, author);
+    directives[id] = id in directives ? `${directives[id]}\n${text}` : text;
   }
-  return notes;
+  return directives;
 }
 
-export function removeNotes(document, author) {
+export function removeDirectives(document, author) {
   for (const comment of allComments(document)) {
-    if (isNote(comment, author)) comment.remove();
+    if (isDirective(comment, author)) comment.remove();
   }
 }
 
-export function placeNote(el, text, author) {
-  const comment = el.ownerDocument.createComment(` ${author}: ${escapeNoteText(text.trim())} `);
-  if (noteGoesBefore(el) && el.parentNode) el.parentNode.insertBefore(comment, el);
+export function placeDirective(el, text, author) {
+  const comment = el.ownerDocument.createComment(` ${author}: ${escapeDirectiveText(text.trim())} `);
+  if (directiveGoesBefore(el) && el.parentNode) el.parentNode.insertBefore(comment, el);
   else el.insertBefore(comment, el.firstChild);
 }
 
 // ---- Text edits ---------------------------------------------------------
 
-// A text element holds nothing but text (once notes are lifted out), so replacing its text
+// A text element holds nothing but text (once directives are lifted out), so replacing its text
 // loses no markup. Elements whose text is code or not shown are excluded.
 const NOT_TEXT = new Set([...VOID, ...TEXT_ONLY, 'script', 'style', 'template', 'textarea']);
 
@@ -499,9 +499,9 @@ function directoryListing(urlPath, entries) {
 }
 
 // Client assets. Appended to the served copy after stamping, so none of it gets a data-n.
-const CLIENT_CSS = `/* html-notes client styles. Page elements get only hn-hover and hn-noted. */
+const CLIENT_CSS = `/* html-notes client styles. Page elements get only hn-hover and hn-has-directive. */
 .hn-hover { outline: 2px dashed #d6336c !important; outline-offset: 1px !important; cursor: copy !important; }
-.hn-noted { box-shadow: inset 3px 0 0 #d6336c !important; }
+.hn-has-directive { box-shadow: inset 3px 0 0 #d6336c !important; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
 #hn-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
@@ -557,14 +557,14 @@ const CLIENT_CSS = `/* html-notes client styles. Page elements get only hn-hover
   #hn-layer .hn-save { background: #d6336c; border-color: #d6336c; color: #fff; }
 }
 `;
-const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this script edits them through PUT.
+const CLIENT_JS = `// html-notes client. Directives live in the file on disk; this script edits them through PUT.
 (function () {
   'use strict';
 
-  var notes = {};           // id -> text, the full current set
+  var directives = {};      // id -> text, the full current set
   var texts = {};           // id -> new text of each text element edited in this tab
   var markers = {};         // id -> marker element
-  var box = null;           // the open comment box, if any
+  var box = null;           // the open directive box, if any
   var boxId = null;         // id of the element the open box is for
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
@@ -575,11 +575,11 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
   var stale = false;        // the file changed on disk; no more saves
 
   try {
-    var data = document.getElementById('hn-notes');
-    notes = JSON.parse(data.textContent) || {};
+    var data = document.getElementById('hn-directives');
+    directives = JSON.parse(data.textContent) || {};
     version = data.getAttribute('data-version');
   } catch (e) {
-    notes = {};
+    directives = {};
   }
 
   var layer = document.createElement('div');
@@ -592,7 +592,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
   // ---- helpers ----
 
   function hasText(id) {
-    return typeof notes[id] === 'string' && notes[id].trim() !== '';
+    return typeof directives[id] === 'string' && directives[id].trim() !== '';
   }
 
   function elementFor(id) {
@@ -705,7 +705,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     });
   }
 
-  // Make the marker and the hn-noted class match the note text.
+  // Make the marker and the hn-has-directive class match the directive text.
   function syncMarker(id) {
     var el = elementFor(id);
     if (hasText(id)) {
@@ -722,15 +722,15 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
         layer.appendChild(marker);
         markers[id] = marker;
       }
-      marker.title = notes[id];
-      if (el) el.classList.add('hn-noted');
+      marker.title = directives[id];
+      if (el) el.classList.add('hn-has-directive');
       positionMarker(id);
     } else {
       if (markers[id]) {
         markers[id].remove();
         delete markers[id];
       }
-      if (el) el.classList.remove('hn-noted');
+      if (el) el.classList.remove('hn-has-directive');
     }
   }
 
@@ -750,9 +750,9 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     }, isError ? 4000 : 1500);
   }
 
-  function currentNotes() {
+  function currentDirectives() {
     var out = {};
-    for (var id in notes) if (hasText(id)) out[id] = notes[id];
+    for (var id in directives) if (hasText(id)) out[id] = directives[id];
     return out;
   }
 
@@ -769,7 +769,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     fetch(location.pathname, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ version: version, notes: currentNotes(), texts: texts })
+      body: JSON.stringify({ version: version, directives: currentDirectives(), texts: texts })
     }).then(function (res) {
       if (res.ok) return res.json();
       if (res.status === 409) return { conflict: true };
@@ -784,7 +784,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
       }
       version = data.version;
       var n = data.count;
-      showToast('saved · ' + n + (n === 1 ? ' comment' : ' comments'), false);
+      showToast('saved · ' + n + (n === 1 ? ' directive' : ' directives'), false);
     }).catch(function (err) {
       failed = true;
       edited = true;
@@ -802,20 +802,20 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     saveTimer = setTimeout(saveNow, 400);
   }
 
-  // ---- comment box ----
+  // ---- directive box ----
 
-  function setNote(id, text) {
-    if (text.trim() === '') delete notes[id];
-    else notes[id] = text;
+  function setDirective(id, text) {
+    if (text.trim() === '') delete directives[id];
+    else directives[id] = text;
     syncMarker(id);
   }
 
   // Commit and close the open box.
   function closeBox() {
     if (!box) return;
-    var ta = box.querySelector('textarea.hn-comment');
+    var ta = box.querySelector('textarea.hn-directive');
     var id = boxId;
-    setNote(id, ta.value);
+    setDirective(id, ta.value);
     box.remove();
     box = null;
     boxId = null;
@@ -824,7 +824,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
 
   function openBox(id) {
     if (box && boxId === id) {
-      box.querySelector('textarea.hn-comment').focus();
+      box.querySelector('textarea.hn-directive').focus();
       return;
     }
     closeBox();
@@ -834,7 +834,7 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     box = document.createElement('div');
     box.className = 'hn-box';
 
-    // Text elements get a field for their text above the comment.
+    // Text elements get a field for their text above the directive.
     // The page shows each edit at once; blank text is not applied.
     if (isTextElement(el)) {
       var textArea = document.createElement('textarea');
@@ -849,15 +849,15 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
       });
       box.appendChild(label('Text'));
       box.appendChild(textArea);
-      box.appendChild(label('Comment'));
+      box.appendChild(label('Directive'));
     }
 
     var ta = document.createElement('textarea');
-    ta.className = 'hn-comment';
-    ta.value = notes[id] || '';
-    ta.placeholder = 'Comment on this element';
+    ta.className = 'hn-directive';
+    ta.value = directives[id] || '';
+    ta.placeholder = 'Directive for this element';
     ta.addEventListener('input', function () {
-      setNote(id, ta.value);
+      setDirective(id, ta.value);
       scheduleSave();
     });
     box.addEventListener('keydown', function (e) {
@@ -874,10 +874,10 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
     var del = document.createElement('div');
     del.className = 'hn-btn';
     del.textContent = 'Delete';
-    del.title = 'Delete the comment';
+    del.title = 'Delete the directive';
     del.addEventListener('click', function () {
       ta.value = '';
-      setNote(id, '');
+      setDirective(id, '');
       edited = true;
       closeBox();
     });
@@ -933,11 +933,11 @@ const CLIENT_JS = `// html-notes client. Notes live in the file on disk; this sc
 
   // ---- start ----
 
-  for (var id in notes) syncMarker(id);
+  for (var id in directives) syncMarker(id);
 })();
 `;
 
-export function injectClient(document, notes, version) {
+export function injectClient(document, directives, version) {
   const head = document.querySelector('head') ?? document.documentElement;
   const body = document.querySelector('body') ?? document.documentElement;
 
@@ -947,9 +947,9 @@ export function injectClient(document, notes, version) {
 
   const data = document.createElement('script');
   data.setAttribute('type', 'application/json');
-  data.setAttribute('id', 'hn-notes');
+  data.setAttribute('id', 'hn-directives');
   if (version) data.setAttribute('data-version', version);
-  data.textContent = JSON.stringify(notes).replace(/</g, '\\u003c');
+  data.textContent = JSON.stringify(directives).replace(/</g, '\\u003c');
   body.appendChild(data);
 
   const script = document.createElement('script');
