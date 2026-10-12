@@ -67,3 +67,22 @@ The HTML server has its own tests and needs Node 20 or later:
 ```
 cd html-with-comments && npm test
 ```
+
+## Release
+
+Installed copies update only when `version` in `.claude-plugin/plugin.json` changes, so every
+release bumps it. From a clean `main`:
+
+```
+./release            # patch bump, commit, tag; prints the push command
+./release minor      # or major, or an exact x.y.z
+./release --push     # also push main and the tag to GitHub
+```
+
+It runs the HTML server's tests first.
+
+## Updating the HTML server
+
+`html-with-comments/` is a copy. The code lives in `~/code/jessitron/html-with-comments`, and its
+`deploy` script replaces this directory and commits here. Don't edit the copy. A deploy is not a
+release: run `./release` afterward to ship it.
