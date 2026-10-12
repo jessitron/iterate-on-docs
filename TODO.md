@@ -3,7 +3,7 @@
 ## Next
 
 - [ ] get the README up to date
-- [ ] can we simplify the iterate-on-a-document skill? ask the agent.
+- [x] can we simplify the iterate-on-a-document skill? ask the agent. (HTML steps moved to html.md; the server takes the file)
 
 ## Backlog
 

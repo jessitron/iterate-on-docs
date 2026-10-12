@@ -68,7 +68,7 @@ Click a block, a link, an image, or part of an SVG to leave a directive on it, o
 wording. Your directives and edits save into the HTML file as you type. You can still edit the
 file by hand.
 
-The server rewrites the file into its own formatting when it loads the page, and writes an
+The server rewrites the file into its own formatting when it starts and each time it loads the page, and writes an
 element ID (`data-hrv`) on each element you can pick. The agent commits
 that rewrite by itself, so it doesn't mix with your edits. This is for HTML written to be
 iterated on, not for live or generated web pages. The same formatter runs on its own as
