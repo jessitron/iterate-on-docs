@@ -75,11 +75,7 @@ code. The overview summarizes what a human needs to see at a glance.
 2. Ask the user for commentary on what they want in the overview. Give them an opportunity
    to word vomit about their vision for the project.
 3. Read the sources. Find the direction, the major pieces, and what is underway. See how much lines up with the user's expressed vision. When the purpose or the goals are not clear, ask the user one question at a time until you can draw them.
-4. Write or update `OVERVIEW.html`. Then run `node <formatter> OVERVIEW.html`, where
-   `<formatter>` is `../../html-revisor/formatter.mjs` resolved from this skill's base directory
-   (Node 20 or later, nothing else). It rewrites the page into canonical form and prints nothing
-   when all is well. If it exits nonzero, fix what it prints on stderr and run it again. Commit
-   the formatted page before showing it to the user.
+4. Write or update `OVERVIEW.html`.
 5. Refine it with the user using the `iterate-on-a-document` skill from this plugin, on
    `OVERVIEW.html`. Its HTML steps let the user leave directives on the page in the browser.
 
