@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Release the plugin: bump the version in .claude-plugin/plugin.json, commit, and tag.
+# Installed copies only update when the version changes, so every release bumps it.
+#
+#   ./release [patch|minor|major|<x.y.z>] [--push]
+#
+# Without --push it stops after tagging and prints the push command.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+bump=patch
+push=false
+for arg in "$@"; do
+  case "$arg" in
+    --push) push=true ;;
+    patch|minor|major|[0-9]*.[0-9]*.[0-9]*) bump="$arg" ;;
+    *) echo "usage: ./release [patch|minor|major|<x.y.z>] [--push]" >&2; exit 2 ;;
+  esac
+done
+
+branch=$(git symbolic-ref --short HEAD)
+if [ "$branch" != main ]; then
+  echo "release: on '$branch'; release from main" >&2; exit 1
+fi
+if [ -n "$(git status --porcelain)" ]; then
+  echo "release: uncommitted changes; commit them first" >&2; git status --short >&2; exit 1
+fi
+
+(cd html-with-comments && npm test --silent)
+
+version=$(node -e '
+  const fs = require("fs");
+  const file = ".claude-plugin/plugin.json";
+  const text = fs.readFileSync(file, "utf8");
+  const bump = process.argv[1];
+  let [major, minor, patch] = JSON.parse(text).version.split(".").map(Number);
+  if (bump === "major") { major++; minor = 0; patch = 0; }
+  else if (bump === "minor") { minor++; patch = 0; }
+  else if (bump === "patch") { patch++; }
+  else { [major, minor, patch] = bump.split(".").map(Number); }
+  const version = `${major}.${minor}.${patch}`;
+  fs.writeFileSync(file, text.replace(/("version":\s*")[^"]*"/, `$1${version}"`));
+  console.log(version);
+' "$bump")
+
+if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+  git checkout -- .claude-plugin/plugin.json
+  echo "release: tag v$version already exists" >&2; exit 1
+fi
+
+git add .claude-plugin/plugin.json
+git commit -q -m "Release v$version"
+git tag -a "v$version" -m "Release v$version"
+echo "release: tagged v$version"
+
+if $push; then
+  git push origin main "v$version"
+else
+  echo "release: to publish, run: git push origin main v$version"
+fi
