@@ -8,9 +8,9 @@
   - Drafted 2026-10-11: `skills/make-a-project-overview/SKILL.md`, a sanitized version of the convention (no seamap, no personal conventions). The Jess-specific version stays in seamapping under a different name (tronijess-skills TODO `rename-seamap-overview`). Remaining: try it on a real project.
 - [ ] `marketplace-json` Make this repo its own marketplace  ← mountain: published
   - Add `.claude-plugin/marketplace.json` and `plugin.json`. Do the one-time install-from-GitHub check to prove the config.
-  - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Remaining: push to github.com/jessitron/iterate-on-docs, then `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
+  - Config written 2026-10-07; `claude plugin validate .` passes (one warning: root CLAUDE.md isn't shipped as plugin context — expected). Assumes GitHub owner `jessitron`. Pushed 2026-10-12 as a public repo at github.com/jessitron/iterate-on-docs. Remaining: `/plugin marketplace add jessitron/iterate-on-docs` and install `iterate-on-docs` once in a clean project.
 - [ ] `readme` Write a README intelligible to someone unfamiliar with any of this  ← mountain: published
-  - Drafted 2026-10-09. Install commands are unverified until `marketplace-json` is pushed and tested. Needs a read by someone unfamiliar with it.
+  - Drafted 2026-10-09. Pushed 2026-10-12; install commands are unverified until `marketplace-json`'s install test passes. Needs a read by someone unfamiliar with it.
 
 ## Backlog
 
