@@ -1,6 +1,6 @@
 # HTML steps
 
-The loop in `SKILL.md` names five moments where HTML needs more. Paths here resolve from this
+The loop in `SKILL.md` names six moments where HTML needs more. Paths here resolve from this
 skill's base directory. The tool is html-revisor; it needs Node 20 or later and nothing else.
 
 ## Start
@@ -13,16 +13,23 @@ skill's base directory. The tool is html-revisor; it needs Node 20 or later and 
 
 ## Hand off
 
-Give the user the page URL instead of the file path. Tell them to reload the page, then click any
-element to leave a directive on it or change its wording. Their directives and edits save into
+Give the user the page URL instead of the file path. Tell them to reload the page, then click a block,
+a link, an image, or part of an SVG to leave a directive on it or change its wording. Their directives and edits save into
 the file. They can also edit the file by hand.
 
 ## Tidy
 
 Run `node ../../html-revisor/formatter.mjs <file>` before every commit. It rewrites the file into
 the formatting the server applies on each page load, so formatting lands in the commit that
-caused it and never reads as the user's next edit. It prints nothing when all is well. If it
-exits nonzero, fix what it prints on stderr and run it again.
+caused it and never reads as the user's next edit. It also writes element IDs: `data-hrv="<n>"`
+on each element the user can pick, and `data-hrv-next` on `<html>`. The first run on a page is
+one noisy diff. It prints nothing when all is well. If it exits nonzero, fix what it prints on
+stderr and run it again.
+
+## Edit
+
+Leave `data-hrv` and `data-hrv-next` attributes alone: don't change, copy, or remove them. A new
+element needs none; the formatter gives it one. An open browser tab saves by these IDs.
 
 ## Find directives
 

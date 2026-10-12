@@ -40,4 +40,4 @@ nothing more.
 10. Go to step 1.
 
 Edit the file in place. Never regenerate it from scratch while directives remain, or the
-unresolved ones are lost. **HTML:** Tidy before every commit.
+unresolved ones are lost. **HTML:** Edit, and Tidy before every commit.
