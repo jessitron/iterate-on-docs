@@ -82,6 +82,6 @@ code. The overview summarizes what a human needs to see at a glance.
 - **Before the work, as part of planning.** Update the overview first, so the user can look at it
   and see the plan. Label things not yet true **directional**.
 - **When directional things land.** The change that makes a directional item real updates the
-  overview in the same commit: drop the label, or note that it is done.
+  overview in the same commit: drop the "planned" label, and remove anything no longer true.
 - **When a change alters the picture.** If the architecture, the context map, or an invariant
   changes, update the overview and **tell the user** so they go look at it.
