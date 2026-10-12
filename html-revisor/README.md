@@ -9,12 +9,12 @@ This repo is where html-revisor is developed. Its built output ships inside the 
 ## Run
 
 ```
-./run [rootDir] [--port 7777] [--author @AI]
+./run [file or dir] [--port 7777] [--author @AI]
 ```
 
-- `rootDir` defaults to the directory you run it from.
+- Given a file, the server formats it, serves its directory, and prints the page's URL on startup. If the file breaks a rule the formatter can't fix, it exits 1 with the formatter's message.
+- Given a directory, or nothing (the directory you run it from), the server prints the directory's URL. Open an `.html` file under it.
 - `--author` sets the directive prefix (default `@AI`).
-- The server prints a URL on startup. Open an `.html` file under it.
 - First load normalizes the file's formatting and rewrites it on disk. It also adds `<html>`, `<head>` and `<body>` if the file lacks them, the way a browser would. These files are agent-generated documents we control, so the tool rewrites them into the shape it needs.
 - Loading also writes an element ID, `data-hrv="<n>"`, on each element you can pick, and the next unused number on `<html data-hrv-next="<n>">`. The first load of a page makes one noisy diff; after that a diff shows only new IDs.
 
@@ -48,14 +48,14 @@ The iterate-on-a-document skill and the README in iterate-on-docs run and descri
 | --- | --- |
 | Server path | `../../html-revisor/server.mjs`, from the skill's base directory |
 | Runtime | Node 20 or later. No `npm install`: the output runs as copied, linkedom is in `vendor/` |
-| CLI | `node <server> <dir> --port 0` |
+| CLI | `node <server> <file> --port 0`. On startup it formats `<file>` the way the formatter CLI does, then serves the file's directory. If the formatter fails, the server exits 1 with the formatter's stderr and serves nothing |
 | Default author | `@AI` (the skill passes no `--author`) |
-| Startup line | `html-revisor: http://localhost:<port>/ serving <dir>` |
-| Page URL | the startup address plus the file's path under `<dir>` |
+| Startup line | `html-revisor: <page URL> serving <dir>`, as in `html-revisor: http://localhost:4123/OVERVIEW.html serving /path/to/repo` |
+| Page URL | the second word of the startup line: `http://localhost:<port>/<file name, URL-encoded>` |
 | Directive syntax | `<!-- @AI: … -->`, first child of its element, or just before a void or raw-text element (full list under [Directive format](#directive-format)) |
 | Finding directives | `grep '<!-- *@AI:'` |
 | Formatter CLI | `node ../../html-revisor/formatter.mjs <file>...`, from the skill's base directory. Rewrites each file in place into the same canonical form a page load gives. Silent and exit 0 on success; exit 1 with `<file>: <problem>` on stderr when a file can't be read or written or breaks a rule the formatter can't fix (it still writes the fixable part); exit 2 with usage when given no files |
-| Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill fetches the page before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
+| Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill runs the formatter CLI before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
 | Element IDs | the formatter (GET, PUT, and the formatter CLI) writes `data-hrv="<n>"` on each element you can pick and `data-hrv-next="<n>"` on `<html>`. Agents leave both alone: don't change, copy, or remove them. A new element needs none; the next format gives it one |
 | Browser behavior | click a block, link, image, or part of an SVG to leave a directive on it or change its wording; both save into the file as you type. If the element changed on disk since the page loaded, the save is refused with an error that suggests a reload; a change elsewhere in the file only brings a notice |
 | README | this README ships in the output and keeps its "Directive format" section; iterate-on-docs links to it |

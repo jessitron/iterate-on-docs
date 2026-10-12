@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Start html-revisor. Usage: ./run [rootDir] [--port 7777] [--author @AI]
-# Root defaults to the directory you run this from.
+# Start html-revisor. Usage: ./run [file or dir] [--port 7777] [--author @AI]
+# Given a file, it formats it and prints its URL. Defaults to the directory you run this from.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 exec node "$here/server.mjs" "$@"

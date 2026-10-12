@@ -10,7 +10,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parse, normalize, serialize, assignIds, formatElement, ID, VOID, RAW, trimAscii, escapeText } from './formatter.mjs';
+import { formatFiles, parse, normalize, serialize, assignIds, formatElement, ID, VOID, RAW, trimAscii, escapeText } from './formatter.mjs';
 
 // ======================================================================
 // Tier I: orchestration
@@ -118,12 +118,21 @@ function sendError(res, err) {
   res.end(status === 404 ? 'not found' : String(err.message ?? err));
 }
 
+// Given a file instead of a directory: format it first, serve its directory, and announce
+// the page's own URL. A file the formatter can't fix stops startup with the formatter's message.
 async function main() {
   const config = parseArgs(process.argv.slice(2));
+  let page = '';
+  if (!(await fs.stat(config.root).catch(() => null))?.isDirectory()) {
+    const status = await formatFiles([config.root]);
+    if (status !== 0) process.exit(status);
+    page = encodeURIComponent(path.basename(config.root));
+    config.root = path.dirname(config.root);
+  }
   const server = createServer(config);
   server.listen(config.port, '127.0.0.1', () => {
     const { port } = server.address();
-    console.log(`html-revisor: http://localhost:${port}/ serving ${path.resolve(config.root)}`);
+    console.log(`html-revisor: http://localhost:${port}/${page} serving ${config.root}`);
   });
 }
 

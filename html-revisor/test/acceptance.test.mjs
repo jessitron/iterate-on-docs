@@ -430,3 +430,59 @@ test('a page without html, head or body gets them, and the client lands in them'
     assert.ok(html.indexOf('#hrv-layer') < html.indexOf('</head>'), 'client CSS in head');
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/, 'client script at end of body');
   }));
+
+// Start the server on one file in a fresh copy of the fixtures. `done` resolves with the
+// startup line, or with the exit code and stderr if the server stops instead.
+function startOnFile(name) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
+  fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
+  const child = spawn(process.execPath, [serverFile, path.join(dir, name), '--port', '0']);
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (d) => (stdout += d));
+  child.stderr.on('data', (d) => (stderr += d));
+  const done = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no startup line; stderr: ${stderr}`)), 5000);
+    child.stdout.on('data', () => {
+      if (!stdout.includes('\n')) return;
+      clearTimeout(timer);
+      resolve({ line: stdout.trim() });
+    });
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      resolve({ code, stderr });
+    });
+  });
+  const stop = () => {
+    child.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  };
+  return { dir, done, stop };
+}
+
+test('given a file, the server formats it before serving and announces its URL', async () => {
+  const s = startOnFile('messy.html');
+  try {
+    const { line } = await s.done;
+    const m = line.match(/^html-revisor: (http:\/\/localhost:\d+\/messy\.html) serving (.*)$/);
+    assert.ok(m, `startup line: ${line}`);
+    assert.equal(fs.realpathSync(m[2]), fs.realpathSync(s.dir));
+    const onDisk = fs.readFileSync(path.join(s.dir, 'messy.html'), 'utf8');
+    assert.equal(normalize(onDisk), onDisk, 'formatted before the first GET');
+    assert.equal((await fetch(m[1])).status, 200);
+    assert.equal(fs.readFileSync(path.join(s.dir, 'messy.html'), 'utf8'), onDisk, 'the GET changes nothing more');
+  } finally {
+    s.stop();
+  }
+});
+
+test('given a file the formatter cannot handle, the server exits with its message', async () => {
+  const s = startOnFile('missing.html');
+  try {
+    const { code, stderr } = await s.done;
+    assert.equal(code, 1);
+    assert.match(stderr, /missing\.html: /);
+  } finally {
+    s.stop();
+  }
+});
