@@ -2,8 +2,8 @@
 name: iterate-on-a-document
 description: >-
   Refine a markdown or HTML document with the user by trading turns until they say it is good
-  enough. The user edits the file and adds `@AI: <command>` annotations — for HTML, by
-  commenting on elements in the browser — and the agent commits their edits, applies them
+  enough. The user edits the file and adds `@AI: <command>` directives — for HTML, by
+  clicking elements in the browser — and the agent commits their edits, applies them
   everywhere they fit, and carries out the commands. Use when the user says "iterate on this
   doc", "let's trade turns on this file", or wants to refine a document by editing it themselves.
 ---
@@ -23,7 +23,7 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
 ## Procedure
 
 0. Commit the file before iterating.
-   **HTML:** start the comment server, then set the baseline:
+   **HTML:** start the HTML server, then set the baseline:
    - Run in the background: `node <server> <directory holding the file> --port 0`, where
      `<server>` is `../../html-with-comments/server.mjs` resolved from this skill's base
      directory. It needs Node 20 or later and nothing else.
@@ -34,9 +34,9 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
    - From here on, fetch the page URL before every commit in the loop. Formatting then lands in
      the commit that caused it and never reads as the user's next edit.
 1. Tell the user to take their turn. Give them the full path to the file. Tell them to make any
-   edits they like, and to add `@AI: <command>` annotations anywhere in the document.
+   edits they like, and to add `@AI: <command>` directives anywhere in the document.
    **HTML:** give them the page URL instead. Tell them to reload the page, then click any element
-   to leave an `@AI` comment on it, or to change its wording. Their comments and edits save into
+   to leave a directive on it, or to change its wording. Their directives and edits save into
    the file. They can also edit the file by hand.
 2. Wait. The user's turn ends when they respond.
 3. If the user says "good enough", "move on", or equivalent, stop. **HTML:** stop the server.
@@ -44,15 +44,16 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
 5. Read the user's edits (`git diff HEAD~1` shows them). Treat each as normative but not
    complete: apply it to every other step or situation in the document where it fits.
 6. Commit that generalization.
-7. Find every `@AI: <command>` annotation in the document. Group commands that belong together
+7. Find every `@AI: <command>` directive in the document. Group commands that belong together
    into batches.
-   **HTML:** run `grep -n '<!-- *@AI:' <file>`. A page that talks about annotations holds the
-   bare `@AI:` in its text, so grep for the comment form. Each is a comment,
-   `<!-- @AI: ... -->`, about the element that contains it as its first child — or, before an
-   `img`, `hr`, `br`, `input`, `pre`, `textarea`, `script`, or `style`, about that next element.
-8. For each batch: interpret and execute the commands, remove that batch's annotations from the
+   **HTML:** run `grep -n '<!-- *@AI:' <file>`. A page that talks about directives holds the
+   bare `@AI:` in its text, so grep for the HTML comment form. Each directive is an HTML comment,
+   `<!-- @AI: ... -->`, about the element that contains it as its first child — or, just before
+   a void or raw-text element, about that next element. The full list of those elements is under
+   "Directive format" in `../../html-with-comments/README.md`.
+8. For each batch: interpret and execute the commands, remove that batch's directives from the
    document, then commit the result.
    **HTML:** edit the file in place. Never regenerate it from scratch while
-   `grep -c '<!-- *@AI:'` is above 0, or unresolved comments are lost.
+   `grep -c '<!-- *@AI:'` is above 0, or unresolved directives are lost.
 9. Summarize the actions you took, in brief.
 10. Go to step 1.

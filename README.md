@@ -10,7 +10,7 @@ follows your instructions, and hands it back. Repeat until it makes you happy.
 
 There's also make-a-project-overview, for a particular document that gets you aligned on purpose, architecture, language, and whatever else you want about a project.
 
-Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you comment in the browser using a special server included in this plugin.
+Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you leave directives in the browser using a special server included in this plugin.
 
 ## Install
 
@@ -47,7 +47,7 @@ Then trade turns:
 1. **Your turn.** Edit the file however you like. If you change something in one place, it's the agents job to make the rest of the document consistent with that change.
 
 Anywhere you want the agent to do something,
-write an annotation:
+write a directive:
 
 ```
 @AI: make this section shorter
@@ -56,7 +56,7 @@ write an annotation:
 Then tell the agent "Your turn"
 
 2. **The agent's turn.** It commits your edits as you made them, applies them everywhere else
-   they fit, carries out each `@AI:` instruction, and removes the annotations. It summarizes
+   they fit, carries out each `@AI:` instruction, and removes the directives. It summarizes
    what it did and hands the file back.
 
 3. When you're happy, say "good enough." The agent stops.
@@ -64,7 +64,7 @@ Then tell the agent "Your turn"
 ### HTML
 
 For an `.html` file, the agent starts a local server and gives you a URL. Open it in a browser.
-Click any element to leave an `@AI` comment on it, or to change its wording. Your comments and
+Click any element to leave a directive on it, or to change its wording. Your directives and
 edits save into the HTML file as you type. You can still edit the file by hand.
 
 The server rewrites the file into its own formatting when it loads the page. The agent commits
@@ -72,13 +72,13 @@ that rewrite by itself, so it doesn't mix with your edits. This is for HTML writ
 iterated on, not for live or generated web pages.
 
 The server is in [`html-with-comments/`](html-with-comments/README.md), with details on the
-comment format.
+directive format.
 
 ## Project overview
 
 A second skill, `skills/make-a-project-overview/SKILL.md`, draws a picture of a whole project:
 one HTML page, `OVERVIEW.html` at the repo root, with diagrams of where the project is headed, its
-architecture, and the current work. Then you iterate on it the same way, commenting in the browser.
+architecture, and the current work. Then you iterate on it the same way, leaving directives in the browser.
 
 > Make a project overview
 
