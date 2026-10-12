@@ -1,4 +1,4 @@
-# html-notes — implementation spec
+# html-revisor — implementation spec
 
 ## Purpose
 
