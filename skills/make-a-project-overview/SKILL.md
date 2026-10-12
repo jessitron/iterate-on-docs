@@ -26,7 +26,7 @@ in markdown.
 project needs no context map; another needs a picture nobody else would draw.
 
 - **Direction:** what the project is for and where it is headed: its purpose, goals, and what
-  "done for now" looks like. Draw it. A journey toward a destination works, or a picture that suits
+  a stable stopping point looks like. Draw it. A journey toward a destination works, or a picture that suits
   the project better.
 - **Where it runs:** links to dashboards, traces, or deployments, when the project has them.
 - **Context map:** the parts of the domain and the language boundaries between them, when the
@@ -36,7 +36,7 @@ project needs no context map; another needs a picture nobody else would draw.
   task list.
 - **Domain terms:** The top few terms that are central to understanding the project. Include technical terms that people might not intuitively guess. Like 2-6 key terms that clarify things.
 - **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a
-  other views, whichever reads faster.  
+  other views, whichever reads faster.
 
 Context map and architecture show **reality** first and **direction** second. Anything not yet true
 carries a visible **directional** label.
@@ -70,11 +70,11 @@ code. The overview summarizes what a human needs to see at a glance.
 
 1. Check for an existing `OVERVIEW.html`. If there is one, read it and update it in place: keep its
    structure, so the diff shows what changed in the project.
-2. Read the sources. Find the direction, the major pieces, and what is underway. If the purpose or
-   the goals are not written down anywhere, ask the user one question at a time until you can draw
-   them.
-3. Write or update `OVERVIEW.html`.
-4. Refine it with the user using the `iterate-on-a-document` skill from this plugin, on
+2. Ask the user for commentary on what they want in the overview. Give them an opportunity
+   to word vomit about their vision for the project.
+3. Read the sources. Find the direction, the major pieces, and what is underway. See how much lines up with the user's expressed vision. When the purpose or the goals are not clear, ask the user one question at a time until you can draw them.
+4. Write or update `OVERVIEW.html`.
+5. Refine it with the user using the `iterate-on-a-document` skill from this plugin, on
    `OVERVIEW.html`. Its HTML steps let the user comment on the page in the browser.
 
 ## Keeping it current
