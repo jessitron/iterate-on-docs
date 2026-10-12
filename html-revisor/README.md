@@ -42,7 +42,7 @@ Copies the committed files at HEAD into `<dir>/html-revisor/` (default `~/code/j
 
 ## Contract with iterate-on-docs
 
-The iterate-on-a-document skill and the README in iterate-on-docs run and describe this tool. They rely on:
+The skills and the README in iterate-on-docs run and describe this tool. They rely on:
 
 | What | Value |
 | --- | --- |
@@ -63,7 +63,7 @@ The iterate-on-a-document skill and the README in iterate-on-docs run and descri
 
 If you find a mismatch, the Contract wins.
 
-A change to anything in this table is a contract change. It travels out of band, not through deploy: the agent changing it here makes the matching edits in iterate-on-docs (`skills/iterate-on-a-document/SKILL.md`, `README.md`, any other skill that relies on it), in their own commit there, along with the deploy. deploy stays a plain copy. This list stands in for a changelog: these are the only changes iterate-on-docs has to hear about.
+A change to anything in this table is a contract change. It travels out of band, not through deploy: the agent changing it here searches iterate-on-docs' `skills/` directory and `README.md` for the old value and updates every match, in their own commit there, along with the deploy. deploy stays a plain copy. This list stands in for a changelog: these are the only changes iterate-on-docs has to hear about.
 
 ## Directive format
 
