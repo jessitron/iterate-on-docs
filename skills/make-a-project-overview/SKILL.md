@@ -71,7 +71,8 @@ code. The overview summarizes what a human needs to see at a glance.
 ## Procedure
 
 1. Check for an existing `OVERVIEW.html`. If there is one, read it and update it in place: keep its
-   structure, so the diff shows what changed in the project.
+   structure, so the diff shows what changed in the project. Leave its `data-hrv` and
+   `data-hrv-next` attributes as they are: they are the element IDs html-revisor saves by.
 2. Ask the user for commentary on what they want in the overview. Give them an opportunity
    to word vomit about their vision for the project.
 3. Read the sources. Find the direction, the major pieces, and what is underway. See how much lines up with the user's expressed vision. When the purpose or the goals are not clear, ask the user one question at a time until you can draw them.

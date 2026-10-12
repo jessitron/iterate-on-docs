@@ -64,10 +64,12 @@ Then tell the agent "Your turn"
 ### HTML
 
 For an `.html` file, the agent starts a local server and gives you a URL. Open it in a browser.
-Click any element to leave a directive on it, or to change its wording. Your directives and
-edits save into the HTML file as you type. You can still edit the file by hand.
+Click a block, a link, an image, or part of an SVG to leave a directive on it, or to change its
+wording. Your directives and edits save into the HTML file as you type. You can still edit the
+file by hand.
 
-The server rewrites the file into its own formatting when it loads the page. The agent commits
+The server rewrites the file into its own formatting when it loads the page, and writes an
+element ID (`data-hrv`) on each element you can pick. The agent commits
 that rewrite by itself, so it doesn't mix with your edits. This is for HTML written to be
 iterated on, not for live or generated web pages. The same formatter runs on its own as
 `html-revisor/formatter.mjs`; the agent runs it after writing a page and before each commit.

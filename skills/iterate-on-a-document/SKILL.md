@@ -32,14 +32,16 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
    - Run `node <formatter> <file>`, where `<formatter>` is `../../html-revisor/formatter.mjs`
      resolved from this skill's base directory. It rewrites the file into the normalized
      formatting the server also applies on each page load, and prints nothing when all is well.
+     It also writes element IDs: `data-hrv="<n>"` on each element the user can pick, and
+     `data-hrv-next` on `<html>`. The first run on a page is one noisy diff.
      If it exits nonzero, fix what it prints on stderr and run it again. Commit that rewrite as
      its own commit.
    - From here on, run the formatter before every commit in the loop. Formatting then lands in
      the commit that caused it and never reads as the user's next edit.
 1. Tell the user to take their turn. Give them the full path to the file. Tell them to make any
    edits they like, and to add `@AI: <command>` directives anywhere in the document.
-   **HTML:** give them the page URL instead. Tell them to reload the page, then click any element
-   to leave a directive on it, or to change its wording. Their directives and edits save into
+   **HTML:** give them the page URL instead. Tell them to reload the page, then click a block, a
+   link, an image, or part of an SVG to leave a directive on it, or to change its wording. Their directives and edits save into
    the file. They can also edit the file by hand.
 2. Wait. The user's turn ends when they respond.
 3. If the user says "good enough", "move on", or equivalent, stop. **HTML:** stop the server.
@@ -57,6 +59,8 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
 8. For each batch: interpret and execute the commands, remove that batch's directives from the
    document, then commit the result.
    **HTML:** edit the file in place. Never regenerate it from scratch while
-   `grep -c '<!-- *@AI:'` is above 0, or unresolved directives are lost.
+   `grep -c '<!-- *@AI:'` is above 0, or unresolved directives are lost. Leave `data-hrv` and
+   `data-hrv-next` attributes alone: don't change, copy, or remove them. A new element needs
+   none; the formatter gives it one. An open browser tab saves by these IDs.
 9. Summarize the actions you took, in brief.
 10. Go to step 1.
