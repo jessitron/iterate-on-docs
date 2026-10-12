@@ -36,7 +36,7 @@ Your directives and text edits write into the file, so it shows as changed in gi
 Copies the committed files at HEAD into `<dir>/html-revisor/` (default `~/code/jessitron/iterate-on-docs`), runs the tests there, and commits there. It writes nothing else in iterate-on-docs, and it doesn't push. Users get the change when iterate-on-docs runs `./release`.
 
 - It refuses when this repo has uncommitted changes (except `try-me.html`), when HEAD is not on main, or when the copy has uncommitted changes.
-- It replaces the whole directory, leaving out dev-only files: `CLAUDE.md`, `OVERVIEW.html`, `PLAN.html`, `.gitignore`, `deploy`. It writes `VENDORED.md` with the commit hash.
+- It replaces the whole directory, leaving out dev-only files: `CLAUDE.md`, `OVERVIEW.html`, `PLAN.html`, `.gitignore`, `.claude/`, `deploy`. It writes `VENDORED.md` with the commit hash.
 - If the tests fail in the copy, it restores the directory and commits nothing.
 
 ## Contract with iterate-on-docs
