@@ -16,7 +16,7 @@ const serverFile = path.join(here, '..', 'server.mjs');
 
 // Run fn with a live server whose root is a fresh copy of the fixtures.
 async function withServer(fn, args = []) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-notes-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
   const child = spawn(process.execPath, [serverFile, dir, '--port', '0', ...args]);
   let stdout = '';
@@ -35,7 +35,7 @@ async function withServer(fn, args = []) {
       const res = await server.get(name);
       const html = await res.text();
       const { document } = parseHTML(html);
-      const json = document.querySelector('script#hn-directives');
+      const json = document.querySelector('script#hrv-directives');
       return { res, html, document, directives: JSON.parse(json.textContent) };
     },
     put: (name, directives) =>
@@ -69,7 +69,7 @@ async function withServer(fn, args = []) {
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`no startup line; stderr: ${stderr}`)), 5000);
       child.stdout.on('data', () => {
-        const m = stdout.match(/html-notes: (http:\/\/localhost:\d+\/) serving/);
+        const m = stdout.match(/html-revisor: (http:\/\/localhost:\d+\/) serving/);
         if (m) {
           clearTimeout(timer);
           server.base = m[1];
@@ -222,12 +222,12 @@ test('9b. injection: json script escapes <, client assets are last and unstamped
     const { document } = await s.page('page.html');
     await s.put('page.html', { [idOf(document, 'p')]: '</script><b>hi</b>' });
     const { html, directives } = await s.page('page.html');
-    const jsonScript = html.match(/<script [^>]*id="hn-directives"[^>]*>(.*?)<\/script>/s)[1];
+    const jsonScript = html.match(/<script [^>]*id="hrv-directives"[^>]*>(.*?)<\/script>/s)[1];
     assert.ok(!jsonScript.includes('<'));
     assert.ok(jsonScript.includes('\\u003c'));
     assert.equal(Object.values(directives)[0], '</script&gt;<b&gt;hi</b&gt;'); // > is escaped on write, not unescaped on read
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'));
-    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hn-directives'));
+    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hrv-directives'));
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/);
   }));
 
@@ -271,7 +271,7 @@ test('other files: assets, directory listing, 404', () =>
 test('versioned PUT: current version succeeds, stale version gets 409, missing version still works', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    const v0 = document.querySelector('script#hn-directives').getAttribute('data-version');
+    const v0 = document.querySelector('script#hrv-directives').getAttribute('data-version');
     assert.match(v0, /^[0-9a-f]{12}$/);
 
     const first = await s.putVersioned('page.html', v0, { 1: 'one' });
@@ -383,16 +383,16 @@ test('--author changes the prefix', () =>
 test('served page carries the client and still re-parses with the same element count', () =>
   withServer(async (s) => {
     const { html, document } = await s.page('demo.html');
-    assert.ok(html.includes('#hn-layer'), 'client CSS present');
-    assert.ok(html.includes("id = 'hn-layer'"), 'client JS present');
+    assert.ok(html.includes('#hrv-layer'), 'client CSS present');
+    assert.ok(html.includes("id = 'hrv-layer'"), 'client JS present');
     // exactly one client script plus the directives JSON, appended after stamping
     const stamped = document.querySelectorAll('[data-n]').length;
     const onDisk = parseHTML(s.read('demo.html')).document.querySelectorAll('*').length;
     assert.equal(stamped, onDisk);
-    assert.equal(document.querySelector('#hn-layer'), null, 'layer is built by the script, not the server');
+    assert.equal(document.querySelector('#hrv-layer'), null, 'layer is built by the script, not the server');
     // the inlined script must not close early
     const scripts = [...document.querySelectorAll('script')];
-    assert.ok(scripts.some((el) => el.textContent.includes('hn-layer')));
+    assert.ok(scripts.some((el) => el.textContent.includes('hrv-layer')));
   }));
 
 test('a page without html, head or body gets them, and the client lands in them', () =>
@@ -402,6 +402,6 @@ test('a page without html, head or body gets them, and the client lands in them'
     assert.match(onDisk, /<html>\s*<head>\s*<title>Bare page<\/title>[\s\S]*<\/head>\s*<body>\s*<main>/);
     assert.match(onDisk, /<script>document\.title \+= '!';<\/script>\s*<\/body>\s*<\/html>\s*$/);
     assert.equal(document.querySelector('title').textContent, 'Bare page', 'client CSS stays out of <title>');
-    assert.ok(html.indexOf('#hn-layer') < html.indexOf('</head>'), 'client CSS in head');
+    assert.ok(html.indexOf('#hrv-layer') < html.indexOf('</head>'), 'client CSS in head');
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/, 'client script at end of body');
   }));

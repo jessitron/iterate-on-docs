@@ -1,10 +1,10 @@
-# html-notes
+# html-revisor
 
 Review agent-generated HTML in a browser and leave directives on specific elements. Directives are saved in the HTML file itself as `<!-- @AI: ... -->` HTML comments. Nothing lives in the browser or a sidecar file.
 
 You can also fix wording directly. When the clicked element holds only text (no child elements), the box shows a Text field above the directive. Edits show on the page as you type and are written into the file.
 
-This repo is where html-notes is developed. Its built output ships inside the [iterate-on-docs](https://github.com/jessitron/iterate-on-docs) plugin, vendored at `iterate-on-docs/html-with-comments/`. Make changes here, not in that copy.
+This repo is where html-revisor is developed. Its built output ships inside the [iterate-on-docs](https://github.com/jessitron/iterate-on-docs) plugin, vendored at `iterate-on-docs/html-revisor/`. Make changes here, not in that copy.
 
 ## Run
 
@@ -33,7 +33,7 @@ Your directives and text edits write into the file, so it shows as changed in gi
 ./deploy [iterate-on-docs dir]
 ```
 
-Copies the committed files at HEAD into `<dir>/html-with-comments/` (default `~/code/jessitron/iterate-on-docs`), runs the tests there, and commits there. It writes nothing else in iterate-on-docs, and it doesn't push. Users get the change when iterate-on-docs runs `./release`.
+Copies the committed files at HEAD into `<dir>/html-revisor/` (default `~/code/jessitron/iterate-on-docs`), runs the tests there, and commits there. It writes nothing else in iterate-on-docs, and it doesn't push. Users get the change when iterate-on-docs runs `./release`.
 
 - It refuses when this repo has uncommitted changes (except `try-me.html`), when HEAD is not on main, or when the copy has uncommitted changes.
 - It replaces the whole directory, leaving out dev-only files: `CLAUDE.md`, `OVERVIEW.html`, `PLAN.html`, `.gitignore`, `deploy`. It writes `VENDORED.md` with the commit hash.
@@ -45,11 +45,11 @@ The iterate-on-a-document skill and the README in iterate-on-docs run and descri
 
 | What | Value |
 | --- | --- |
-| Server path | `../../html-with-comments/server.mjs`, from the skill's base directory |
+| Server path | `../../html-revisor/server.mjs`, from the skill's base directory |
 | Runtime | Node 20 or later. No `npm install`: the output runs as copied, linkedom is in `vendor/` |
 | CLI | `node <server> <dir> --port 0` |
 | Default author | `@AI` (the skill passes no `--author`) |
-| Startup line | `html-notes: http://localhost:<port>/ serving <dir>` |
+| Startup line | `html-revisor: http://localhost:<port>/ serving <dir>` |
 | Page URL | the startup address plus the file's path under `<dir>` |
 | Directive syntax | `<!-- @AI: … -->`, first child of its element, or just before a void or raw-text element (full list under [Directive format](#directive-format)) |
 | Finding directives | `grep '<!-- *@AI:'` |
@@ -133,7 +133,7 @@ The HTML parser is [linkedom](https://github.com/WebReflection/linkedom), bundle
 - **Tier III, interface**: the filesystem gateway (paths under the root, 403 on escape), content types, directory listing, and the client assets (`CLIENT_CSS`, `CLIENT_JS`) injected into served pages.
 - **Text edits**: PUT also carries `texts`, `{"<id>": "new text"}`, holding every element the tab has edited. Resending is harmless. The server replaces the text only of elements that hold nothing but text (after directives are lifted out) and ignores blank text, so no markup is lost.
 - **Files it serves**: agent-generated documents whose generation we control. The tool may require things of them, limit what they contain, and rewrite them on disk. When a file shape causes trouble, normalize it into a shape the tool handles rather than supporting every HTML a browser accepts. If a requirement can't be met by normalizing, add it to the agent instructions above.
-- **Deviation from the spec**: PUT carries an optional `version` (hash of the file bytes, from `data-version` on the `#hn-directives` script); a mismatch gets 409 and no write. A PUT without `version` skips the check.
+- **Deviation from the spec**: PUT carries an optional `version` (hash of the file bytes, from `data-version` on the `#hrv-directives` script); a mismatch gets 409 and no write. A PUT without `version` skips the check.
 
 ## Gotchas for maintainers
 

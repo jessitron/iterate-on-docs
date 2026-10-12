@@ -1,4 +1,4 @@
-// html-notes: leave directives on HTML files; they live in the file as <!-- author: text -->.
+// html-revisor: leave directives on HTML files; they live in the file as <!-- author: text -->.
 //
 // Three tiers, dependencies point downward only:
 //   Tier I   orchestration: CLI, request routing, the GET and PUT flows
@@ -127,7 +127,7 @@ async function main() {
   const server = createServer(config);
   server.listen(config.port, '127.0.0.1', () => {
     const { port } = server.address();
-    console.log(`html-notes: http://localhost:${port}/ serving ${path.resolve(config.root)}`);
+    console.log(`html-revisor: http://localhost:${port}/ serving ${path.resolve(config.root)}`);
   });
 }
 
@@ -499,65 +499,65 @@ function directoryListing(urlPath, entries) {
 }
 
 // Client assets. Appended to the served copy after stamping, so none of it gets a data-n.
-const CLIENT_CSS = `/* html-notes client styles. Page elements get only hn-hover and hn-has-directive. */
-.hn-hover { outline: 2px dashed #d6336c !important; outline-offset: 1px !important; cursor: copy !important; }
-.hn-has-directive { box-shadow: inset 3px 0 0 #d6336c !important; }
+const CLIENT_CSS = `/* html-revisor client styles. Page elements get only hrv-hover and hrv-has-directive. */
+.hrv-hover { outline: 2px dashed #d6336c !important; outline-offset: 1px !important; cursor: copy !important; }
+.hrv-has-directive { box-shadow: inset 3px 0 0 #d6336c !important; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
-#hn-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
-#hn-layer *, #hn-layer *::before, #hn-layer *::after {
+#hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
+#hrv-layer *, #hrv-layer *::before, #hrv-layer *::after {
   all: initial; box-sizing: border-box; margin: 0;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #222;
 }
-#hn-layer div { display: block; }
+#hrv-layer div { display: block; }
 
-#hn-layer .hn-marker {
+#hrv-layer .hrv-marker {
   position: absolute; width: 18px; height: 18px; border-radius: 50%;
   background: #d6336c; color: #fff; font-size: 11px; line-height: 18px; text-align: center;
   cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-#hn-layer .hn-marker:hover { background: #a61e4d; }
+#hrv-layer .hrv-marker:hover { background: #a61e4d; }
 
-#hn-layer .hn-box {
+#hrv-layer .hrv-box {
   position: absolute; width: 320px; padding: 8px; background: #fff; color: #222;
   border: 1px solid #bbb; border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
 }
-#hn-layer .hn-box textarea {
+#hrv-layer .hrv-box textarea {
   display: block; width: 100%; height: 96px; min-height: 56px; padding: 6px;
   border: 1px solid #bbb; border-radius: 4px; background: #fff; color: #222;
   resize: vertical; overflow: auto; white-space: pre-wrap; cursor: text;
 }
-#hn-layer .hn-box textarea.hn-text { height: 56px; }
-#hn-layer .hn-label { display: block; margin: 6px 0 2px; font-size: 11px; color: #666; }
-#hn-layer .hn-label:first-child { margin-top: 0; }
-#hn-layer .hn-box textarea:focus { outline: 2px solid #d6336c; outline-offset: -1px; }
-#hn-layer .hn-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-#hn-layer .hn-hint { flex: 1; font-size: 11px; color: #666; }
-#hn-layer .hn-btn {
+#hrv-layer .hrv-box textarea.hrv-text { height: 56px; }
+#hrv-layer .hrv-label { display: block; margin: 6px 0 2px; font-size: 11px; color: #666; }
+#hrv-layer .hrv-label:first-child { margin-top: 0; }
+#hrv-layer .hrv-box textarea:focus { outline: 2px solid #d6336c; outline-offset: -1px; }
+#hrv-layer .hrv-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+#hrv-layer .hrv-hint { flex: 1; font-size: 11px; color: #666; }
+#hrv-layer .hrv-btn {
   display: inline-block; padding: 4px 10px; border: 1px solid #bbb; border-radius: 4px;
   background: #f3f3f3; color: #222; text-align: center; cursor: pointer;
 }
-#hn-layer .hn-btn:hover { background: #e4e4e4; }
-#hn-layer .hn-save { background: #d6336c; border-color: #d6336c; color: #fff; }
-#hn-layer .hn-save:hover { background: #a61e4d; }
+#hrv-layer .hrv-btn:hover { background: #e4e4e4; }
+#hrv-layer .hrv-save { background: #d6336c; border-color: #d6336c; color: #fff; }
+#hrv-layer .hrv-save:hover { background: #a61e4d; }
 
-#hn-layer .hn-toast {
+#hrv-layer .hrv-toast {
   position: fixed; right: 16px; bottom: 16px; padding: 6px 12px; border-radius: 6px;
   background: #222; color: #fff; opacity: 0; transition: opacity 0.3s; pointer-events: none;
 }
-#hn-layer .hn-toast.hn-show { opacity: 1; }
-#hn-layer .hn-toast.hn-error { background: #b02a37; }
+#hrv-layer .hrv-toast.hrv-show { opacity: 1; }
+#hrv-layer .hrv-toast.hrv-error { background: #b02a37; }
 
 @media (prefers-color-scheme: dark) {
-  #hn-layer .hn-box { background: #25272b; color: #eee; border-color: #555; }
-  #hn-layer .hn-box textarea { background: #1a1b1e; color: #eee; border-color: #555; }
-  #hn-layer .hn-hint, #hn-layer .hn-label { color: #aaa; }
-  #hn-layer .hn-btn { background: #383b40; color: #eee; border-color: #555; }
-  #hn-layer .hn-btn:hover { background: #4a4d53; }
-  #hn-layer .hn-save { background: #d6336c; border-color: #d6336c; color: #fff; }
+  #hrv-layer .hrv-box { background: #25272b; color: #eee; border-color: #555; }
+  #hrv-layer .hrv-box textarea { background: #1a1b1e; color: #eee; border-color: #555; }
+  #hrv-layer .hrv-hint, #hrv-layer .hrv-label { color: #aaa; }
+  #hrv-layer .hrv-btn { background: #383b40; color: #eee; border-color: #555; }
+  #hrv-layer .hrv-btn:hover { background: #4a4d53; }
+  #hrv-layer .hrv-save { background: #d6336c; border-color: #d6336c; color: #fff; }
 }
 `;
-const CLIENT_JS = `// html-notes client. Directives live in the file on disk; this script edits them through PUT.
+const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; this script edits them through PUT.
 (function () {
   'use strict';
 
@@ -575,7 +575,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
   var stale = false;        // the file changed on disk; no more saves
 
   try {
-    var data = document.getElementById('hn-directives');
+    var data = document.getElementById('hrv-directives');
     directives = JSON.parse(data.textContent) || {};
     version = data.getAttribute('data-version');
   } catch (e) {
@@ -583,9 +583,9 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
   }
 
   var layer = document.createElement('div');
-  layer.id = 'hn-layer';
+  layer.id = 'hrv-layer';
   var toast = document.createElement('div');
-  toast.className = 'hn-toast';
+  toast.className = 'hrv-toast';
   layer.appendChild(toast);
   document.body.appendChild(layer);
 
@@ -646,9 +646,9 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
 
   function setHover(el) {
     if (el === hovered) return;
-    if (hovered) hovered.classList.remove('hn-hover');
+    if (hovered) hovered.classList.remove('hrv-hover');
     hovered = el;
-    if (hovered) hovered.classList.add('hn-hover');
+    if (hovered) hovered.classList.add('hrv-hover');
   }
 
   document.addEventListener('mouseover', function (e) {
@@ -705,14 +705,14 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     });
   }
 
-  // Make the marker and the hn-has-directive class match the directive text.
+  // Make the marker and the hrv-has-directive class match the directive text.
   function syncMarker(id) {
     var el = elementFor(id);
     if (hasText(id)) {
       var marker = markers[id];
       if (!marker) {
         marker = document.createElement('div');
-        marker.className = 'hn-marker';
+        marker.className = 'hrv-marker';
         marker.textContent = '✎';
         marker.addEventListener('click', function (e) {
           e.preventDefault();
@@ -723,14 +723,14 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
         markers[id] = marker;
       }
       marker.title = directives[id];
-      if (el) el.classList.add('hn-has-directive');
+      if (el) el.classList.add('hrv-has-directive');
       positionMarker(id);
     } else {
       if (markers[id]) {
         markers[id].remove();
         delete markers[id];
       }
-      if (el) el.classList.remove('hn-has-directive');
+      if (el) el.classList.remove('hrv-has-directive');
     }
   }
 
@@ -742,11 +742,11 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
 
   function showToast(text, isError, sticky) {
     toast.textContent = text;
-    toast.className = 'hn-toast hn-show' + (isError ? ' hn-error' : '');
+    toast.className = 'hrv-toast hrv-show' + (isError ? ' hrv-error' : '');
     clearTimeout(toastTimer);
     if (sticky) return;
     toastTimer = setTimeout(function () {
-      toast.className = 'hn-toast';
+      toast.className = 'hrv-toast';
     }, isError ? 4000 : 1500);
   }
 
@@ -813,7 +813,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
   // Commit and close the open box.
   function closeBox() {
     if (!box) return;
-    var ta = box.querySelector('textarea.hn-directive');
+    var ta = box.querySelector('textarea.hrv-directive');
     var id = boxId;
     setDirective(id, ta.value);
     box.remove();
@@ -824,7 +824,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
 
   function openBox(id) {
     if (box && boxId === id) {
-      box.querySelector('textarea.hn-directive').focus();
+      box.querySelector('textarea.hrv-directive').focus();
       return;
     }
     closeBox();
@@ -832,13 +832,13 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     if (!el) return;
     boxId = id;
     box = document.createElement('div');
-    box.className = 'hn-box';
+    box.className = 'hrv-box';
 
     // Text elements get a field for their text above the directive.
     // The page shows each edit at once; blank text is not applied.
     if (isTextElement(el)) {
       var textArea = document.createElement('textarea');
-      textArea.className = 'hn-text';
+      textArea.className = 'hrv-text';
       textArea.value = shownText(el);
       textArea.addEventListener('input', function () {
         if (textArea.value.replace(SPACE, '') === '') return;
@@ -853,7 +853,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     }
 
     var ta = document.createElement('textarea');
-    ta.className = 'hn-directive';
+    ta.className = 'hrv-directive';
     ta.value = directives[id] || '';
     ta.placeholder = 'Directive for this element';
     ta.addEventListener('input', function () {
@@ -868,11 +868,11 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     });
 
     var hint = document.createElement('div');
-    hint.className = 'hn-hint';
+    hint.className = 'hrv-hint';
     hint.textContent = '⌘↵ to save · esc to close';
 
     var del = document.createElement('div');
-    del.className = 'hn-btn';
+    del.className = 'hrv-btn';
     del.textContent = 'Delete';
     del.title = 'Delete the directive';
     del.addEventListener('click', function () {
@@ -883,7 +883,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     });
 
     var save = document.createElement('div');
-    save.className = 'hn-btn hn-save';
+    save.className = 'hrv-btn hrv-save';
     save.textContent = 'Save';
     save.addEventListener('click', function () {
       edited = true;
@@ -891,7 +891,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
     });
 
     var row = document.createElement('div');
-    row.className = 'hn-row';
+    row.className = 'hrv-row';
     row.appendChild(hint);
     row.appendChild(del);
     row.appendChild(save);
@@ -910,7 +910,7 @@ const CLIENT_JS = `// html-notes client. Directives live in the file on disk; th
 
   function label(text) {
     var div = document.createElement('div');
-    div.className = 'hn-label';
+    div.className = 'hrv-label';
     div.textContent = text;
     return div;
   }
@@ -947,7 +947,7 @@ export function injectClient(document, directives, version) {
 
   const data = document.createElement('script');
   data.setAttribute('type', 'application/json');
-  data.setAttribute('id', 'hn-directives');
+  data.setAttribute('id', 'hrv-directives');
   if (version) data.setAttribute('data-version', version);
   data.textContent = JSON.stringify(directives).replace(/</g, '\\u003c');
   body.appendChild(data);

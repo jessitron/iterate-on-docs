@@ -1,5 +1,5 @@
 {
-  "name": "html-notes",
+  "name": "html-revisor",
   "version": "0.1.0",
   "description": "Local server for leaving directives in HTML files, stored as HTML comments in the file itself",
   "type": "module",

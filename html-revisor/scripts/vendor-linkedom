@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild vendor/linkedom.mjs from node_modules, so html-notes runs without npm install.
+# Rebuild vendor/linkedom.mjs from node_modules, so html-revisor runs without npm install.
 # Run after upgrading linkedom: npm install && npm run vendor
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
