@@ -1,6 +1,6 @@
 {
   "name": "iterate-on-docs",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Refine a document with your coding agent by trading turns. You edit the file and leave instructions for the agent in it; the agent applies your edits' intent and follows the instructions; repeat until it's good. Works on markdown and on static HTML, which you comment on in the browser. Also draws a visual HTML overview of a project to iterate on.",
   "author": {
     "name": "Jessica Kerr"
