@@ -1,10 +1,16 @@
 # iterate-on-docs
 
-An agent skill for refining a document with your coding agent by trading turns. You edit the
-file and leave instructions for the agent in it. The agent applies the intent of your edits,
-follows your instructions, and hands it back. Repeat until it's good.
+Programming is theory building: how does the world work now, and how should it work? We get that crisp, and then we ask the agent to make it true.
 
-Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you comment in the browser.
+For that to work, we need an artifact that clarifies this theory both for us and for every agent we start up. This plugin is about creating those artifacts.
+
+The core is iterate-on-a-document, an agent skill for refining a document with your coding agent by trading turns. You edit the
+file and leave instructions for the agent in it. The agent applies the intent of your edits,
+follows your instructions, and hands it back. Repeat until it makes you happy.
+
+There's also make-a-project-overview, for a particular document that gets you aligned on purpose, architecture, language, and whatever else you want about a project.
+
+Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you comment in the browser using a special server included in this plugin.
 
 ## Install
 
