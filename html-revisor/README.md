@@ -106,19 +106,19 @@ Each served page carries a version (a hash of the file on disk), and every save 
 
 Open `try-me.html` in a browser (see [Try it](#try-it)).
 
-- [ ] Hovering an element shows a dashed outline and a copy cursor; `html` and `body` show none.
-- [ ] Clicking an element opens a directive box below its top edge, with focus in the textarea.
+- [ ] Hovering an element shows crop marks just outside its corners and a copy cursor; `html` and `body` show none. Try an SVG label and an SVG shape too.
+- [ ] Clicking an element opens a directive box below its top edge, with focus in the textarea. While the box is open, the element has heavier crop marks and a hairline outline.
 - [ ] A marker appears as soon as you type.
 - [ ] A text-only element (`<p>First paragraph</p>`, `<b>bold</b>`) shows a Text field above the directive; an element with child elements (`<p>Second <b>bold</b> paragraph</p>`) shows only the directive.
 - [ ] Typing in the Text field changes the page at once and the file within about half a second. Blanking it changes nothing.
 - [ ] The file on disk updates within about half a second; the toast says `saved · N directives`.
-- [ ] Reloading the page shows the marker; the element has a left accent.
+- [ ] Reloading the page shows the marker. The element itself is not restyled: no stripe, no outline.
 - [ ] Clicking a marker opens its box for editing.
 - [ ] Delete (or emptying the text) removes the directive and the marker.
 - [ ] `⌘↵`, `Esc`, Save, and clicking outside each commit and close the box. (On a page with a full-width wrapper element, clicking the margin opens a box on the wrapper instead; use Esc.)
 - [ ] Opening a second box commits and closes the first.
 - [ ] Plain click on a link opens a directive box; ⌘-click on a link navigates.
-- [ ] The page's own layout and styles look the same with the UI loaded.
+- [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.
 - [ ] Stopping the server and typing shows `save failed: ...`; restarting and typing again saves.
 - [ ] Edit the file on disk while the tab is open, then type: the toast warns that the file changed, the file stays untouched, and the box keeps your text.
 - [ ] Dark mode gives the box a dark theme.

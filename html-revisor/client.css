@@ -1,4 +1,5 @@
-/* html-revisor client styles. Page elements get only hrv-hover and hrv-has-directive.
+/* html-revisor client styles. The tool draws over the page and never styles it: page elements
+   get no classes, and the only rule that reaches them is the copy cursor.
    The server inlines this file into every page it serves; DESIGN.html links it.
    Components are scoped to #hrv-layer, the layer the client script adds, or to .hrv-layer,
    for showing them in a document. :is() keeps the ID's specificity, so page CSS can't win. */
@@ -20,6 +21,9 @@
   --hrv-font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   --hrv-small: 11px;
   --hrv-halo: #fff;
+  --hrv-crop-gap: 4px;
+  --hrv-halo-filter: drop-shadow(1px 0 0 var(--hrv-halo)) drop-shadow(-1px 0 0 var(--hrv-halo))
+    drop-shadow(0 1px 0 var(--hrv-halo)) drop-shadow(0 -1px 0 var(--hrv-halo)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
   --hrv-shadow-marker: 0 1px 4px 2px rgba(0, 0, 0, 0.5);
   --hrv-shadow-box: 0 6px 24px rgba(0, 0, 0, 0.28);
   --hrv-pencil: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M11.2 2.3l2.5 2.5-8.2 8.2-3.3.8.8-3.3z' fill='white'/></svg>");
@@ -39,13 +43,11 @@
   }
 }
 
-/* The halo: every mark over the page gets a light edge and a dark edge, so it shows on any page. */
-.hrv-hover {
-  outline: 2px dashed var(--hrv-accent) !important; outline-offset: 1px !important; cursor: copy !important;
-  box-shadow: 0 0 0 3px var(--hrv-halo) !important;
-}
-.hrv-has-directive { box-shadow: inset 3px 0 0 var(--hrv-accent) !important; }
-.hrv-hover.hrv-has-directive { box-shadow: inset 3px 0 0 var(--hrv-accent), 0 0 0 3px var(--hrv-halo) !important; }
+/* The halo: every mark over the page gets a light edge and a dark edge, so it shows on any page.
+   --hrv-halo-filter draws it around any shape: four crisp 1px white shadows, then a soft dark one. */
+
+/* Clicking an element leaves a directive on it; the cursor says so. */
+[data-n]:not(html, body) { cursor: copy !important; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
 #hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
@@ -61,6 +63,25 @@
   cursor: pointer; box-shadow: 0 0 0 2px var(--hrv-halo), var(--hrv-shadow-marker);
 }
 :is(#hrv-layer, .hrv-layer) .hrv-marker:hover { background: var(--hrv-accent-strong); }
+
+/* Crop marks: four square corners just outside an element. The client sizes .hrv-crop to the
+   element's box plus --hrv-crop-gap on each side, so the marks never touch what they mark.
+   Thin on hover; heavier, with a hairline outline, while the element's box is open. */
+:is(#hrv-layer, .hrv-layer) .hrv-crop {
+  --arm: 10px; --w: 2px; --len: min(var(--arm), 30%); --ink: linear-gradient(var(--hrv-accent), var(--hrv-accent));
+  position: absolute; display: block; pointer-events: none;
+  background:
+    var(--ink) left top / var(--len) var(--w), var(--ink) left top / var(--w) var(--len),
+    var(--ink) right top / var(--len) var(--w), var(--ink) right top / var(--w) var(--len),
+    var(--ink) left bottom / var(--len) var(--w), var(--ink) left bottom / var(--w) var(--len),
+    var(--ink) right bottom / var(--len) var(--w), var(--ink) right bottom / var(--w) var(--len);
+  background-repeat: no-repeat;
+  filter: var(--hrv-halo-filter);
+}
+:is(#hrv-layer, .hrv-layer) .hrv-crop.hrv-selected {
+  --arm: 16px; --w: 3px; --len: min(var(--arm), 30%);
+  border: 1px solid var(--hrv-accent); background-origin: border-box;
+}
 
 /* The html-revisor icon: marks everything the tool adds to a page. */
 :is(#hrv-layer, .hrv-layer) .hrv-icon {

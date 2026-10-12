@@ -419,15 +419,51 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     return rect.width === 0 && rect.height === 0;
   }
 
+  // ---- crop marks ----
+
+  // How far outside the element's box its crop marks sit, from client.css.
+  var cropGap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hrv-crop-gap')) || 4;
+
+  function makeCrop(className) {
+    var crop = document.createElement('div');
+    crop.className = className;
+    crop.style.display = 'none';
+    layer.appendChild(crop);
+    return crop;
+  }
+
+  // Cover the element's box plus the gap, kept inside the document so it adds no scrolling.
+  function positionCrop(crop, el) {
+    var rect = el ? el.getBoundingClientRect() : null;
+    if (!rect || isHidden(rect)) { crop.style.display = 'none'; return; }
+    var doc = document.documentElement;
+    var o = layerOrigin();
+    var x = rect.left + window.scrollX, y = rect.top + window.scrollY;
+    var right = Math.min(x + rect.width + cropGap, Math.max(doc.scrollWidth, x + rect.width));
+    var bottom = Math.min(y + rect.height + cropGap, Math.max(doc.scrollHeight, y + rect.height));
+    var left = Math.max(0, x - cropGap), top = Math.max(0, y - cropGap);
+    crop.style.display = 'block';
+    crop.style.left = left - o.x + 'px';
+    crop.style.top = top - o.y + 'px';
+    crop.style.width = right - left + 'px';
+    crop.style.height = bottom - top + 'px';
+  }
+
   // ---- hover ----
 
   var hovered = null;
+  var hoverCrop = makeCrop('hrv-crop');
+  var selectedCrop = makeCrop('hrv-crop hrv-selected');
+
+  // The open box's element shows its heavier marks instead.
+  function positionHover() {
+    positionCrop(hoverCrop, hovered && hovered !== elementFor(boxId) ? hovered : null);
+  }
 
   function setHover(el) {
     if (el === hovered) return;
-    if (hovered) hovered.classList.remove('hrv-hover');
     hovered = el;
-    if (hovered) hovered.classList.add('hrv-hover');
+    positionHover();
   }
 
   document.addEventListener('mouseover', function (e) {
@@ -473,6 +509,8 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
   function positionAll() {
     for (var id in markers) positionMarker(id);
     positionBox();
+    positionCrop(selectedCrop, box ? elementFor(boxId) : null);
+    positionHover();
   }
 
   var frame = 0;
@@ -484,9 +522,8 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     });
   }
 
-  // Make the marker and the hrv-has-directive class match the directive text.
+  // Make the marker match the directive text.
   function syncMarker(id) {
-    var el = elementFor(id);
     if (hasText(id)) {
       var marker = markers[id];
       if (!marker) {
@@ -502,14 +539,10 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
         markers[id] = marker;
       }
       marker.title = directives[id];
-      if (el) el.classList.add('hrv-has-directive');
       positionMarker(id);
-    } else {
-      if (markers[id]) {
-        markers[id].remove();
-        delete markers[id];
-      }
-      if (el) el.classList.remove('hrv-has-directive');
+    } else if (markers[id]) {
+      markers[id].remove();
+      delete markers[id];
     }
   }
 
@@ -598,6 +631,8 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     box.remove();
     box = null;
     boxId = null;
+    positionCrop(selectedCrop, null);
+    positionHover();
     if (edited || saveTimer) saveNow();
   }
 
@@ -683,6 +718,8 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     });
     layer.appendChild(box);
     positionBox();
+    positionCrop(selectedCrop, el);
+    positionHover();
     ta.focus({ preventScroll: true });
     ta.setSelectionRange(ta.value.length, ta.value.length);
   }
