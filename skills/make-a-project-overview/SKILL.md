@@ -35,8 +35,8 @@ project needs no context map; another needs a picture nobody else would draw.
   project has more than one.
 - **Architecture:** the major pieces and how they depend on each other.
 - **Invariants:** properties that must stay true. Give them a section, or show them inside the
-  task list.
-- **Domain terms:** The top few terms that are central to understanding the project. Include technical terms that people might not intuitively guess. Like 2-6 key terms that clarify things. List term, bounded context, description, and synonyms to avoid.
+  task list. Tag them as domain/architecture/design/code style.
+- **Domain terms:** The top few terms that are central to understanding the project. Include technical terms that people might not intuitively guess. Like 2-6 key terms that clarify things. List term, bounded context, description, synonyms to avoid.
 - **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a
   other views, whichever reads faster.
 
