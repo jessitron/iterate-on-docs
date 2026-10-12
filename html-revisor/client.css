@@ -4,50 +4,41 @@
    Components are scoped to #hrv-layer, the layer the client script adds, or to .hrv-layer,
    for showing them in a document. :is() keeps the ID's specificity, so page CSS can't win. */
 
+/* One material for every component: near-black surface, 1px light ring, shadow, square corners,
+   the same in light and dark mode. Agent-made pages round their corners; ours are square.
+   Color means one thing: the accent marks the icon, the crop marks, and the main action. */
 :root {
   --hrv-accent: #d6336c;
-  --hrv-accent-strong: #a61e4d;
+  --hrv-accent-strong: #e64980;
   --hrv-on-accent: #fff;
-  --hrv-error: #b02a37;
-  --hrv-text: #222;
-  --hrv-muted: #666;
-  --hrv-line: #bbb;
-  --hrv-surface: #fff;
-  --hrv-field: #fff;
-  --hrv-button: #f3f3f3;
-  --hrv-button-hover: #e4e4e4;
-  --hrv-toast: #222;
-  --hrv-on-toast: #fff;
+  --hrv-error: #ff6b6b;
+  --hrv-surface: #18191c;
+  --hrv-ring: #e9e9ec;
+  --hrv-text: #eee;
+  --hrv-muted: #a0a3a8;
+  --hrv-line: #44474d;
+  --hrv-field: #0e0f11;
+  --hrv-button: #2c2e33;
+  --hrv-button-hover: #3a3d43;
   --hrv-font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hrv-mono: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
   --hrv-small: 11px;
+  --hrv-material: 0 0 0 1px var(--hrv-ring), 0 4px 16px rgba(0, 0, 0, 0.45);
   --hrv-halo: #fff;
   --hrv-crop-gap: 4px;
   --hrv-halo-filter: drop-shadow(1px 0 0 var(--hrv-halo)) drop-shadow(-1px 0 0 var(--hrv-halo))
     drop-shadow(0 1px 0 var(--hrv-halo)) drop-shadow(0 -1px 0 var(--hrv-halo)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-  --hrv-shadow-marker: 0 1px 4px 2px rgba(0, 0, 0, 0.5);
-  --hrv-shadow-box: 0 6px 24px rgba(0, 0, 0, 0.28);
-  --hrv-pencil: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M11.2 2.3l2.5 2.5-8.2 8.2-3.3.8.8-3.3z' fill='white'/></svg>");
+  --hrv-pencil: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><g transform='rotate(40 8 8)'><rect x='0' y='5.6' width='2.6' height='4.8'/><rect x='3.6' y='5.6' width='7.4' height='4.8'/><path d='M12 5.6L16 8l-4 2.4z'/></g></svg>");
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --hrv-text: #eee;
-    --hrv-muted: #aaa;
-    --hrv-line: #555;
-    --hrv-surface: #25272b;
-    --hrv-field: #1a1b1e;
-    --hrv-button: #383b40;
-    --hrv-button-hover: #4a4d53;
-    --hrv-toast: #eee;
-    --hrv-on-toast: #222;
-  }
-}
+/* The halo: every mark drawn on the page itself gets a light edge and a dark edge, so it shows on
+   any page. --hrv-halo-filter draws it around any shape: four crisp 1px white shadows, then a soft
+   dark one. Components in the material carry their own light ring instead. */
 
-/* The halo: every mark over the page gets a light edge and a dark edge, so it shows on any page.
-   --hrv-halo-filter draws it around any shape: four crisp 1px white shadows, then a soft dark one. */
-
-/* Clicking an element leaves a directive on it; the cursor says so. */
-[data-hrv]:not(html, body) { cursor: copy !important; }
+/* Clicking an element leaves a directive on it; the cursor says so. Review mode off (the pill)
+   sets data-hrv-review="off" on the html element, which turns the cursor off. That attribute is
+   the one mark the tool puts on the page, and only this rule reads it. */
+html:not([data-hrv-review="off"]) [data-hrv]:not(html, body) { cursor: copy !important; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
 #hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
@@ -57,12 +48,35 @@
 }
 :is(#hrv-layer, .hrv-layer) div { display: block; }
 
-:is(#hrv-layer, .hrv-layer) .hrv-marker {
-  position: absolute; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--hrv-accent); color: var(--hrv-on-accent); font-size: var(--hrv-small); line-height: 18px; text-align: center;
-  cursor: pointer; box-shadow: 0 0 0 2px var(--hrv-halo), var(--hrv-shadow-marker);
+/* The html-revisor icon: a magenta pencil, drawn as a mask so it takes the accent.
+   It marks everything the tool adds to a page. The tip faces right, toward the element:
+   the icon sits on the left. */
+:is(#hrv-layer, .hrv-layer) .hrv-icon {
+  display: inline-block; flex: none; width: 14px; height: 14px; vertical-align: -2px;
+  background: var(--hrv-accent);
+  -webkit-mask: var(--hrv-pencil) center / contain no-repeat; mask: var(--hrv-pencil) center / contain no-repeat;
 }
-:is(#hrv-layer, .hrv-layer) .hrv-marker:hover { background: var(--hrv-accent-strong); }
+
+/* The marker: the icon on a tile of the material, saying "this element has a directive".
+   The client puts it outside the element's box, clear of the crop marks: left of the first line,
+   or above the top-left corner when the left has no room. The pencil tip points at the element. */
+:is(#hrv-layer, .hrv-layer) .hrv-marker {
+  position: absolute; width: 20px; height: 20px; padding: 3px;
+  background: var(--hrv-surface); box-shadow: var(--hrv-material); cursor: pointer;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-marker::before {
+  content: ""; display: block; width: 14px; height: 14px; background: var(--hrv-accent);
+  -webkit-mask: var(--hrv-pencil) center / contain no-repeat; mask: var(--hrv-pencil) center / contain no-repeat;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-marker:hover { box-shadow: 0 0 0 1px var(--hrv-accent-strong), 0 4px 16px rgba(0, 0, 0, 0.45); }
+:is(#hrv-layer, .hrv-layer) .hrv-marker:hover::before { background: var(--hrv-accent-strong); }
+
+/* The marker's tooltip: the directive text, in the material, monospace like the directive field. */
+:is(#hrv-layer, .hrv-layer) .hrv-tip {
+  position: absolute; width: max-content; max-width: 280px; padding: 6px 8px; background: var(--hrv-surface);
+  box-shadow: var(--hrv-material); font: var(--hrv-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+  pointer-events: none; z-index: 1;
+}
 
 /* Crop marks: four square corners just outside an element. The client sizes .hrv-crop to the
    element's box plus --hrv-crop-gap on each side, so the marks never touch what they mark.
@@ -83,40 +97,76 @@
   border: 1px solid var(--hrv-accent); background-origin: border-box;
 }
 
-/* The html-revisor icon: marks everything the tool adds to a page. */
-:is(#hrv-layer, .hrv-layer) .hrv-icon {
-  display: inline-block; flex: none; width: 16px; height: 16px; border-radius: 50%; vertical-align: -3px;
-  background: var(--hrv-accent) var(--hrv-pencil) center / 10px no-repeat;
-  box-shadow: 0 0 0 1.5px var(--hrv-halo);
-}
-:is(#hrv-layer, .hrv-layer) .hrv-toast .hrv-icon { margin-right: 6px; }
-
+/* The directive box opens beside its element; data-side says which side the box is on.
+   The notch, a square of the material turned 45 degrees, sits on the edge facing the element,
+   --hrv-notch along that edge, so it points at the element when the box shifts to stay in view.
+   Its two outer edges carry the ring; the inner half hides in the box. */
 :is(#hrv-layer, .hrv-layer) .hrv-box {
   position: absolute; width: 320px; padding: 8px; background: var(--hrv-surface); color: var(--hrv-text);
-  border: 1px solid var(--hrv-line); border-radius: 8px; box-shadow: var(--hrv-shadow-box);
+  box-shadow: var(--hrv-material);
+  --hrv-notch: 24px; --hrv-notch-size: 12px;
 }
+:is(#hrv-layer, .hrv-layer) .hrv-box[data-side]::before {
+  content: ""; position: absolute; display: block; width: var(--hrv-notch-size); height: var(--hrv-notch-size);
+  background: var(--hrv-surface); border: 0 solid var(--hrv-ring); transform: rotate(45deg);
+}
+:is(#hrv-layer, .hrv-layer) .hrv-box:is([data-side="below"], [data-side="above"])::before { left: calc(var(--hrv-notch) - var(--hrv-notch-size) / 2); }
+:is(#hrv-layer, .hrv-layer) .hrv-box:is([data-side="right"], [data-side="left"])::before { top: calc(var(--hrv-notch) - var(--hrv-notch-size) / 2); }
+:is(#hrv-layer, .hrv-layer) .hrv-box[data-side="below"]::before { top: calc(var(--hrv-notch-size) / -2); border-top-width: 1px; border-left-width: 1px; }
+:is(#hrv-layer, .hrv-layer) .hrv-box[data-side="above"]::before { bottom: calc(var(--hrv-notch-size) / -2); border-bottom-width: 1px; border-right-width: 1px; }
+:is(#hrv-layer, .hrv-layer) .hrv-box[data-side="right"]::before { left: calc(var(--hrv-notch-size) / -2); border-bottom-width: 1px; border-left-width: 1px; }
+:is(#hrv-layer, .hrv-layer) .hrv-box[data-side="left"]::before { right: calc(var(--hrv-notch-size) / -2); border-top-width: 1px; border-right-width: 1px; }
+/* The header names the element: the icon, the tag, the start of its text. */
+:is(#hrv-layer, .hrv-layer) .hrv-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+:is(#hrv-layer, .hrv-layer) .hrv-what { display: block; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Fields grow with their text (the client sets the height) up to max-height, then scroll. */
 :is(#hrv-layer, .hrv-layer) .hrv-box textarea {
-  display: block; width: 100%; height: 96px; min-height: 56px; padding: 6px;
-  border: 1px solid var(--hrv-line); border-radius: 4px; background: var(--hrv-field); color: var(--hrv-text);
-  resize: vertical; overflow: auto; white-space: pre-wrap; cursor: text;
+  display: block; width: 100%; height: 56px; min-height: 56px; max-height: 240px; padding: 6px;
+  border: 1px solid var(--hrv-line); background: var(--hrv-field); color: var(--hrv-text);
+  resize: none; overflow: auto; white-space: pre-wrap; cursor: text;
 }
-:is(#hrv-layer, .hrv-layer) .hrv-box textarea.hrv-text { height: 56px; }
+/* The directive is an instruction headed into an HTML comment: monospace. */
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea.hrv-directive { font: var(--hrv-mono); }
+/* The Text field takes the element's font from the client; this is the fallback. */
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea.hrv-text { height: 32px; min-height: 32px; }
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea::placeholder { color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-label { display: block; margin: 6px 0 2px; font-size: var(--hrv-small); color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-label:first-child { margin-top: 0; }
-:is(#hrv-layer, .hrv-layer) .hrv-box textarea:focus { outline: 2px solid var(--hrv-accent); outline-offset: -1px; }
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea:focus { outline: 1px solid var(--hrv-accent); outline-offset: -1px; border-color: var(--hrv-accent); }
 :is(#hrv-layer, .hrv-layer) .hrv-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 :is(#hrv-layer, .hrv-layer) .hrv-hint { flex: 1; font-size: var(--hrv-small); color: var(--hrv-muted); }
+/* The save status takes the hint's place: "saving…", "saved", "not saved". */
+:is(#hrv-layer, .hrv-layer) .hrv-hint.hrv-status { color: var(--hrv-text); }
 :is(#hrv-layer, .hrv-layer) .hrv-btn {
-  display: inline-block; padding: 4px 10px; border: 1px solid var(--hrv-line); border-radius: 4px;
+  display: inline-block; padding: 4px 10px; border: 1px solid var(--hrv-line);
   background: var(--hrv-button); color: var(--hrv-text); text-align: center; cursor: pointer;
 }
 :is(#hrv-layer, .hrv-layer) .hrv-btn:hover { background: var(--hrv-button-hover); }
-:is(#hrv-layer, .hrv-layer) .hrv-save { background: var(--hrv-accent); border-color: var(--hrv-accent); color: var(--hrv-on-accent); }
-:is(#hrv-layer, .hrv-layer) .hrv-save:hover { background: var(--hrv-accent-strong); }
+:is(#hrv-layer, .hrv-layer) .hrv-done { background: var(--hrv-accent); border-color: var(--hrv-accent); color: var(--hrv-on-accent); }
+:is(#hrv-layer, .hrv-layer) .hrv-done:hover { background: var(--hrv-accent-strong); border-color: var(--hrv-accent-strong); }
+/* Delete is a text button: it destroys, so it doesn't draw the eye. */
+:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet { padding: 4px 6px; border-color: transparent; background: none; color: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet:hover { color: var(--hrv-text); text-decoration: underline; }
 
-:is(#hrv-layer, .hrv-layer) .hrv-toast {
-  position: fixed; right: 16px; bottom: 16px; padding: 6px 12px; border-radius: 6px;
-  background: var(--hrv-toast); color: var(--hrv-on-toast); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+/* The pill: bottom right of the window. Icon and count switch review mode; the arrows step through
+   the directives. A save error or the stale-file warning sits on top, in the error color. */
+:is(#hrv-layer, .hrv-layer) .hrv-pill {
+  position: fixed; right: 16px; bottom: 16px; z-index: 1; display: flex; flex-wrap: wrap; max-width: 360px;
+  background: var(--hrv-surface); box-shadow: var(--hrv-material);
 }
-:is(#hrv-layer, .hrv-layer) .hrv-toast.hrv-show { opacity: 1; }
-:is(#hrv-layer, .hrv-layer) .hrv-toast.hrv-error { background: var(--hrv-error); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill-msg { display: none; flex: 1 0 100%; padding: 6px 10px; border-bottom: 1px solid var(--hrv-line); color: var(--hrv-error); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill-main { display: flex; flex: 1; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+:is(#hrv-layer, .hrv-layer) .hrv-step {
+  display: flex; align-items: center; justify-content: center; width: 28px; border-left: 1px solid var(--hrv-line);
+  cursor: pointer; user-select: none;
+}
+:is(#hrv-layer, .hrv-layer) :is(.hrv-pill-main, .hrv-step):hover { background: var(--hrv-button-hover); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-none .hrv-step { display: none; }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-none .hrv-pill-main { color: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-off .hrv-pill-main { color: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-off .hrv-icon { background: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-error { box-shadow: 0 0 0 1px var(--hrv-error), 0 4px 16px rgba(0, 0, 0, 0.45); }
+:is(#hrv-layer, .hrv-layer) .hrv-pill.hrv-error .hrv-pill-msg { display: block; }
+
+/* Review mode off: the markers go too. */
+:is(#hrv-layer, .hrv-layer).hrv-reading .hrv-marker { display: none !important; }
