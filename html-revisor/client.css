@@ -47,7 +47,7 @@
    --hrv-halo-filter draws it around any shape: four crisp 1px white shadows, then a soft dark one. */
 
 /* Clicking an element leaves a directive on it; the cursor says so. */
-[data-n]:not(html, body) { cursor: copy !important; }
+[data-hrv]:not(html, body) { cursor: copy !important; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
 #hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }

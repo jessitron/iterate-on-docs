@@ -68,7 +68,9 @@ function holdsBlocks(el) {
 }
 const isBlock = (el) => BLOCK.has(el.localName) || holdsBlocks(el);
 
-const attrNames = (el) => [...el.attributes].map((a) => a.name).filter((a) => a !== 'data-chunk');
+// Attributes the tool adds. Markdown doesn't carry them; the prior HTML does.
+const IGNORED_ATTRS = new Set(['data-chunk', 'data-hrv']);
+const attrNames = (el) => [...el.attributes].map((a) => a.name).filter((a) => !IGNORED_ATTRS.has(a));
 const hasAttrs = (el) => attrNames(el).length > 0;
 
 // ---- Scopes -------------------------------------------------------------
@@ -83,16 +85,26 @@ const TABLE_ROWS = new Set(['thead', 'tbody', 'tfoot', 'tr']);
 // Inline elements you can pick, decided per element (Jess, 2026-10-12). strong: no.
 const INLINE_SCOPES = new Set(['a', 'img']);
 
-export function scopesWithin(el) {
+export const scopesWithin = (el) => pickable(el).map(scopeOf);
+
+// The elements of the scopes nested in el, nearest first. The rule behind scopesWithin.
+function pickable(el) {
   return [...el.children].flatMap((c) => {
     if (HIDDEN.has(c.localName)) return [];
-    if (c.localName === 'text' && c.closest('svg')) return [scopeOf(c)];
-    if (INLINE_SCOPES.has(c.localName) && !isBlock(c)) return [scopeOf(c)];
+    if (c.localName === 'text' && c.closest('svg')) return [c];
+    if (INLINE_SCOPES.has(c.localName) && !isBlock(c)) return [c];
     if (c.localName === 'hr') return [];
-    if (TABLE_ROWS.has(c.localName)) return scopesWithin(c); // pick a cell or the table, not a row
-    if (isBlock(c)) return [scopeOf(c)];
-    return scopesWithin(c);
+    if (TABLE_ROWS.has(c.localName)) return pickable(c); // pick a cell or the table, not a row
+    if (isBlock(c)) return [c];
+    return pickable(c);
   });
+}
+
+// Every scope element in the document, in document order: body, and every scope inside it.
+// The formatter gives each one an element ID.
+export function scopeElements(document) {
+  const walk = (el) => [el, ...pickable(el).flatMap(walk)];
+  return walk(document.querySelector('body'));
 }
 
 // ---- Markdown -----------------------------------------------------------
@@ -246,7 +258,7 @@ function stripForDisplay(el) {
     if (n.nodeType === 8) n.remove();
     else if (n.nodeType === 1) stripForDisplay(n);
   }
-  if (el.removeAttribute) el.removeAttribute('data-chunk');
+  if (el.removeAttribute) for (const a of IGNORED_ATTRS) el.removeAttribute(a);
 }
 
 // Every line after the first carries the file's indentation; the last line (the closing tag)

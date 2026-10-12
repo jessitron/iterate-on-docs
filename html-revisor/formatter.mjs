@@ -6,12 +6,15 @@
 //
 // Tiers, dependencies point downward only:
 //   Tier I   orchestration: the CLI
-//   Tier II  domain: parse, skeleton, layout, serialize, validation (pure functions)
+//   Tier II  domain: parse, skeleton, element IDs, layout, serialize, validation (pure functions)
 //   Tier III interface: the filesystem, through fs in the CLI
 // server.mjs imports Tier II from here.
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { parseHTML } from './vendor/linkedom.mjs';
+// scopes.mjs imports parse and serialize from here. The cycle is safe: neither module uses
+// the other's exports until a function runs.
+import { scopeElements } from './scopes.mjs';
 
 // ======================================================================
 // Tier I: orchestration
@@ -43,10 +46,51 @@ export async function formatFiles(files, { stderr = process.stderr } = {}) {
 // Tier II: domain
 // ======================================================================
 
-// Canonical form, plus the problems normalizing can't fix. The rewrite happens either way.
+// Canonical form with element IDs, plus the problems normalizing can't fix. The rewrite
+// happens either way.
 export function format(html) {
   const document = parse(html);
+  assignIds(document);
   return { html: serialize(document), problems: validate(document) };
+}
+
+// ---- Element identity ---------------------------------------------------
+
+// An element ID lives in the file as data-hrv="<n>". The next unused number sits on
+// <html data-hrv-next="<n>">, so an ID is never reused, even after its element is gone.
+export const ID = 'data-hrv';
+export const NEXT_ID = 'data-hrv-next';
+const ID_VALUE = /^(0|[1-9]\d*)$/;
+
+// Every scope gets an ID. So do hr and every element of an svg, which took directives before
+// scopes did; commenting inside an SVG stays as it is (Jess, 2026-10-12).
+function identifiable(document) {
+  const wanted = new Set(scopeElements(document));
+  for (const el of document.querySelectorAll('body hr, body svg, body svg *')) wanted.add(el);
+  return wanted;
+}
+
+// Existing IDs never change. A new element gets the next number. Copies of one ID (an agent's
+// copy-paste) retire it: every copy gets a fresh one. An ID on an element that isn't a scope,
+// or one that isn't a number, comes off.
+export function assignIds(document) {
+  const wanted = identifiable(document);
+  const html = document.documentElement;
+  const stored = html.getAttribute(NEXT_ID);
+  let next = ID_VALUE.test(stored ?? '') ? Number(stored) : 1;
+  const copies = new Map();
+  for (const el of document.querySelectorAll(`[${ID}]`)) {
+    const id = el.getAttribute(ID);
+    if (ID_VALUE.test(id)) next = Math.max(next, Number(id) + 1);
+    if (!wanted.has(el) || !ID_VALUE.test(id)) el.removeAttribute(ID);
+    else copies.set(id, (copies.get(id) ?? 0) + 1);
+  }
+  for (const el of document.querySelectorAll('*')) {
+    if (!wanted.has(el)) continue;
+    const id = el.getAttribute(ID);
+    if (id === null || copies.get(id) > 1) el.setAttribute(ID, String(next++));
+  }
+  html.setAttribute(NEXT_ID, String(next));
 }
 
 // ---- Validation ---------------------------------------------------------
@@ -118,7 +162,7 @@ export function ensureSkeleton(document) {
 }
 
 export function normalize(html) {
-  return serialize(parse(html));
+  return format(html).html;
 }
 
 // Canonical serialization of a whole document.
@@ -181,6 +225,12 @@ function formatChildren(parent, depth) {
   }
   flush();
   return lines;
+}
+
+// One element in canonical layout, as if it sat at the top level. The same content always
+// lays out the same, wherever it sits and whatever whitespace it came with.
+export function formatElement(el) {
+  return formatBlock(el, 0).join('\n');
 }
 
 function formatBlock(node, depth) {

@@ -10,7 +10,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parse, normalize, serialize, VOID, RAW, trimAscii, escapeText } from './formatter.mjs';
+import { parse, normalize, serialize, assignIds, formatElement, ID, VOID, RAW, trimAscii, escapeText } from './formatter.mjs';
 
 // ======================================================================
 // Tier I: orchestration
@@ -39,7 +39,7 @@ async function route(req, res, config) {
   const file = resolveUnderRoot(config.root, urlPath);
   const isHtml = /\.html?$/i.test(urlPath);
 
-  if (req.method === 'PUT' && isHtml) return putEdits(req, res, file, urlPath, config);
+  if (req.method === 'PUT' && isHtml) return putChange(req, res, file, urlPath, config);
   if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method not allowed');
 
   const stat = await fs.stat(file);
@@ -52,7 +52,8 @@ async function route(req, res, config) {
   res.end(await fs.readFile(file));
 }
 
-// GET: normalize on disk, then serve a stamped copy with directives lifted out into JSON.
+// GET: format on disk (which assigns element IDs), then serve a copy with directives lifted
+// out into JSON, and the base of every element so the tab can send it back with a change.
 async function getPage(res, file, urlPath, { author }) {
   const onDisk = await fs.readFile(file, 'utf8');
   const formatted = normalize(onDisk);
@@ -61,58 +62,52 @@ async function getPage(res, file, urlPath, { author }) {
     console.log(`${urlPath} (normalized)`);
   }
   const document = parse(formatted);
-  stamp(document);
   const directives = collectDirectives(document, author);
   removeDirectives(document, author);
-  injectClient(document, directives, versionOf(formatted), await readClientCss());
+  const bases = basesOf(document.querySelectorAll(`[${ID}]`), author);
+  injectClient(document, { directives, bases }, versionOf(formatted), await readClientCss());
   console.log(`${urlPath} — ${Object.keys(directives).length} pending directives`);
   sendHtml(res, document.toString());
 }
 
-// A short fingerprint of the file bytes. The client sends it back to prove its view is current.
+// A short fingerprint. Of the file bytes, it lets the tab notice that the page changed on disk.
 const versionOf = (bytes) => crypto.createHash('sha1').update(bytes).digest('hex').slice(0, 12);
 
-// PUT: the body is the complete set of directives, plus the new text of any edited text elements.
-// Rewrite the directives into the file and replace the texts. Both maps are idempotent to resend.
-// Optimistic concurrency: a "version" that differs from the file on disk is rejected with 409.
-async function putEdits(req, res, file, urlPath, { author }) {
-  let directives, texts, version;
+// PUT: the body is one change to one element, with the base the tab started from:
+//   {"id": "7", "base": "…", "directive": "text"}   sets the element's directive; "" removes it
+//   {"id": "7", "base": "…", "text": "new text"}     replaces the text of a text element
+// IDs come first, so elements an agent added since the last format have them. A base that
+// doesn't match the element now, or an ID that isn't there, is a conflict: 412, nothing written.
+// The answer carries the new bases of the element and the elements around it, and the file's
+// fingerprint before and after, so the tab can notice an outside change.
+async function putChange(req, res, file, urlPath, { author }) {
+  let change;
   try {
-    ({ directives, texts = {}, version } = JSON.parse(await readBody(req)));
+    change = JSON.parse(await readBody(req));
   } catch {
     throw new HttpError(400, 'body must be JSON');
   }
-  const isMap = (m) => m && typeof m === 'object' && !Array.isArray(m);
-  if (!isMap(directives) || !isMap(texts)) {
-    throw new HttpError(400, 'body must look like {"directives": {"<id>": "text"}, "texts": {"<id>": "text"}}');
+  const { id, base, directive, text } = change ?? {};
+  if (typeof id !== 'string' || typeof base !== 'string' || (typeof directive === 'string') === (typeof text === 'string')) {
+    throw new HttpError(400, 'body must look like {"id": "<id>", "base": "<base>", "directive": "text"} or {"id", "base", "text"}');
   }
-  const onDisk = await fs.readFile(file);
-  // A missing version skips the check, so curl and scripts can PUT without a GET first.
-  if (version !== undefined && version !== versionOf(onDisk)) {
-    console.log(`${urlPath} — stale write rejected (file changed on disk)`);
-    res.writeHead(409, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: false, error: 'file changed on disk; reload to continue' }));
+  const onDisk = await fs.readFile(file, 'utf8');
+  const document = parse(onDisk);
+  assignIds(document);
+  const el = elementById(document, id);
+  if (!el || baseOf(el, author) !== base) {
+    console.log(`${urlPath} — conflict on element ${id} (${el ? 'it changed on disk' : 'no such element'})`);
+    res.writeHead(412, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: false, error: el ? 'that element changed on disk' : 'that element is gone from the file' }));
   }
-  const document = parse(onDisk.toString("utf8"));
-  const elements = [...document.querySelectorAll('*')]; // snapshot: ids are indices into this
-  removeDirectives(document, author);
-  let textCount = 0;
-  for (const [id, text] of Object.entries(texts)) {
-    if (elements[id] && typeof text === 'string' && setText(elements[id], text)) textCount++;
-  }
-  let count = 0;
-  for (const [id, text] of Object.entries(directives)) {
-    const element = elements[id];
-    if (!element || typeof text !== 'string' || !text.trim()) continue;
-    placeDirective(element, text, author);
-    count++;
-  }
-  unstamp(document);
+  if (typeof directive === 'string') setDirective(el, directive, author);
+  else if (!setText(el, text, author)) throw new HttpError(400, 'text edits need a text element and non-blank text');
   const written = serialize(document);
-  await fs.writeFile(file, written);
-  console.log(`${urlPath} — saved ${count} directives` + (textCount ? `, ${textCount} texts` : ''));
+  if (written !== onDisk) await fs.writeFile(file, written);
+  const count = Object.keys(collectDirectives(document, author)).length;
+  console.log(`${urlPath} — saved ${typeof directive === 'string' ? 'directive' : 'text'} on ${id}`);
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ ok: true, count, version: versionOf(written) }));
+  res.end(JSON.stringify({ ok: true, count, bases: basesOf(around(el), author), before: versionOf(onDisk), after: versionOf(written) }));
 }
 
 function sendError(res, err) {
@@ -138,14 +133,33 @@ async function main() {
 
 // ---- Element identity ---------------------------------------------------
 
-// data-n is the element's index in document order. Comments are not elements,
-// so adding and removing directives never shifts an index.
-export function stamp(document) {
-  document.querySelectorAll('*').forEach((el, i) => el.setAttribute('data-n', String(i)));
+// The formatter writes IDs into the file (assignIds). Here: find an element by ID, and the
+// base of an element, the fingerprint of its content that a change has to start from.
+
+export function elementById(document, id) {
+  return /^\d+$/.test(id) ? document.querySelector(`[${ID}="${id}"]`) : null;
 }
 
-export function unstamp(document) {
-  document.querySelectorAll('[data-n]').forEach((el) => el.removeAttribute('data-n'));
+// The element, its content, and its own attributes, minus directives and IDs, in canonical
+// layout. Directives and IDs coming and going change no base; a changed child changes its
+// parent's.
+export function baseOf(el, author) {
+  const copy = el.cloneNode(true);
+  removeDirectives(copy, author);
+  copy.removeAttribute(ID);
+  copy.querySelectorAll(`[${ID}]`).forEach((e) => e.removeAttribute(ID));
+  return versionOf(formatElement(copy));
+}
+
+export function basesOf(elements, author) {
+  return Object.fromEntries([...elements].map((el) => [el.getAttribute(ID), baseOf(el, author)]));
+}
+
+// The elements whose base an edit to el can change: el, the IDs inside it, and its ancestors.
+function around(el) {
+  const out = [...el.querySelectorAll(`[${ID}]`)];
+  for (let a = el; a?.nodeType === 1; a = a.parentNode) if (a.hasAttribute(ID)) out.push(a);
+  return out;
 }
 
 // ---- Directives ---------------------------------------------------------
@@ -197,14 +211,14 @@ function directiveOwner(comment) {
   return next?.nodeType === 1 && directiveGoesBefore(next) ? next : comment.parentNode;
 }
 
-// { [element index]: directive text }; several directives on one element join with newlines.
+// { [element ID]: directive text }; several directives on one element join with newlines.
+// A directive on an element with no ID stays in the file, unseen.
 export function collectDirectives(document, author) {
-  const index = new Map([...document.querySelectorAll('*')].map((el, i) => [el, i]));
   const directives = {};
   for (const comment of allComments(document)) {
     if (!isDirective(comment, author)) continue;
-    const id = index.get(directiveOwner(comment));
-    if (id === undefined) continue;
+    const id = directiveOwner(comment).getAttribute?.(ID);
+    if (id == null) continue;
     const text = directiveText(comment, author);
     directives[id] = id in directives ? `${directives[id]}\n${text}` : text;
   }
@@ -215,6 +229,15 @@ export function removeDirectives(document, author) {
   for (const comment of allComments(document)) {
     if (isDirective(comment, author)) comment.remove();
   }
+}
+
+// Replace the element's directives with this one; empty text leaves it none. Other
+// elements' directives stay where they are.
+export function setDirective(el, text, author) {
+  for (const comment of allComments(el.ownerDocument)) {
+    if (isDirective(comment, author) && directiveOwner(comment) === el) comment.remove();
+  }
+  if (text.trim()) placeDirective(el, text, author);
 }
 
 export function placeDirective(el, text, author) {
@@ -239,11 +262,15 @@ export function isTextElement(el) {
   );
 }
 
-// Replace the element's text. Refuses (returns false) for non-text elements and blank text.
-export function setText(el, text) {
-  if (!isTextElement(el) || trimAscii(text) === '') return false;
-  el.textContent = text;
-  return true;
+// Replace the element's text, keeping its directives. Refuses (returns false) for non-text
+// elements and blank text.
+export function setText(el, text, author) {
+  const own = [...el.childNodes].filter((n) => isDirective(n, author));
+  own.forEach((n) => n.remove());
+  const ok = isTextElement(el) && trimAscii(text) !== '';
+  if (ok) el.textContent = text;
+  el.prepend(...own);
+  return ok;
 }
 
 // ======================================================================
@@ -331,7 +358,7 @@ function directoryListing(urlPath, entries) {
   return `<!DOCTYPE html>\n<html><head><meta charset="utf-8"><title>${escapeHtml(urlPath)}</title></head>\n<body><h1>${escapeHtml(urlPath)}</h1>\n<ul>${up}${items.join('\n')}</ul></body></html>\n`;
 }
 
-// Client assets. Appended to the served copy after stamping, so none of it gets a data-n.
+// Client assets. Appended to the served copy, never written to the file, so none of it has an ID.
 // Read on each GET, so a change to client.css shows on reload without a restart.
 export function readClientCss() {
   return fs.readFile(new URL('client.css', import.meta.url), 'utf8');
@@ -342,23 +369,24 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
 
   var directives = {};      // id -> text, the full current set
   var texts = {};           // id -> new text of each text element edited in this tab
+  var bases = {};           // id -> base: the element's content as the server last saw it
   var markers = {};         // id -> marker element
   var box = null;           // the open directive box, if any
   var boxId = null;         // id of the element the open box is for
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
-  var again = false;        // an edit arrived while a PUT was in flight
-  var edited = false;       // changes not yet sent
+  var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'text', id}
   var toastTimer = null;
   var version = null;       // fingerprint of the file as this tab last saw it
-  var stale = false;        // the file changed on disk; no more saves
+  var changedOnDisk = false; // a save found the file changed by someone else
 
   try {
     var data = document.getElementById('hrv-directives');
     directives = JSON.parse(data.textContent) || {};
     version = data.getAttribute('data-version');
+    bases = JSON.parse(document.getElementById('hrv-bases').textContent) || {};
   } catch (e) {
-    directives = {};
+    directives = directives || {};
   }
 
   var layer = document.createElement('div');
@@ -375,17 +403,17 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
   }
 
   function elementFor(id) {
-    return document.querySelector('[data-n="' + id + '"]');
+    return document.querySelector('[data-hrv="' + id + '"]');
   }
 
   function inLayer(node) {
     return node instanceof Node && layer.contains(node);
   }
 
-  // The nearest stamped ancestor, never html or body.
+  // The nearest element with an ID, never html or body.
   function targetElement(node) {
     if (!(node instanceof Element)) return null;
-    var el = node.closest('[data-n]');
+    var el = node.closest('[data-hrv]');
     if (!el || el === document.documentElement || el === document.body) return null;
     return el;
   }
@@ -562,54 +590,69 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     }, isError ? 4000 : 1500);
   }
 
-  function currentDirectives() {
-    var out = {};
-    for (var id in directives) if (hasText(id)) out[id] = directives[id];
-    return out;
+  function directiveCount() {
+    var n = 0;
+    for (var id in directives) if (hasText(id)) n++;
+    return n;
   }
 
-  // One PUT at a time. An edit during a PUT sets "again" and a new PUT follows.
+  // Mark a change to send. A change already waiting sends the latest value, once.
+  function addUnsent(kind, id) {
+    for (var i = 0; i < unsent.length; i++) {
+      if (unsent[i].kind === kind && unsent[i].id === id) return;
+    }
+    unsent.push({ kind: kind, id: id });
+  }
+
+  function bodyFor(change) {
+    var body = { id: change.id, base: bases[change.id] || '' };
+    body[change.kind] = change.kind === 'text' ? texts[change.id] : (directives[change.id] || '');
+    return body;
+  }
+
+  // One PUT at a time, one change per PUT. When a PUT ends, the next change goes out.
   function saveNow() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    if (stale) return;
-    if (saving) { again = true; return; }
+    if (saving || unsent.length === 0) return;
     saving = true;
-    again = false;
-    edited = false;
+    var change = unsent.shift();
     var failed = false;
     fetch(location.pathname, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ version: version, directives: currentDirectives(), texts: texts })
+      body: JSON.stringify(bodyFor(change))
     }).then(function (res) {
-      if (res.ok) return res.json();
-      if (res.status === 409) return { conflict: true };
+      if (res.ok || res.status === 412) return res.json();
       return res.text().then(function (t) {
         throw new Error(t || ('HTTP ' + res.status));
       });
     }).then(function (data) {
-      if (data.conflict) {
-        stale = true;
-        showToast('file changed on disk — reload to see it (your unsaved text is in the box)', true, true);
+      if (!data.ok) {
+        // A conflict: we weren't taking turns. Say so; the reload is up to the human.
+        failed = true;
+        showToast('not saved: ' + data.error + '. Copy what you wrote, then reload to see the page as it is now', true, true);
         return;
       }
-      version = data.version;
+      for (var id in data.bases) bases[id] = data.bases[id];
+      if (data.before !== version) changedOnDisk = true;
+      version = data.after;
       var n = data.count;
-      showToast('saved · ' + n + (n === 1 ? ' directive' : ' directives'), false);
+      var saved = 'saved · ' + n + (n === 1 ? ' directive' : ' directives');
+      if (changedOnDisk) showToast(saved + ' · the page changed on disk; reload to see it', false, true);
+      else showToast(saved, false);
     }).catch(function (err) {
       failed = true;
-      edited = true;
+      addUnsent(change.kind, change.id); // a later edit retries it
       showToast('save failed: ' + (err && err.message ? err.message : err), true);
     }).then(function () {
       saving = false;
-      // A later edit retries after a failure; an edit made during the PUT goes out now.
-      if (again && !failed) saveNow();
+      if (!failed) saveNow();
     });
   }
 
-  function scheduleSave() {
-    edited = true;
+  function scheduleSave(kind, id) {
+    addUnsent(kind, id);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 400);
   }
@@ -633,7 +676,7 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     boxId = null;
     positionCrop(selectedCrop, null);
     positionHover();
-    if (edited || saveTimer) saveNow();
+    saveNow();
   }
 
   function openBox(id) {
@@ -658,7 +701,7 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
         if (textArea.value.replace(SPACE, '') === '') return;
         el.textContent = textArea.value;
         texts[id] = textArea.value;
-        scheduleSave();
+        scheduleSave('text', id);
         schedulePosition();
       });
       box.appendChild(label('Text'));
@@ -672,7 +715,7 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     ta.placeholder = 'Directive for this element';
     ta.addEventListener('input', function () {
       setDirective(id, ta.value);
-      scheduleSave();
+      scheduleSave('directive', id);
     });
     box.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
@@ -692,7 +735,7 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     del.addEventListener('click', function () {
       ta.value = '';
       setDirective(id, '');
-      edited = true;
+      addUnsent('directive', id);
       closeBox();
     });
 
@@ -700,7 +743,6 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     save.className = 'hrv-btn hrv-save';
     save.textContent = 'Save';
     save.addEventListener('click', function () {
-      edited = true;
       closeBox();
     });
 
@@ -744,7 +786,7 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
     }
     e.preventDefault();
     e.stopPropagation();
-    openBox(el.getAttribute('data-n'));
+    openBox(el.getAttribute('data-hrv'));
   }, true);
 
   // ---- start ----
@@ -753,7 +795,8 @@ const CLIENT_JS = `// html-revisor client. Directives live in the file on disk; 
 })();
 `;
 
-export function injectClient(document, directives, version, css) {
+// directives: {id: text}. bases: {id: base}, sent back with each change.
+export function injectClient(document, { directives, bases }, version, css) {
   const head = document.querySelector('head') ?? document.documentElement;
   const body = document.querySelector('body') ?? document.documentElement;
 
@@ -767,6 +810,12 @@ export function injectClient(document, directives, version, css) {
   if (version) data.setAttribute('data-version', version);
   data.textContent = JSON.stringify(directives).replace(/</g, '\\u003c');
   body.appendChild(data);
+
+  const baseData = document.createElement('script');
+  baseData.setAttribute('type', 'application/json');
+  baseData.setAttribute('id', 'hrv-bases');
+  baseData.textContent = JSON.stringify(bases);
+  body.appendChild(baseData);
 
   const script = document.createElement('script');
   script.textContent = CLIENT_JS;

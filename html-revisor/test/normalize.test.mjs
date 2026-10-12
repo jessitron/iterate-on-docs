@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalize } from '../formatter.mjs';
+import { normalize, parse, serialize } from '../formatter.mjs';
+
+// Layout alone, without element IDs, for the tests about layout. IDs have their own tests.
+const layout = (html) => serialize(parse(html));
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 // Body content wrapped in a full document, so indentation is predictable (body at depth 1).
@@ -24,30 +27,30 @@ test('doctype defaults to html', () => {
 });
 
 test('inline-only block stays on one line', () => {
-  const out = normalize(page('<h1>Project <em>Overview</em></h1><ul><li>Ship it</li></ul>'));
+  const out = layout(page('<h1>Project <em>Overview</em></h1><ul><li>Ship it</li></ul>'));
   assert.match(out, /^ {4}<h1>Project <em>Overview<\/em><\/h1>$/m);
   assert.match(out, /^ {6}<li>Ship it<\/li>$/m);
 });
 
 test('long inline-only block takes three lines', () => {
   const long = 'word '.repeat(30).trim();
-  const out = normalize(page(`<p>${long}</p>`));
+  const out = layout(page(`<p>${long}</p>`));
   assert.match(out, new RegExp(`^ {4}<p>\\n {6}${long}\\n {4}</p>$`, 'm'));
 });
 
 test('whitespace between inline siblings survives', () => {
-  const out = normalize('<body><p>a <b>b</b> &amp; c</p><p><b>x</b> <i>y</i></p></body>');
+  const out = layout('<body><p>a <b>b</b> &amp; c</p><p><b>x</b> <i>y</i></p></body>');
   assert.match(out, /<p>a <b>b<\/b> &amp; c<\/p>/);
   assert.match(out, /<p><b>x<\/b> <i>y<\/i><\/p>/);
 });
 
 test('only ASCII whitespace collapses; nbsp survives', () => {
-  const out = normalize('<body><p>a \n\t  b&nbsp;&nbsp;c &nbsp;</p></body>');
+  const out = layout('<body><p>a \n\t  b&nbsp;&nbsp;c &nbsp;</p></body>');
   assert.match(out, /<p>a b&nbsp;&nbsp;c &nbsp;<\/p>/);
 });
 
 test('entities are escaped once, not twice', () => {
-  const out = normalize('<body><p>&amp;amp; &lt;b&gt; 1 &amp; 2</p></body>');
+  const out = layout('<body><p>&amp;amp; &lt;b&gt; 1 &amp; 2</p></body>');
   assert.match(out, /<p>&amp;amp; &lt;b&gt; 1 &amp; 2<\/p>/);
 });
 
@@ -55,7 +58,7 @@ test('pre, script, style, textarea inner content is untouched', () => {
   const src =
     '<body><pre>  a\n    <code>b &amp; c</code>\n\n</pre><script>var s = "  x  <y> &amp;";\n  go();</script>' +
     '<style>a  >  b {  color: red }</style><textarea>  t\n &lt;</textarea></body>';
-  const out = normalize(src);
+  const out = layout(src);
   for (const piece of [
     '<pre>  a\n    <code>b &amp; c</code>\n\n</pre>',
     '<script>var s = "  x  <y> &amp;";\n  go();</script>',
@@ -67,7 +70,7 @@ test('pre, script, style, textarea inner content is untouched', () => {
 });
 
 test('void elements: no closing slash; boolean attributes are bare', () => {
-  const out = normalize('<body><img src="a.png" alt="" /><input disabled value="x"><hr/></body>');
+  const out = layout('<body><img src="a.png" alt="" /><input disabled value="x"><hr/></body>');
   assert.match(out, /<img src="a\.png" alt>/);
   assert.match(out, /<input disabled value="x">/);
   assert.match(out, /<hr>/);
@@ -75,17 +78,17 @@ test('void elements: no closing slash; boolean attributes are bare', () => {
 });
 
 test('attributes keep order and escape & and "', () => {
-  const out = normalize(`<body><a title='say "hi"' href="x?a=1&amp;b=2" id=z>l</a></body>`);
+  const out = layout(`<body><a title='say "hi"' href="x?a=1&amp;b=2" id=z>l</a></body>`);
   assert.match(out, /<a title="say &quot;hi&quot;" href="x\?a=1&amp;b=2" id="z">l<\/a>/);
 });
 
 test('comments sit on their own lines, data unchanged', () => {
-  const out = normalize(page('<p>a</p><!--  x -- y  --><p>b</p>'));
+  const out = layout(page('<p>a</p><!--  x -- y  --><p>b</p>'));
   assert.match(out, /^ {4}<!--  x -- y  -->$/m);
 });
 
 test('element containing a block is a container even when inline by name', () => {
-  const out = normalize(page('<a href="x"><div>in</div></a>'));
+  const out = layout(page('<a href="x"><div>in</div></a>'));
   assert.match(out, /^ {4}<a href="x">\n {6}<div>in<\/div>\n {4}<\/a>$/m);
 });
 

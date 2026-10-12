@@ -16,6 +16,7 @@ This repo is where html-revisor is developed. Its built output ships inside the 
 - `--author` sets the directive prefix (default `@AI`).
 - The server prints a URL on startup. Open an `.html` file under it.
 - First load normalizes the file's formatting and rewrites it on disk. It also adds `<html>`, `<head>` and `<body>` if the file lacks them, the way a browser would. These files are agent-generated documents we control, so the tool rewrites them into the shape it needs.
+- Loading also writes an element ID, `data-hrv="<n>"`, on each element you can pick, and the next unused number on `<html data-hrv-next="<n>">`. The first load of a page makes one noisy diff; after that a diff shows only new IDs.
 
 Needs Node 20 or later. No `npm install`: the one dependency, linkedom, is bundled into `vendor/linkedom.mjs`.
 
@@ -54,8 +55,9 @@ The iterate-on-a-document skill and the README in iterate-on-docs run and descri
 | Directive syntax | `<!-- @AI: … -->`, first child of its element, or just before a void or raw-text element (full list under [Directive format](#directive-format)) |
 | Finding directives | `grep '<!-- *@AI:'` |
 | Formatter CLI | `node ../../html-revisor/formatter.mjs <file>...`, from the skill's base directory. Rewrites each file in place into the same canonical form a page load gives. Silent and exit 0 on success; exit 1 with `<file>: <problem>` on stderr when a file can't be read or written or breaks a rule the formatter can't fix (it still writes the fixable part); exit 2 with usage when given no files |
-| Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting. The skill fetches the page before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
-| Browser behavior | click any element to leave a directive on it or change its wording; both save into the file as you type |
+| Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill fetches the page before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
+| Element IDs | the formatter (GET, PUT, and the formatter CLI) writes `data-hrv="<n>"` on each element you can pick and `data-hrv-next="<n>"` on `<html>`. Agents leave both alone: don't change, copy, or remove them. A new element needs none; the next format gives it one |
+| Browser behavior | click a block, link, image, or part of an SVG to leave a directive on it or change its wording; both save into the file as you type. If the element changed on disk since the page loaded, the save is refused with an error that suggests a reload; a change elsewhere in the file only brings a notice |
 | README | this README ships in the output and keeps its "Directive format" section; iterate-on-docs links to it |
 | Vocabulary | the words the user sees: **directive** (the directive box says "Directive", "Directive for this element", "Delete the directive", and the toast "saved · N directives"). Not note, comment or annotation |
 
@@ -98,18 +100,20 @@ directive from the file. Leave HTML comments that do not start with "@AI:" alone
 Before you regenerate an HTML file from scratch, run grep -c '<!-- *@AI:' file.html.
 The count must be 0. If it is not, address those directives first so no unresolved
 directive is thrown away.
+Leave data-hrv and data-hrv-next attributes alone: don't change, copy, or remove
+them. New elements need none; the formatter adds them.
 ```
 
 ## Manual client checklist
 
-Each served page carries a version (a hash of the file on disk), and every save sends it back. If the file changed since the page loaded, the server answers 409 and the client stops saving and shows a lasting warning, so a stale tab cannot resurrect deleted directives or misplace directives on shifted elements.
+Each save carries one change, to one element, with that element's base: a hash of its content as the tab last saw it. If the element changed on disk since, the server refuses the save (412) and the tab shows an error that suggests a reload. A change elsewhere in the file doesn't block the save; the tab notices it from the file's hash and says the page changed. A save touches only its own directive, so a tab can't resurrect a directive the agent finished and removed.
 
 Open `try-me.html` in a browser (see [Try it](#try-it)).
 
 - [ ] Hovering an element shows crop marks just outside its corners and a copy cursor; `html` and `body` show none. Try an SVG label and an SVG shape too.
 - [ ] Clicking an element opens a directive box below its top edge, with focus in the textarea. While the box is open, the element has heavier crop marks and a hairline outline.
 - [ ] A marker appears as soon as you type.
-- [ ] A text-only element (`<p>First paragraph</p>`, `<b>bold</b>`) shows a Text field above the directive; an element with child elements (`<p>Second <b>bold</b> paragraph</p>`) shows only the directive.
+- [ ] A text-only element (`<p>First paragraph</p>`) shows a Text field above the directive; an element with child elements (`<p>Second <b>bold</b> paragraph</p>`) shows only the directive. Clicking `<b>bold</b>` picks its paragraph: `strong`, `b` and the like are not scopes.
 - [ ] Typing in the Text field changes the page at once and the file within about half a second. Blanking it changes nothing.
 - [ ] The file on disk updates within about half a second; the toast says `saved · N directives`.
 - [ ] Reloading the page shows the marker. The element itself is not restyled: no stripe, no outline.
@@ -120,7 +124,8 @@ Open `try-me.html` in a browser (see [Try it](#try-it)).
 - [ ] Plain click on a link opens a directive box; ⌘-click on a link navigates.
 - [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.
 - [ ] Stopping the server and typing shows `save failed: ...`; restarting and typing again saves.
-- [ ] Edit the file on disk while the tab is open, then type: the toast warns that the file changed, the file stays untouched, and the box keeps your text.
+- [ ] Edit one element in the file on disk while the tab is open, then type a directive on that element: the toast says it wasn't saved and suggests a reload, and the file stays untouched.
+- [ ] Edit a different element on disk, then type a directive: it saves, and the toast adds that the page changed on disk.
 - [ ] Dark mode gives the box a dark theme.
 
 ## Design
@@ -129,13 +134,14 @@ The code is in `server.mjs` and `formatter.mjs`, in three tiers, plus `client.cs
 
 The HTML parser is [linkedom](https://github.com/WebReflection/linkedom), bundled with its dependencies into `vendor/linkedom.mjs` (licenses in `vendor/linkedom.LICENSES.txt`) so the tool runs where `npm install` can't, such as behind a corporate proxy. To upgrade it: change the version in `package.json`'s devDependencies, then `npm install && npm run vendor`, and commit `vendor/`.
 
-- **Tier I, orchestration**: CLI arguments, the HTTP request handler, and the GET and PUT flows (normalize, stamp, collect or inject; read, strip directives, place directives, write). The PUT body is `{"directives": {"<id>": "text"}, "texts": {"<id>": "text"}, "version": "..."}`.
-- **Formatter**: `formatter.mjs` stands alone. Its Tier II is `parse` (adds a missing skeleton), `serialize` (canonical layout), `normalize` (both), and `validate`, the rules normalizing can't fix (none yet). Its Tier I is a CLI, `node formatter.mjs <file>...` (see the [Contract](#contract-with-iterate-on-docs)).
-- **Tier II, domain**: pure functions. The formatter (imported from `formatter.mjs`), the directives language (`collectDirectives`, `removeDirectives`, `placeDirective`, escaping), text edits (`isTextElement`, `setText`), and element identity (`stamp`, `unstamp`: `data-n` is the element's document-order index).
+- **Tier I, orchestration**: CLI arguments, the HTTP request handler, and the GET and PUT flows (format with IDs, lift directives, compute bases, inject; read, assign IDs, check the base, apply the one change, write). The PUT body is one change: `{"id": "<id>", "base": "<base>", "directive": "text"}` (empty text removes the directive) or `{"id": "<id>", "base": "<base>", "text": "new text"}`. The answer is `{"ok": true, "count", "bases": {"<id>": "<base>"}, "before", "after"}`: new bases for the element, its ancestors, and the IDs inside it, and the file's hash before and after the save. A base that doesn't match, or an ID that isn't in the file, gets 412 and `{"ok": false, "error"}`.
+- **Formatter**: `formatter.mjs`. Its Tier II is `parse` (adds a missing skeleton), `assignIds` (element IDs), `serialize` (canonical layout), `normalize` (all three), and `validate`, the rules normalizing can't fix (none yet). Its Tier I is a CLI, `node formatter.mjs <file>...` (see the [Contract](#contract-with-iterate-on-docs)). It takes the rule for which elements are scopes from `scopes.mjs`.
+- **Scopes**: `scopes.mjs`. A scope is what you pick to direct or edit: any block, plus links and images; its whole content edits as markdown. Tier II is `scopeElements` (which elements get IDs), `scopesWithin` and `scopeMarkdown`, a first pass at the markdown; the server doesn't edit markdown yet. `node scopes.mjs --annotate try-me.html` writes each case's HTML, scopes, and markdown under it in [try-me.html#scopes](try-me.html#scopes). Markdown editing of scopes is PLAN.html stage 3.
+- **Tier II, domain**: pure functions. The formatter (imported from `formatter.mjs`), the directives language (`collectDirectives`, `removeDirectives`, `placeDirective`, escaping), text edits (`isTextElement`, `setText`), and element identity: `elementById`, and `baseOf`, the hash of an element in canonical layout with directives and IDs stripped. A directive coming or going changes no base; a changed child changes its parent's. The IDs themselves come from the formatter's `assignIds`: `data-hrv` from a counter, never changed, never reused, and copies of one ID all get fresh ones.
 - **Tier III, interface**: the filesystem gateway (paths under the root, 403 on escape), content types, directory listing, and the client assets injected into served pages: `client.css`, read on each GET, and `CLIENT_JS`.
-- **Text edits**: PUT also carries `texts`, `{"<id>": "new text"}`, holding every element the tab has edited. Resending is harmless. The server replaces the text only of elements that hold nothing but text (after directives are lifted out) and ignores blank text, so no markup is lost.
+- **Text edits**: a PUT with `text` replaces the text of an element that holds nothing but text (directives aside, and they stay). Other elements and blank text get 400, so no markup is lost.
 - **Files it serves**: agent-generated documents whose generation we control. The tool may require things of them, limit what they contain, and rewrite them on disk. When a file shape causes trouble, normalize it into a shape the tool handles rather than supporting every HTML a browser accepts. If a requirement can't be met by normalizing, add it to the agent instructions above.
-- **Deviation from the spec**: PUT carries an optional `version` (hash of the file bytes, from `data-version` on the `#hrv-directives` script); a mismatch gets 409 and no write. A PUT without `version` skips the check.
+- **Deviation from the spec**: element IDs live in the file, and a PUT carries one change with its base instead of the whole set of directives. The served page carries the file's hash as `data-version` on the `#hrv-directives` script, and every element's base in `#hrv-bases`.
 
 ## Gotchas for maintainers
 

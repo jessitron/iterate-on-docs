@@ -30,32 +30,28 @@ async function withServer(fn, args = []) {
     read: (name) => fs.readFileSync(path.join(dir, name), 'utf8'),
     write: (name, text) => fs.writeFileSync(path.join(dir, name), text),
     get: (p) => fetch(server.base + p),
-    // GET a page and return the parsed served document plus its directives JSON.
+    // GET a page and return the parsed served document, its directives and bases, and its version.
     async page(name) {
       const res = await server.get(name);
       const html = await res.text();
       const { document } = parseHTML(html);
       const json = document.querySelector('script#hrv-directives');
-      return { res, html, document, directives: JSON.parse(json.textContent) };
+      const bases = JSON.parse(document.querySelector('script#hrv-bases').textContent);
+      return { res, html, document, bases, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
     },
-    put: (name, directives) =>
+    // PUT one change, as the tab sends it: {id, base, directive} or {id, base, text}.
+    put: (name, change) =>
       fetch(server.base + name, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directives }),
+        body: JSON.stringify(change),
       }),
-    putTexts: (name, directives, texts) =>
-      fetch(server.base + name, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directives, texts }),
-      }),
-    putVersioned: (name, version, directives) =>
-      fetch(server.base + name, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version, directives }),
-      }),
+    // Load the page, then set one element's directive with the base the page gave.
+    async direct(name, selectorOrId, directive) {
+      const { document, bases } = await server.page(name);
+      const id = /^\d+$/.test(selectorOrId) ? selectorOrId : idOf(document, selectorOrId);
+      return server.put(name, { id, base: bases[id], directive });
+    },
     // Wait until the log has a line matching re (stdout arrives slightly after the response).
     async waitForLog(re, count = 1) {
       for (let i = 0; i < 200; i++) {
@@ -85,7 +81,7 @@ async function withServer(fn, args = []) {
   }
 }
 
-const idOf = (document, selector) => String(document.querySelector(selector).getAttribute('data-n'));
+const idOf = (document, selector) => document.querySelector(selector).getAttribute('data-hrv');
 const countOf = (text, needle) => text.split(needle).length - 1;
 
 test('1. normalize is idempotent', () =>
@@ -107,7 +103,7 @@ test('2. inline spacing survives', () =>
   withServer(async (s) => {
     s.write('spacing.html', '<!DOCTYPE html><html><body><p>a <b>b</b> &amp; c</p></body></html>');
     await s.get('spacing.html');
-    assert.ok(s.read('spacing.html').includes('<p>a <b>b</b> &amp; c</p>'));
+    assert.match(s.read('spacing.html'), /<p data-hrv="\d+">a <b>b<\/b> &amp; c<\/p>/);
   }));
 
 test('3. preformatted content is untouched', () =>
@@ -116,7 +112,7 @@ test('3. preformatted content is untouched', () =>
     const script = '<script>var s = "  two  spaces <b> &amp; ";\nif (a<b) { go(); }</script>';
     s.write('raw.html', `<!DOCTYPE html><html><body><div>${pre}${script}</div></body></html>`);
     await s.get('raw.html');
-    const after = s.read('raw.html');
+    const after = s.read('raw.html').replace(/ data-hrv="\d+"/g, '');
     assert.ok(after.includes(pre), after);
     assert.ok(after.includes(script), after);
   }));
@@ -124,68 +120,81 @@ test('3. preformatted content is untouched', () =>
 test('4. round-trip: PUT directives, file placement, GET returns the same map', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    const ids = {
-      p: idOf(document, 'p'),
-      img: idOf(document, 'img'),
-      pre: idOf(document, 'pre'),
-      body: idOf(document, 'body'),
-    };
+    const ids = Object.fromEntries(['p', 'img', 'pre', 'body'].map((sel) => [sel, idOf(document, sel)]));
     const directives = {
       [ids.p]: 'about the paragraph',
       [ids.img]: 'about the picture',
       [ids.pre]: 'about the code',
       [ids.body]: 'about the whole page',
     };
-    const res = await s.put('page.html', directives);
-    const body = await res.json();
-    assert.equal(body.ok, true);
+    let body;
+    for (const [id, text] of Object.entries(directives)) {
+      const res = await s.direct('page.html', id, text);
+      body = await res.json();
+      assert.equal(body.ok, true);
+    }
     assert.equal(body.count, 4);
 
     const file = s.read('page.html');
-    assert.match(file, /<body>\n {4}<!-- @AI: about the whole page -->/);
-    assert.match(file, /<p>\n {6}<!-- @AI: about the paragraph -->\n {6}First paragraph\n {4}<\/p>/);
+    assert.match(file, /<body data-hrv="\d+">\n {4}<!-- @AI: about the whole page -->/);
+    assert.match(file, /<p data-hrv="\d+">\n {6}<!-- @AI: about the paragraph -->\n {6}First paragraph\n {4}<\/p>/);
     assert.match(file, /<!-- @AI: about the picture -->\n {4}<img /);
-    assert.match(file, /<!-- @AI: about the code -->\n {4}<pre>/);
+    assert.match(file, /<!-- @AI: about the code -->\n {4}<pre /);
 
     const again = await s.page('page.html');
     assert.deepEqual(again.directives, directives);
   }));
 
-test('5. ids are stable across a PUT', () =>
+test('5. IDs live in the file and are stable across a PUT', () =>
   withServer(async (s) => {
     const first = await s.page('page.html');
     const selectors = ['body', 'h1', 'p', 'img', 'pre', 'ul', 'li'];
     const before = selectors.map((sel) => idOf(first.document, sel));
-    await s.put('page.html', { [before[2]]: 'a directive', [before[3]]: 'another', [before[0]]: 'third' });
+    assert.ok(before.every((id) => /^\d+$/.test(id)));
+    const onDisk = parseHTML(s.read('page.html')).document;
+    assert.deepEqual(selectors.map((sel) => idOf(onDisk, sel)), before);
+    await s.direct('page.html', before[2], 'a directive');
+    await s.direct('page.html', before[3], 'another');
     const second = await s.page('page.html');
     assert.deepEqual(selectors.map((sel) => idOf(second.document, sel)), before);
   }));
 
-test('6. PUT is the full set', () =>
+test('6. a PUT changes one directive; the rest stay where they are', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     const p = idOf(document, 'p');
     const img = idOf(document, 'img');
-    await s.put('page.html', { [p]: 'one', [img]: 'two' });
+    await s.direct('page.html', p, 'one');
+    await s.direct('page.html', img, 'two');
     assert.equal(countOf(s.read('page.html'), '<!-- @AI:'), 2);
 
-    await s.put('page.html', { [img]: 'two' });
+    const res = await s.direct('page.html', p, '');
+    assert.equal((await res.json()).count, 1);
     const file = s.read('page.html');
     assert.equal(countOf(file, '<!-- @AI:'), 1);
     assert.ok(file.includes('<!-- @AI: two -->'));
+  }));
 
-    const res = await s.put('page.html', {});
-    const body = await res.json();
-    assert.equal(body.ok, true);
-    assert.equal(body.count, 0);
-    assert.equal(countOf(s.read('page.html'), '<!-- @AI:'), 0);
+test('6b. a directive the agent finished stays gone when the tab saves another', () =>
+  withServer(async (s) => {
+    const { document } = await s.page('page.html');
+    const p = idOf(document, 'p');
+    await s.direct('page.html', p, 'done soon');
+    const tab = await s.page('page.html');
+    // the agent addresses the directive and deletes it
+    s.write('page.html', s.read('page.html').replace(/\n *<!-- @AI: done soon -->/, ''));
+    const res = await s.put('page.html', { id: idOf(document, 'h1'), base: tab.bases[idOf(document, 'h1')], directive: 'new one' });
+    assert.equal(res.status, 200);
+    const file = s.read('page.html');
+    assert.ok(!file.includes('done soon'));
+    assert.ok(file.includes('<!-- @AI: new one -->'));
   }));
 
 test('7. escaping: -- and > cannot end the comment', () =>
   withServer(async (s) => {
     const before = await s.page('page.html');
     const elementsOnDisk = parseHTML(s.read('page.html')).document.querySelectorAll('*').length;
-    await s.put('page.html', { [idOf(before.document, 'p')]: '-- really -->' });
+    await s.direct('page.html', idOf(before.document, 'p'), '-- really -->');
     const file = s.read('page.html');
     assert.ok(file.includes('<!-- @AI: - - really - -&gt; -->'), file);
     assert.equal(parseHTML(file).document.querySelectorAll('*').length, elementsOnDisk);
@@ -196,38 +205,39 @@ test('8. non-directive comments are preserved', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
     assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
-    await s.put('page.html', { [idOf(document, 'p')]: 'a directive' });
+    await s.direct('page.html', idOf(document, 'p'), 'a directive');
     assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
-    await s.put('page.html', {});
+    await s.direct('page.html', idOf(document, 'p'), '');
     assert.ok(s.read('page.html').includes('<!-- TODO: not a directive -->'));
   }));
 
-test('9. served page has no directive comments and data-n everywhere; disk has no data-n', () =>
+test('9. served page has no directive comments; its IDs are the file\'s, and the client has none', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    await s.put('page.html', { [idOf(document, 'p')]: 'visible only as data', [idOf(document, 'pre')]: 'x' });
+    await s.direct('page.html', idOf(document, 'p'), 'visible only as data');
+    await s.direct('page.html', idOf(document, 'pre'), 'x');
     const { html, document: served, directives } = await s.page('page.html');
     assert.equal(Object.keys(directives).length, 2);
     assert.ok(!/<!--\s*@AI:/.test(html));
     assert.ok(html.includes('<!-- TODO: not a directive -->'));
 
-    const unstamped = [...served.querySelectorAll('*')].filter((el) => !el.hasAttribute('data-n'));
-    // the injected style and two scripts come after stamping
-    assert.deepEqual(unstamped.map((el) => el.localName).sort(), ['script', 'script', 'style']);
-    assert.ok(!s.read('page.html').includes('data-n'));
+    const idsOf = (doc) => [...doc.querySelectorAll('[data-hrv]')].map((el) => `${el.localName}=${el.getAttribute('data-hrv')}`);
+    assert.deepEqual(idsOf(served), idsOf(parseHTML(s.read('page.html')).document));
+    for (const id of ['hrv-directives', 'hrv-bases']) assert.ok(!served.getElementById(id).hasAttribute('data-hrv'));
+    assert.equal(served.querySelector('style:last-of-type').hasAttribute('data-hrv'), false);
   }));
 
-test('9b. injection: json script escapes <, client assets are last and unstamped', () =>
+test('9b. injection: json script escapes <, client assets are last', () =>
   withServer(async (s) => {
     const { document } = await s.page('page.html');
-    await s.put('page.html', { [idOf(document, 'p')]: '</script><b>hi</b>' });
+    await s.direct('page.html', idOf(document, 'p'), '</script><b>hi</b>');
     const { html, directives } = await s.page('page.html');
     const jsonScript = html.match(/<script [^>]*id="hrv-directives"[^>]*>(.*?)<\/script>/s)[1];
     assert.ok(!jsonScript.includes('<'));
     assert.ok(jsonScript.includes('\\u003c'));
     assert.equal(Object.values(directives)[0], '</script&gt;<b&gt;hi</b&gt;'); // > is escaped on write, not unescaped on read
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'));
-    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hrv-directives'));
+    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hrv-bases'));
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/);
   }));
 
@@ -264,75 +274,89 @@ test('other files: assets, directory listing, 404', () =>
     const listing = await (await s.get('')).text();
     assert.ok(listing.includes('href="page.html"'));
     assert.equal((await s.get('nope.html')).status, 404);
-    const put404 = await s.put('nope.html', {});
+    const put404 = await s.put('nope.html', { id: '1', base: 'x', directive: '' });
     assert.equal(put404.status, 404);
   }));
 
-test('versioned PUT: current version succeeds, stale version gets 409, missing version still works', () =>
+test('conflict: a base that no longer matches, or an ID that is gone, writes nothing', () =>
   withServer(async (s) => {
-    const { document } = await s.page('page.html');
-    const v0 = document.querySelector('script#hrv-directives').getAttribute('data-version');
-    assert.match(v0, /^[0-9a-f]{12}$/);
-
-    const first = await s.putVersioned('page.html', v0, { 1: 'one' });
-    assert.equal(first.status, 200);
-    const firstBody = await first.json();
-    assert.equal(firstBody.count, 1);
-    assert.match(firstBody.version, /^[0-9a-f]{12}$/);
-    assert.notEqual(firstBody.version, v0);
-
-    const second = await s.putVersioned('page.html', firstBody.version, { 1: 'two' });
-    assert.equal(second.status, 200);
-    const secondVersion = (await second.json()).version;
-
-    // someone else edits the file on disk
-    s.write('page.html', s.read('page.html').replace('two', 'changed elsewhere'));
+    const { document, bases } = await s.page('page.html');
+    const li = idOf(document, 'li');
+    // the agent rewords the item
+    s.write('page.html', s.read('page.html').replace('>one</li>', '>uno</li>'));
     const before = s.read('page.html');
-    const stale = await s.putVersioned('page.html', secondVersion, { 1: 'mine' });
-    assert.equal(stale.status, 409);
-    assert.deepEqual(await stale.json(), { ok: false, error: 'file changed on disk; reload to continue' });
+    const stale = await s.put('page.html', { id: li, base: bases[li], directive: 'mine' });
+    assert.equal(stale.status, 412);
+    assert.deepEqual(await stale.json(), { ok: false, error: 'that element changed on disk' });
     assert.equal(s.read('page.html'), before);
-    await s.waitForLog('stale write rejected');
+    await s.waitForLog('conflict on element');
 
-    // no version: the check is skipped
-    assert.equal((await s.put('page.html', { 1: 'curl' })).status, 200);
+    const gone = await s.put('page.html', { id: '9999', base: 'x', directive: 'mine' });
+    assert.equal(gone.status, 412);
+    assert.equal((await gone.json()).error, 'that element is gone from the file');
   }));
 
-test('text edits: PUT texts rewrites the text of text-only elements, alongside directives', () =>
+test('an agent edit elsewhere does not block a save; the answer says the file changed', () =>
   withServer(async (s) => {
-    const { document } = await s.page('page.html');
-    const p = idOf(document, 'p');
-    const b = idOf(document, 'b');
-    const mixed = idOf(document, 'p:nth-of-type(2)');
-    const li = idOf(document, 'li');
-    const res = await s.putTexts('page.html', { [p]: 'reworded' }, {
-      [p]: 'First <para> & more',
-      [b]: 'strong',
-      [mixed]: 'flattened',
-      [li]: '   ',
-    });
+    const { document, bases, version } = await s.page('page.html');
+    const h1 = idOf(document, 'h1');
+    const first = await (await s.direct('page.html', h1, 'one')).json();
+    assert.equal(first.before, version);
+    assert.notEqual(first.after, version);
+
+    s.write('page.html', s.read('page.html').replace('>two</li>', '>deux</li>'));
+    const res = await s.put('page.html', { id: h1, base: bases[h1], directive: 'two' });
     assert.equal(res.status, 200);
-    assert.equal((await res.json()).count, 1);
+    const body = await res.json();
+    assert.notEqual(body.before, first.after, 'before is the file as this save found it');
+    assert.match(body.after, /^[0-9a-f]{12}$/);
+  }));
+
+test('bases: directives do not change them; a text edit returns new ones for the element and its ancestors', () =>
+  withServer(async (s) => {
+    const { document, bases } = await s.page('page.html');
+    const [ul, li, body] = [idOf(document, 'ul'), idOf(document, 'li'), idOf(document, 'body')];
+    await s.put('page.html', { id: li, base: bases[li], directive: 'a directive' });
+    const res = await s.put('page.html', { id: li, base: bases[li], text: 'first' });
+    assert.equal(res.status, 200, 'the directive left the base alone');
+    const answer = await res.json();
+    assert.ok([li, ul, body].every((id) => id in answer.bases));
+    assert.notEqual(answer.bases[ul], bases[ul]);
+    assert.equal((await s.put('page.html', { id: ul, base: bases[ul], directive: 'x' })).status, 412);
+    assert.equal((await s.put('page.html', { id: ul, base: answer.bases[ul], directive: 'x' })).status, 200);
+    assert.deepEqual((await s.page('page.html')).bases, { ...bases, ...answer.bases });
+  }));
+
+test('text edits: a PUT with text rewrites a text-only element and keeps its directive', () =>
+  withServer(async (s) => {
+    const { document, bases } = await s.page('page.html');
+    const p = idOf(document, 'p');
+    await s.put('page.html', { id: p, base: bases[p], directive: 'reworded' });
+    const res = await s.put('page.html', { id: p, base: bases[p], text: 'First <para> & more' });
+    assert.equal(res.status, 200);
 
     const file = s.read('page.html');
-    assert.match(file, /<p>\n {6}<!-- @AI: reworded -->\n {6}First &lt;para&gt; &amp; more\n {4}<\/p>/);
-    assert.ok(file.includes('<p>Second <b>strong</b> paragraph</p>'), 'mixed content keeps its markup');
-    assert.ok(file.includes('<li>one</li>'), 'blank text is ignored');
+    assert.match(file, /<p data-hrv="\d+">\n {6}<!-- @AI: reworded -->\n {6}First &lt;para&gt; &amp; more\n {4}<\/p>/);
     assert.equal(file, normalize(file));
-
-    // texts are idempotent: sending the same set again changes nothing
-    await s.putTexts('page.html', { [p]: 'reworded' }, { [p]: 'First <para> & more', [b]: 'strong' });
-    assert.equal(s.read('page.html'), file);
     assert.deepEqual((await s.page('page.html')).directives, { [p]: 'reworded' });
   }));
 
-test('texts must be an object of strings when present', () =>
+test('text edits refuse markup-holding elements and blank text', () =>
   withServer(async (s) => {
-    const res = await fetch(s.base + 'page.html', {
-      method: 'PUT',
-      body: JSON.stringify({ directives: {}, texts: ['x'] }),
-    });
-    assert.equal(res.status, 400);
+    const { document, bases } = await s.page('page.html');
+    const mixed = idOf(document, 'p:nth-of-type(2)');
+    const li = idOf(document, 'li');
+    const before = s.read('page.html');
+    assert.equal((await s.put('page.html', { id: mixed, base: bases[mixed], text: 'flattened' })).status, 400);
+    assert.equal((await s.put('page.html', { id: li, base: bases[li], text: '   ' })).status, 400);
+    assert.equal(s.read('page.html'), before);
+  }));
+
+test('a PUT body must be one change: id, base, and a directive or a text', () =>
+  withServer(async (s) => {
+    for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', text: 'b' }, { id: 1, base: 'x', text: 'b' }]) {
+      assert.equal((await s.put('page.html', body)).status, 400, JSON.stringify(body));
+    }
   }));
 
 test('errors are plain-text 500 and logged', () =>
@@ -341,7 +365,7 @@ test('errors are plain-text 500 and logged', () =>
     assert.equal(res.status, 400);
     // a directory named like an html file makes readFile fail with EISDIR
     fs.mkdirSync(path.join(s.dir, 'weird.html'));
-    const boom = await s.put('weird.html', {});
+    const boom = await s.put('weird.html', { id: '1', base: 'x', directive: '' });
     assert.equal(boom.status, 500);
     assert.match(boom.headers.get('content-type'), /text\/plain/);
     for (let i = 0; i < 100 && !s.stderr.includes('EISDIR'); i++) await new Promise((r) => setTimeout(r, 10));
@@ -354,17 +378,19 @@ test('idempotence holds for fixtures and for the output of a PUT', () =>
       const text = fs.readFileSync(path.join(here, 'fixtures', name), 'utf8');
       const once = normalize(text);
       assert.equal(normalize(once), once, name);
-      const { document } = await s.page(name);
-      const ids = [...document.querySelectorAll('[data-n]')]
+      const { document, bases } = await s.page(name);
+      const ids = [...document.querySelectorAll('[data-hrv]')]
         .filter((_, i) => i % 3 === 0)
-        .map((el) => el.getAttribute('data-n'));
-      await s.put(name, Object.fromEntries(ids.map((id) => [id, `directive ${id}`])));
+        .map((el) => el.getAttribute('data-hrv'));
+      for (const id of ids) {
+        assert.equal((await s.put(name, { id, base: bases[id], directive: `directive ${id}` })).status, 200, `${name} ${id}`);
+      }
       const written = s.read(name);
       assert.equal(normalize(written), written, `${name} after PUT`);
       assert.ok(countOf(written, '<!-- @AI:') > 0);
-      // a second PUT with the directives the page reports changes nothing
-      const { directives } = await s.page(name);
-      await s.put(name, directives);
+      // setting a directive to what it already is changes nothing
+      const again = await s.page(name);
+      for (const [id, text] of Object.entries(again.directives)) await s.put(name, { id, base: again.bases[id], directive: text });
       assert.equal(s.read(name), written, `${name} PUT round trip`);
     }
   }));
@@ -372,8 +398,7 @@ test('idempotence holds for fixtures and for the output of a PUT', () =>
 test('--author changes the prefix', () =>
   withServer(
     async (s) => {
-      const { document } = await s.page('page.html');
-      await s.put('page.html', { [idOf(document, 'p')]: 'hello' });
+      await s.direct('page.html', 'p', 'hello');
       assert.ok(s.read('page.html').includes('<!-- sam: hello -->'));
       assert.deepEqual(Object.values((await s.page('page.html')).directives), ['hello']);
     },
@@ -385,10 +410,10 @@ test('served page carries the client and still re-parses with the same element c
     const { html, document } = await s.page('demo.html');
     assert.ok(html.includes('#hrv-layer'), 'client CSS present');
     assert.ok(html.includes("id = 'hrv-layer'"), 'client JS present');
-    // exactly one client script plus the directives JSON, appended after stamping
-    const stamped = document.querySelectorAll('[data-n]').length;
-    const onDisk = parseHTML(s.read('demo.html')).document.querySelectorAll('*').length;
-    assert.equal(stamped, onDisk);
+    // the client and its JSON go in after the file's own elements, with no IDs
+    const served = document.querySelectorAll('[data-hrv]').length;
+    const onDisk = parseHTML(s.read('demo.html')).document.querySelectorAll('[data-hrv]').length;
+    assert.equal(served, onDisk);
     assert.equal(document.querySelector('#hrv-layer'), null, 'layer is built by the script, not the server');
     // the inlined script must not close early
     const scripts = [...document.querySelectorAll('script')];
@@ -399,7 +424,7 @@ test('a page without html, head or body gets them, and the client lands in them'
   withServer(async (s) => {
     const { html, document } = await s.page('bare.html');
     const onDisk = s.read('bare.html');
-    assert.match(onDisk, /<html>\s*<head>\s*<title>Bare page<\/title>[\s\S]*<\/head>\s*<body>\s*<main>/);
+    assert.match(onDisk, /<html data-hrv-next="\d+">\s*<head>\s*<title>Bare page<\/title>[\s\S]*<\/head>\s*<body data-hrv="1">\s*<main data-hrv="2">/);
     assert.match(onDisk, /<script>document\.title \+= '!';<\/script>\s*<\/body>\s*<\/html>\s*$/);
     assert.equal(document.querySelector('title').textContent, 'Bare page', 'client CSS stays out of <title>');
     assert.ok(html.indexOf('#hrv-layer') < html.indexOf('</head>'), 'client CSS in head');
