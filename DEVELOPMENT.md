@@ -83,6 +83,6 @@ It runs the HTML server's tests first.
 
 ## Updating the HTML server
 
-`html-revisor/` is a copy. The code lives in `~/code/jessitron/html-with-comments` (the repo keeps its old name for now), and its
+`html-revisor/` is a copy. The code lives in `~/code/jessitron/html-revisor`, and its
 `deploy` script replaces this directory and commits here. Don't edit the copy. A deploy is not a
 release: run `./release` afterward to ship it.
