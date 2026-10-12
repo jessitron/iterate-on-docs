@@ -61,10 +61,10 @@ code. The overview summarizes what a human needs to see at a glance.
 ## Form
 
 - One self-contained file: inline CSS and inline SVG, no build step, no external requests, no
-  scripts. Static HTML, so the user can comment on it in the browser.
+  scripts. Static HTML, so the user can leave directives on it in the browser.
 - Diffable. Keep structure and ordering steady across versions, so a git diff between two versions
   shows what changed in the project, not churn in the markup.
-- Each view is a `<section>` with a heading, so comments attach to a clear place.
+- Each view is a `<section>` with a heading, so directives attach to a clear place.
 - Make the pictures worth looking at. SVG lets you draw what the project is like, not only boxes
   and arrows.
 
@@ -77,7 +77,7 @@ code. The overview summarizes what a human needs to see at a glance.
 3. Read the sources. Find the direction, the major pieces, and what is underway. See how much lines up with the user's expressed vision. When the purpose or the goals are not clear, ask the user one question at a time until you can draw them.
 4. Write or update `OVERVIEW.html`.
 5. Refine it with the user using the `iterate-on-a-document` skill from this plugin, on
-   `OVERVIEW.html`. Its HTML steps let the user comment on the page in the browser.
+   `OVERVIEW.html`. Its HTML steps let the user leave directives on the page in the browser.
 
 ## Keeping it current
 
