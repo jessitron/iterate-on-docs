@@ -26,7 +26,7 @@ if [ -n "$(git status --porcelain)" ]; then
   echo "release: uncommitted changes; commit them first" >&2; git status --short >&2; exit 1
 fi
 
-(cd html-with-comments && npm test --silent)
+(cd html-revisor && npm test --silent)
 
 version=$(node -e '
   const fs = require("fs");

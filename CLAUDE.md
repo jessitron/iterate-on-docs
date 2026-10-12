@@ -13,7 +13,7 @@ or "the agent", not "Claude". Name Claude Code only where the instructions are s
 
 ## The HTML server's contract
 
-`html-with-comments/` is deployed here from its own repo. The Contract section of its README lists
+`html-revisor/` is deployed here from its own repo. The Contract section of its README lists
 what this repo relies on, including the words the user sees in its page. The skills and README
 here use those same words. When that repo changes its Contract, its agent makes the matching
 edits here along with the deploy. If you find a mismatch, the Contract wins.

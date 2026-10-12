@@ -26,7 +26,7 @@ The skill is `skills/iterate-on-a-document/SKILL.md`, in the
 
 **Other agents:** clone this repo and add `skills/iterate-on-a-document` (and, if you want it,
 `skills/make-a-project-overview`) to your agent's skills.
-Keep the repo together: the skill finds the HTML server at `../../html-with-comments/` from its
+Keep the repo together: the skill finds the HTML server at `../../html-revisor/` from its
 own directory.
 
 HTML needs Node 20 or later. Markdown needs nothing extra.
@@ -71,7 +71,7 @@ The server rewrites the file into its own formatting when it loads the page. The
 that rewrite by itself, so it doesn't mix with your edits. This is for HTML written to be
 iterated on, not for live or generated web pages.
 
-The server is in [`html-with-comments/`](html-with-comments/README.md), with details on the
+The server is in [`html-revisor/`](html-revisor/README.md), with details on the
 directive format.
 
 ## Project overview

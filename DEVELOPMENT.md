@@ -65,7 +65,7 @@ is for working on this repo, not for users of the plugin.
 The HTML server has its own tests and needs Node 20 or later:
 
 ```
-cd html-with-comments && npm test
+cd html-revisor && npm test
 ```
 
 ## Release
@@ -83,6 +83,6 @@ It runs the HTML server's tests first.
 
 ## Updating the HTML server
 
-`html-with-comments/` is a copy. The code lives in `~/code/jessitron/html-with-comments`, and its
+`html-revisor/` is a copy. The code lives in `~/code/jessitron/html-with-comments` (the repo keeps its old name for now), and its
 `deploy` script replaces this directory and commits here. Don't edit the copy. A deploy is not a
 release: run `./release` afterward to ship it.

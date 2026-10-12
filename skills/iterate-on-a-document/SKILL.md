@@ -25,9 +25,9 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
 0. Commit the file before iterating.
    **HTML:** start the HTML server, then set the baseline:
    - Run in the background: `node <server> <directory holding the file> --port 0`, where
-     `<server>` is `../../html-with-comments/server.mjs` resolved from this skill's base
+     `<server>` is `../../html-revisor/server.mjs` resolved from this skill's base
      directory. It needs Node 20 or later and nothing else.
-   - It prints `html-notes: http://localhost:<port>/ serving <dir>`. The page URL is that address
+   - It prints `html-revisor: http://localhost:<port>/ serving <dir>`. The page URL is that address
      plus the file's path under `<dir>`.
    - Fetch the page URL once (`curl -s -o /dev/null <url>`). The server rewrites the file into
      its normalized formatting on each load. Commit that rewrite as its own commit.
@@ -50,7 +50,7 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
    bare `@AI:` in its text, so grep for the HTML comment form. Each directive is an HTML comment,
    `<!-- @AI: ... -->`, about the element that contains it as its first child — or, just before
    a void or raw-text element, about that next element. The full list of those elements is under
-   "Directive format" in `../../html-with-comments/README.md`.
+   "Directive format" in `../../html-revisor/README.md`.
 8. For each batch: interpret and execute the commands, remove that batch's directives from the
    document, then commit the result.
    **HTML:** edit the file in place. Never regenerate it from scratch while
