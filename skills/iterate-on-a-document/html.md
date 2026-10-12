@@ -5,17 +5,16 @@ skill's base directory. The tool is html-revisor; it needs Node 20 or later and 
 
 ## Start
 
-1. Run in the background: `node ../../html-revisor/server.mjs <directory holding the file> --port 0`.
-2. It prints `html-revisor: http://localhost:<port>/ serving <dir>`. The page URL is that address
-   plus the file's path under `<dir>`.
-3. Tidy the file (below) and commit the rewrite as its own commit, so later diffs show only the
-   user's changes.
+Run in the background: `node ../../html-revisor/server.mjs <file> --port 0`. It formats the file
+(the same as Tidy, below) and prints `html-revisor: <page URL> serving <dir>`. The commit that
+follows holds the formatting, so later diffs show only the user's changes. If formatting fails,
+the server exits 1 with `<file>: <problem>` on stderr; fix that and start it again.
 
 ## Hand off
 
-Give the user the page URL instead of the file path. Tell them to reload the page, then click a block,
-a link, an image, or part of an SVG to leave a directive on it or change its wording. Their directives and edits save into
-the file. They can also edit the file by hand.
+Give the user the page URL instead of the file path. Tell them to reload the page, then click a
+block, a link, an image, or part of an SVG to leave a directive on it or change its wording.
+Their directives and edits save into the file. They can also edit the file by hand.
 
 ## Tidy
 
