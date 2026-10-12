@@ -46,12 +46,13 @@ file's formatting stable; the steps marked **HTML** cover that. Skip them for ma
 6. Commit that generalization.
 7. Find every `@AI: <command>` annotation in the document. Group commands that belong together
    into batches.
-   **HTML:** run `grep -n '@AI:' <file>`. Each is a comment, `<!-- @AI: ... -->`, about the
-   element that contains it as its first child — or, before an `img`, `hr`, `br`, `input`,
-   `pre`, `textarea`, `script`, or `style`, about that next element.
+   **HTML:** run `grep -n '<!-- *@AI:' <file>`. A page that talks about annotations holds the
+   bare `@AI:` in its text, so grep for the comment form. Each is a comment,
+   `<!-- @AI: ... -->`, about the element that contains it as its first child — or, before an
+   `img`, `hr`, `br`, `input`, `pre`, `textarea`, `script`, or `style`, about that next element.
 8. For each batch: interpret and execute the commands, remove that batch's annotations from the
    document, then commit the result.
-   **HTML:** edit the file in place. Never regenerate it from scratch while `grep -c '@AI:'`
-   is above 0, or unresolved comments are lost.
+   **HTML:** edit the file in place. Never regenerate it from scratch while
+   `grep -c '<!-- *@AI:'` is above 0, or unresolved comments are lost.
 9. Summarize the actions you took, in brief.
 10. Go to step 1.
