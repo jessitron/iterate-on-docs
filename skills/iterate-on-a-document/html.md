@@ -40,3 +40,9 @@ full list of those elements is under "Directive format" in `../../html-revisor/R
 ## End
 
 Stop the server.
+
+## Report bugs
+
+If the server crashes or the user complains about it, offer to file an issue at
+https://github.com/jessitron/html-revisor/issues. Include the commit named in
+`../../html-revisor/VENDORED.md`. Issues are public: leave the user's document out.
