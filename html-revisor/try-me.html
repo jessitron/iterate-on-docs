@@ -9,19 +9,29 @@
   table { border-collapse: collapse; }
   th, td { border: 1px solid #ccc; padding: 0.25rem 0.75rem; text-align: left; }
   pre { background: #f4f4f4; padding: 0.75rem; }
+  .case { border-left: 4px solid #8250df; padding: 0.25rem 0 0.25rem 1rem; margin: 1.5rem 0; }
+  .case > h4 { margin: 0; }
+  .ask { color: #656d76; font-size: 0.9rem; margin: 0.1rem 0 0.5rem; }
+  .ex { border: 1px dashed #bbb; border-radius: 6px; padding: 0.25rem 0.75rem; }
+  .pill { font: 0.75rem ui-monospace, monospace; color: #656d76; border: 1px solid #ccc; border-radius: 999px; padding: 0 0.4rem; }
+  .stats { display: flex; gap: 1rem; }
+  .stat { display: flex; flex-direction: column; align-items: center; border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; }
+  .stat .big { font-size: 1.75rem; font-weight: 700; }
+  a.tile { display: block; border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; color: inherit; text-decoration: none; }
+  .row { display: flex; gap: 0.5rem; align-items: center; }
 </style>
   </head>
   <body>
     <h1>Project overview</h1>
-    <p>This page exercises html-revisor. Click anything to comment on it.</p>
+    <p>This page exercises html-revisor. Click anything to leave a directive on it.</p>
     <h2>Text you can edit</h2>
     <p>This paragraph holds only text, so the box offers a Text field.</p>
     <p>
-      This one has <b>bold</b> and <em>emphasis</em> inside, so the paragraph itself gets only a comment. Click the bold word to edit just that word.
+      This one has <b>bold</b> and <em>emphasis</em> inside, so the paragraph itself gets only a directive. Click the bold word to edit just that word.
     </p>
     <p>Entities survive editing: Fish &amp; chips &lt;tasty&gt; cost&nbsp;$5.</p>
     <p>
-      A <a href="test/fixtures/other.html">plain click on this link</a> comments; ⌘-click navigates.
+      A <a href="test/fixtures/other.html">plain click on this link</a> opens the directive box; ⌘-click navigates.
     </p>
     <h2>Lists</h2>
     <ul>
@@ -48,15 +58,452 @@
         </tr>
       </tbody>
     </table>
-    <h2>Elements whose notes sit beside them</h2>
+    <h2>Elements whose directives sit beside them</h2>
     <hr>
     <pre>  preformatted text
     keeps its   spacing</pre>
     <div class="card">
       <h3>A card</h3>
       <p>
-        Cards are wrappers: clicking the margin inside the card comments on the card itself.
+        Cards are wrappers: clicking the margin inside the card opens the directive box for the card itself.
       </p>
     </div>
+    <section id="chunks">
+      <h2>What is a prose chunk?</h2>
+      <p>
+        Cases for PLAN.html stage 2. Each one asks where a chunk starts and ends, or what can sit inside one. The dashed box holds the example.
+      </p>
+      <h3>A. Clear prose</h3>
+      <div class="case">
+        <h4>A1. Plain paragraph</h4>
+        <p class="ask">The baseline: one chunk, edits as plain text.</p>
+        <div class="ex">
+          <p>The formatter moves out of the server and runs on its own.</p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>A2. Paragraph with markdown-able markup</h4>
+        <p class="ask">
+          One chunk. Markdown: <code>**bold**</code>, <code>*em*</code>, <code>`code`</code>, <code>[link](…)</code>.
+        </p>
+        <div class="ex">
+          <p>
+            Run <code>npm test</code>, then read <strong>every</strong> failure, <em>especially</em> the <a href="#chunks">first one</a>.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>A3. Heading with inline markup</h4>
+        <p class="ask">
+          A heading is its own chunk. Does the markdown include the <code>#</code>, or is that the element's business?
+        </p>
+        <div class="ex">
+          <h3>Moving <code>normalize</code> into <em>formatter.mjs</em></h3>
+        </div>
+      </div>
+      <div class="case">
+        <h4>A4. Line breaks</h4>
+        <p class="ask">
+          A <code>&lt;br&gt;</code> becomes a trailing backslash or two spaces in markdown. Which round-trips?
+        </p>
+        <div class="ex">
+          <p>Jess Kerr<br>html-revisor<br>October 2026</p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>A5. Entities and non-breaking spaces</h4>
+        <p class="ask">
+          Markdown has no <code>&amp;nbsp;</code>. Does the field show a real U+00A0, or the entity?
+        </p>
+        <div class="ex">
+          <p>Fish &amp; chips cost&nbsp;$5 &lt;each&gt; — “quoted” and 5&nbsp;×&nbsp;3.</p>
+        </div>
+      </div>
+      <h3>B. Inline markup markdown can't say</h3>
+      <div class="case">
+        <h4>B1. Phrasing elements with no markdown syntax</h4>
+        <p class="ask">
+          These pass through as raw HTML in the markdown. Is that readable enough to edit?
+        </p>
+        <div class="ex">
+          <p>
+            Press <kbd>⌘</kbd>+<kbd>↵</kbd> to save. H<sub>2</sub>O, x<sup>2</sup>, <mark>highlighted</mark>, <del>removed</del> <ins>added</ins>, <s>struck</s>, <abbr title="Domain-Driven Design">DDD</abbr>, <q>a quote</q>, <time datetime="2026-10-12">today</time>, <small>fine print</small>, <u>underlined</u>.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>B2. Attributes on inline elements</h4>
+        <p class="ask">
+          Markdown links carry href and title only. Where do <code>class</code>, <code>target</code>, <code>style</code> go?
+        </p>
+        <div class="ex">
+          <p>
+            See <a href="#chunks" title="this section" target="_blank" class="ref">the section</a> and a <span style="color: #bc4c00">warning-colored</span> word.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>B3. Styled span as a component</h4>
+        <p class="ask">
+          PLAN.html does this with yak ids. Raw HTML in the markdown, or a token the editor protects?
+        </p>
+        <div class="ex">
+          <p>
+            Split out the formatter <span class="pill">stez</span>, then decide chunks <span class="pill">a17m</span>.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>B4. b vs strong, i vs em</h4>
+        <p class="ask">
+          Markdown has one syntax for each pair. The formatter makes them canonical; does anyone mind?
+        </p>
+        <div class="ex">
+          <p><b>b</b> and <strong>strong</strong>; <i>i</i> and <em>em</em>.</p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>B5. Footnote reference</h4>
+        <p class="ask">
+          A <code>sup</code> around a link: two nested raw tags, or one markdown link inside raw <code>sup</code>?
+        </p>
+        <div class="ex">
+          <p>Linkedom skips the skeleton.<sup><a href="#fn1">1</a></sup></p>
+        </div>
+      </div>
+      <h3>C. Containers: one chunk or many?</h3>
+      <div class="case">
+        <h4>C1. Simple list</h4>
+        <p class="ask">
+          One chunk (edit as <code>- item</code> lines, add and remove items) or one per <code>&lt;li&gt;</code>?
+        </p>
+        <div class="ex">
+          <ul>
+            <li>Formatter</li>
+            <li>Chunks with <strong>bold</strong></li>
+            <li>Round-trip</li>
+          </ul>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C2. Nested list</h4>
+        <p class="ask">
+          The inner list sits inside the first item's text. Where's the boundary?
+        </p>
+        <div class="ex">
+          <ul>
+            <li>
+              Stage 1
+              <ul>
+                <li>move the code</li>
+                <li>add a CLI</li>
+              </ul>
+            </li>
+            <li>Stage 2</li>
+          </ul>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C3. List item with paragraphs</h4>
+        <p class="ask">
+          A loose list: the <code>li</code> holds blocks, not phrasing. Chunks are the <code>p</code>s, then?
+        </p>
+        <div class="ex">
+          <ol start="3">
+            <li>
+              <p>Round-trip.</p>
+              <p>Opening and saving must change nothing.</p>
+            </li>
+            <li>
+              <p>Markdown in the box.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C4. Definition list</h4>
+        <p class="ask">
+          Markdown has no <code>dl</code>. Each <code>dt</code> and <code>dd</code> its own chunk?
+        </p>
+        <div class="ex">
+          <dl>
+            <dt>directive</dt>
+            <dd>An <code>@AI</code> request, stored as an HTML comment.</dd>
+            <dt>chunk</dt>
+            <dd>The unit of editing and directives.</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C5. Blockquote</h4>
+        <p class="ask">
+          With paragraphs inside, the paragraphs are chunks. With bare text, the blockquote is.
+        </p>
+        <div class="ex">
+          <blockquote>
+            <p>The curious mind over the inventive mind.</p>
+            <p>— Clausewitz</p>
+          </blockquote>
+          <blockquote>A blockquote holding text directly.</blockquote>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C6. Table cells</h4>
+        <p class="ask">Each cell a chunk? The header row too? A cell holding a list?</p>
+        <div class="ex">
+          <table>
+            <caption>Stages</caption>
+            <tr>
+              <th>stage</th>
+              <th>status</th>
+            </tr>
+            <tr>
+              <td>Formatter</td>
+              <td><strong>in progress</strong>, see <a href="#chunks">PLAN</a></td>
+            </tr>
+            <tr>
+              <td>Chunks</td>
+              <td>
+                <ul>
+                  <li>decide</li>
+                  <li>build</li>
+                </ul>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C7. Figure with caption</h4>
+        <p class="ask">
+          The caption is prose; the figure is a container; the image is nonprose.
+        </p>
+        <div class="ex">
+          <figure>
+            <svg viewBox="0 0 120 40" width="120">
+              <rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df"></rect><text x="60" y="25" text-anchor="middle" font-size="12">diagram</text>
+            </svg>
+            <figcaption>The <em>path</em>, as of today.</figcaption>
+          </figure>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C8. Details and summary</h4>
+        <p class="ask">Summary is phrasing; the body is flow. Two chunks?</p>
+        <div class="ex">
+          <details open>
+            <summary>Why <strong>formatter</strong> first?</summary>
+            <p>It can take validation steps.</p>
+          </details>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C9. Div holding text directly</h4>
+        <p class="ask">
+          No <code>p</code>, but it reads as a paragraph. Same as a <code>p</code>?
+        </p>
+        <div class="ex">
+          <div>A div with <em>text</em> and no paragraph element.</div>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C10. Text and blocks mixed in one container</h4>
+        <p class="ask">
+          Bare text, then a block, then more bare text. Each text run an anonymous chunk? Or does the formatter wrap them in <code>p</code>?
+        </p>
+        <div class="ex">
+          <div>
+            Text before the list, <strong>with bold</strong>.
+            <ul>
+              <li>an item</li>
+            </ul>
+            Text after the list.
+          </div>
+        </div>
+      </div>
+      <div class="case">
+        <h4>C11. Code block</h4>
+        <p class="ask">
+          A chunk edited as a fenced block? Spans from syntax highlighting can't survive markdown.
+        </p>
+        <div class="ex">
+          <pre><code>node formatter.mjs PLAN.html
+echo $?</code></pre>
+          <pre><code><span class="kw">const</span> x = <span class="num">1</span>;</code></pre>
+        </div>
+      </div>
+      <h3>D. Nonprose inside prose</h3>
+      <div class="case">
+        <h4>D1. Inline icon</h4>
+        <p class="ask">
+          An <code>svg</code> inside a sentence. A token in the markdown? Raw SVG would swamp the text.
+        </p>
+        <div class="ex">
+          <p>
+            Click the
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <circle cx="8" cy="8" r="6" fill="#d6336c"></circle>
+            </svg>
+            marker to open the directive box.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D2. Inline image</h4>
+        <p class="ask">Markdown has <code>![alt](src)</code>, but not width or class.</p>
+        <div class="ex">
+          <p>
+            The armadillo <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cellipse cx='10' cy='6' rx='9' ry='5' fill='%23998'/%3E%3C/svg%3E" alt="armadillo" width="20"> lives in DESIGN.html.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D3. Code block in a list item</h4>
+        <p class="ask">Prose, then nonprose, then prose, all in one <code>li</code>.</p>
+        <div class="ex">
+          <ul>
+            <li>
+              Run the formatter:
+              <pre><code>node formatter.mjs try-me.html</code></pre>
+              then reload the page.
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D4. Table in a list item</h4>
+        <p class="ask">Same shape as D3, with a bigger nonprose piece.</p>
+        <div class="ex">
+          <ul>
+            <li>
+              Exit codes:
+              <table>
+                <tr>
+                  <td>0</td>
+                  <td>formatted</td>
+                </tr>
+                <tr>
+                  <td>1</td>
+                  <td>can't fix</td>
+                </tr>
+              </table>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D5. A diagram in a paragraph</h4>
+        <p class="ask">
+          A big <code>svg</code> between sentences. Does it split the paragraph into two chunks?
+        </p>
+        <div class="ex">
+          <p>
+            Here is the path.
+            <svg viewBox="0 0 200 30" width="200">
+              <line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4"></line><circle cx="10" cy="15" r="6" fill="#1a7f37"></circle><circle cx="100" cy="15" r="6" fill="#0969da"></circle><circle cx="190" cy="15" r="6" fill="#0969da"></circle>
+            </svg>
+            It has six stages.
+          </p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D6. Text inside an SVG</h4>
+        <p class="ask">
+          SVG <code>text</code> takes directives today. Is it a prose chunk too, editable as markdown?
+        </p>
+        <div class="ex">
+          <svg viewBox="0 0 240 40" width="240">
+            <text x="10" y="25" font-size="14">Formatter <tspan font-weight="700">alone</tspan></text>
+          </svg>
+        </div>
+      </div>
+      <div class="case">
+        <h4>D7. Form controls in text</h4>
+        <p class="ask">Unlikely in an overview page, but phrasing content. Nonprose token?</p>
+        <div class="ex">
+          <p>Show <input type="checkbox" checked> done stages, or <button>reset</button>.</p>
+        </div>
+      </div>
+      <h3>E. Phrasing that isn't prose</h3>
+      <div class="case">
+        <h4>E1. Stat tiles</h4>
+        <p class="ask">
+          All spans, so phrasing by the spec. But it's layout. Chunks per tile, per span, or none?
+        </p>
+        <div class="ex">
+          <div class="stats">
+            <div class="stat"><span class="big">6</span><span>stages</span></div>
+            <div class="stat"><span class="big">1</span><span>in progress</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="case">
+        <h4>E2. A label row</h4>
+        <p class="ask">Spans side by side in a flex row. One sentence, or three labels?</p>
+        <div class="ex">
+          <div class="row">
+            <span class="pill">stage 1</span><span>Formatter</span><span>→ done</span>
+          </div>
+        </div>
+      </div>
+      <div class="case">
+        <h4>E3. A link wrapping blocks</h4>
+        <p class="ask">
+          A card that's one big link. The link is the container; its heading and paragraph are chunks?
+        </p>
+        <div class="ex">
+          <a class="tile" href="#chunks">
+            <h4>DESIGN.html</h4>
+            <p>Everything the tool adds to a page.</p>
+          </a>
+        </div>
+      </div>
+      <div class="case">
+        <h4>E4. Paragraph that is all link</h4>
+        <p class="ask">Edit the link text, or the paragraph? Same chunk either way?</p>
+        <div class="ex">
+          <p><a href="#chunks">Back to the top of the cases</a></p>
+        </div>
+      </div>
+      <h3>F. Odd shapes</h3>
+      <div class="case">
+        <h4>F1. Empty and blank paragraphs</h4>
+        <p class="ask">Chunks with nothing to edit. Skip them, or let you type into them?</p>
+        <div class="ex">
+          <p></p>
+          <p>&nbsp;</p>
+          <p>Between two empties.</p>
+        </div>
+      </div>
+      <div class="case">
+        <h4>F2. Sibling chunks with no wrapper</h4>
+        <p class="ask">
+          A heading and paragraphs straight in a section. Each its own chunk, or the section as one markdown doc?
+        </p>
+        <div class="ex">
+          <section>
+            <h4>A section</h4>
+            <p>First paragraph.</p>
+            <p>Second paragraph.</p>
+            <hr>
+            <p>After a rule.</p>
+          </section>
+        </div>
+      </div>
+      <div class="case">
+        <h4>F3. A list inside a paragraph</h4>
+        <p class="ask">
+          Written as <code>&lt;p&gt;Before the list&lt;ul&gt;…&lt;/ul&gt;after the list&lt;/p&gt;</code>. The formatter does what a browser does: it closes the <code>p</code> at the <code>ul</code>, leaves the trailing text bare (C10), and turns the stray <code>&lt;/p&gt;</code> into an empty <code>p</code> (F1). Leave it, or should the formatter wrap the bare text?
+        </p>
+        <div class="ex">
+          <p>Before the list</p>
+          <ul>
+            <li>inside</li>
+          </ul>
+          after the list
+          <p></p>
+        </div>
+      </div>
+    </section>
   </body>
 </html>

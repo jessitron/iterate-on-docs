@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseHTML } from '../vendor/linkedom.mjs';
-import { normalize } from '../server.mjs';
+import { normalize } from '../formatter.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverFile = path.join(here, '..', 'server.mjs');

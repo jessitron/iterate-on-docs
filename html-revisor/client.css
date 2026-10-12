@@ -1,0 +1,101 @@
+/* html-revisor client styles. Page elements get only hrv-hover and hrv-has-directive.
+   The server inlines this file into every page it serves; DESIGN.html links it.
+   Components are scoped to #hrv-layer, the layer the client script adds, or to .hrv-layer,
+   for showing them in a document. :is() keeps the ID's specificity, so page CSS can't win. */
+
+:root {
+  --hrv-accent: #d6336c;
+  --hrv-accent-strong: #a61e4d;
+  --hrv-on-accent: #fff;
+  --hrv-error: #b02a37;
+  --hrv-text: #222;
+  --hrv-muted: #666;
+  --hrv-line: #bbb;
+  --hrv-surface: #fff;
+  --hrv-field: #fff;
+  --hrv-button: #f3f3f3;
+  --hrv-button-hover: #e4e4e4;
+  --hrv-toast: #222;
+  --hrv-on-toast: #fff;
+  --hrv-font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hrv-small: 11px;
+  --hrv-halo: #fff;
+  --hrv-shadow-marker: 0 1px 4px 2px rgba(0, 0, 0, 0.5);
+  --hrv-shadow-box: 0 6px 24px rgba(0, 0, 0, 0.28);
+  --hrv-pencil: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M11.2 2.3l2.5 2.5-8.2 8.2-3.3.8.8-3.3z' fill='white'/></svg>");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hrv-text: #eee;
+    --hrv-muted: #aaa;
+    --hrv-line: #555;
+    --hrv-surface: #25272b;
+    --hrv-field: #1a1b1e;
+    --hrv-button: #383b40;
+    --hrv-button-hover: #4a4d53;
+    --hrv-toast: #eee;
+    --hrv-on-toast: #222;
+  }
+}
+
+/* The halo: every mark over the page gets a light edge and a dark edge, so it shows on any page. */
+.hrv-hover {
+  outline: 2px dashed var(--hrv-accent) !important; outline-offset: 1px !important; cursor: copy !important;
+  box-shadow: 0 0 0 3px var(--hrv-halo) !important;
+}
+.hrv-has-directive { box-shadow: inset 3px 0 0 var(--hrv-accent) !important; }
+.hrv-hover.hrv-has-directive { box-shadow: inset 3px 0 0 var(--hrv-accent), 0 0 0 3px var(--hrv-halo) !important; }
+
+/* Reset everything inside the layer so the page's CSS cannot leak in. */
+#hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }
+:is(#hrv-layer, .hrv-layer) *, :is(#hrv-layer, .hrv-layer) *::before, :is(#hrv-layer, .hrv-layer) *::after {
+  all: initial; box-sizing: border-box; margin: 0;
+  font: var(--hrv-font); color: var(--hrv-text);
+}
+:is(#hrv-layer, .hrv-layer) div { display: block; }
+
+:is(#hrv-layer, .hrv-layer) .hrv-marker {
+  position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--hrv-accent); color: var(--hrv-on-accent); font-size: var(--hrv-small); line-height: 18px; text-align: center;
+  cursor: pointer; box-shadow: 0 0 0 2px var(--hrv-halo), var(--hrv-shadow-marker);
+}
+:is(#hrv-layer, .hrv-layer) .hrv-marker:hover { background: var(--hrv-accent-strong); }
+
+/* The html-revisor icon: marks everything the tool adds to a page. */
+:is(#hrv-layer, .hrv-layer) .hrv-icon {
+  display: inline-block; flex: none; width: 16px; height: 16px; border-radius: 50%; vertical-align: -3px;
+  background: var(--hrv-accent) var(--hrv-pencil) center / 10px no-repeat;
+  box-shadow: 0 0 0 1.5px var(--hrv-halo);
+}
+:is(#hrv-layer, .hrv-layer) .hrv-toast .hrv-icon { margin-right: 6px; }
+
+:is(#hrv-layer, .hrv-layer) .hrv-box {
+  position: absolute; width: 320px; padding: 8px; background: var(--hrv-surface); color: var(--hrv-text);
+  border: 1px solid var(--hrv-line); border-radius: 8px; box-shadow: var(--hrv-shadow-box);
+}
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea {
+  display: block; width: 100%; height: 96px; min-height: 56px; padding: 6px;
+  border: 1px solid var(--hrv-line); border-radius: 4px; background: var(--hrv-field); color: var(--hrv-text);
+  resize: vertical; overflow: auto; white-space: pre-wrap; cursor: text;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea.hrv-text { height: 56px; }
+:is(#hrv-layer, .hrv-layer) .hrv-label { display: block; margin: 6px 0 2px; font-size: var(--hrv-small); color: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-label:first-child { margin-top: 0; }
+:is(#hrv-layer, .hrv-layer) .hrv-box textarea:focus { outline: 2px solid var(--hrv-accent); outline-offset: -1px; }
+:is(#hrv-layer, .hrv-layer) .hrv-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+:is(#hrv-layer, .hrv-layer) .hrv-hint { flex: 1; font-size: var(--hrv-small); color: var(--hrv-muted); }
+:is(#hrv-layer, .hrv-layer) .hrv-btn {
+  display: inline-block; padding: 4px 10px; border: 1px solid var(--hrv-line); border-radius: 4px;
+  background: var(--hrv-button); color: var(--hrv-text); text-align: center; cursor: pointer;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-btn:hover { background: var(--hrv-button-hover); }
+:is(#hrv-layer, .hrv-layer) .hrv-save { background: var(--hrv-accent); border-color: var(--hrv-accent); color: var(--hrv-on-accent); }
+:is(#hrv-layer, .hrv-layer) .hrv-save:hover { background: var(--hrv-accent-strong); }
+
+:is(#hrv-layer, .hrv-layer) .hrv-toast {
+  position: fixed; right: 16px; bottom: 16px; padding: 6px 12px; border-radius: 6px;
+  background: var(--hrv-toast); color: var(--hrv-on-toast); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-toast.hrv-show { opacity: 1; }
+:is(#hrv-layer, .hrv-layer) .hrv-toast.hrv-error { background: var(--hrv-error); }
