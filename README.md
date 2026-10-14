@@ -1,16 +1,16 @@
 # iterate-on-docs
 
-Programming is theory building: how does the world work now, and how should it work? We get that crisp, and then we ask the agent to make it true.
-
-For that to work, we need an artifact that clarifies this theory both for us and for every agent we start up. This plugin is about creating those artifacts.
+You and your agent make or revise a document together.
 
 The core is iterate-on-a-document, an agent skill for refining a document with your coding agent by trading turns. You edit the
 file and leave instructions for the agent in it. The agent applies the intent of your edits,
 follows your instructions, and hands it back. Repeat until it makes you happy.
 
-There's also make-a-project-overview, for a particular document that gets you aligned on purpose, architecture, language, and whatever else you want about a project.
+Programming is theory building: how does the world work now, and how should it work? We get that crisp, and then we ask the agent to make it true. For that to work, we need an artifact that clarifies this theory both for us and for every agent we start up. This plugin is about creating those artifacts.
 
-Works on markdown and on basic static HTML, such as fancy design documents the agent writes to explain its plans to you. For HTML, you leave directives in the browser using a special server included in this plugin.
+So there's also make-a-project-overview, for a particular document that gets you aligned on purpose, architecture, language, and whatever else you want about a project.
+
+This works on markdown (or text ig) and on static HTML. For HTML, you leave directives in the browser using a special server included in this plugin. Now you can ask your agent to explain its plans in fancy HTML docs, with SVG diagrams!
 
 ## Install
 
@@ -35,7 +35,7 @@ To run the plugin from a clone while you work on it, see [DEVELOPMENT.md](DEVELO
 
 ## Use
 
-The file must be in a git repository. The agent commits at each turn, so every change shows in
+**The file must be in a git repository.** The agent commits at each turn, so every change shows in
 the history. If the file isn't in a repository, the agent asks before running `git init`.
 
 Ask your agent:
@@ -63,19 +63,17 @@ Then tell the agent "Your turn"
 
 ### HTML
 
-For an `.html` file, the agent starts a local server and gives you a URL. Open it in a browser.
-Click a block, a link, an image, or part of an SVG to leave a directive on it, or to change its
-wording. Your directives and edits save into the HTML file as you type. You can still edit the
-file by hand.
+For `.html` files, the agent starts a local server and gives you a URL. Open it in a browser.
+Click a block, a link, an image, a section, part of an SVG, whatever! to leave a directive on it, or to change its
+wording. Your directives and edits save into the HTML file as you type.
 
 The server rewrites the file into its own formatting when it starts and each time it loads the page, and writes an
 element ID (`data-hrv`) on each element you can pick. The agent commits
-that rewrite by itself, so it doesn't mix with your edits. This is for HTML written to be
-iterated on, not for live or generated web pages. The same formatter runs on its own as
-`html-revisor/formatter.mjs`; the agent runs it after writing a page and before each commit.
+that rewrite by itself, so it doesn't mix with your edits.
 
-The server is in [`html-revisor/`](html-revisor/README.md), with details on the
-directive format.
+This is for static HTML written to be iterated on, not for live or generated or fancy web pages.
+
+The server is in [`html-revisor/`](html-revisor/README.md). To use it on its own, grab it from [the source repo](https://github.com/jessitron/html-revisor).
 
 ## Project overview
 
