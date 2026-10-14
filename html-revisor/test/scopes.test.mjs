@@ -85,7 +85,7 @@ test('annotating twice gives the same page', () => {
   assert.equal(scopeOf(document.querySelector('.ex')).children.length, 1);
 });
 
-// ---- Round-trip rules (PLAN.html stage 5) ---------------------------------
+// ---- Round-trip rules ------------------------------------------------
 // The property itself is in roundtrip.test.mjs; these are the rules, one example each.
 
 const scopeIn = (html) => {
@@ -248,8 +248,8 @@ test('deleting an inline icon leaves a diagram between blocks, not in a paragrap
   assert.match(back, /<\/p>\s*<svg viewBox="0 0 9 9">/);
 });
 
-// Directives ride along (PLAN stage 7). Markdown doesn't show them; the save puts each back on
-// its element's partner, or, when the edit deleted its element, on the nearest one that came back.
+// Directives ride along. Markdown doesn't show them; the save puts each back on its element's
+// partner, and one whose element the edit deleted goes with it.
 const htmlAfter = (html, markdown) => {
   const { document, el } = scopeIn(html);
   const holder = document.createElement('div');

@@ -8,8 +8,8 @@
 // edit its whole content as markdown: a section, a list, one list item, a table, one cell (Jess,
 // 2026-10-12, F2 in SCOPES-DESIGN.html#scopes). Other inline elements, like strong, belong to their
 // block. scopeMarkdown writes a scope as markdown and scopeFromMarkdown reads it back; saving
-// it unchanged gives back the same HTML, element IDs included (PLAN.html stage 5). Saving it
-// edited, each element keeps its ID (stage 6) and its directives (stage 7). test/roundtrip.test.mjs.
+// it unchanged gives back the same HTML, element IDs included. Saving it
+// edited, each element keeps its ID and its directives (SCOPES-DESIGN.html#identity). test/roundtrip.test.mjs.
 //
 // Tiers, dependencies point downward only:
 //   Tier I   orchestration: the CLI
@@ -398,7 +398,7 @@ const escapeEntities = (text) => text.replace(/&(?=[a-zA-Z#][a-zA-Z0-9]*;)/g, '&
 // The nodes that replace a scope's element when its markdown is saved. The prior element says
 // what shape the markdown has, the same way it did for scopeMarkdown: an item's content, a
 // list's lines, a paragraph's phrasing. Opening a scope and saving it unchanged gives back
-// the same HTML, element IDs and directives included (PLAN.html stages 5 to 7).
+// the same HTML, element IDs and directives included (SCOPES-DESIGN.html#identity).
 export function scopeFromMarkdown(el, markdown) {
   const nodes = rebuild(el, markdown);
   return carryDirectives(el, nodes, reconcile([el], nodes));

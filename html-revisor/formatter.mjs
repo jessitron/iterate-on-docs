@@ -123,7 +123,7 @@ export function parse(html) {
 // ---- Canonical forms ----------------------------------------------------
 
 // Where HTML has two ways to say one thing, the file uses the one markdown writes back, so a
-// scope saved unchanged as markdown comes back the same (PLAN.html stage 5). Formatting, not
+// scope saved unchanged as markdown comes back the same. Formatting, not
 // validation: no agent hears of it. Whitespace beside <br> goes in the layout, below.
 export function canonicalize(document) {
   for (const [from, to] of [['b', 'strong'], ['i', 'em']]) {

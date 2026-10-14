@@ -22,6 +22,14 @@ The [overview](https://jessitron.github.io/html-revisor/) and the pages it links
 
 Needs Node 20 or later. No `npm install`: the two dependencies, linkedom and markdown-it, are bundled into `vendor/`.
 
+## Clean up
+
+```
+node cleanup.mjs [--author @AI] <file>...
+```
+
+When you're done iterating on a page, this takes out what the tool left in it: directives and element IDs (`data-hrv`, `data-hrv-next`). It leaves the formatting as the formatter wrote it. It rewrites each file in place, prints each directive it took out as `<file>: <text>`, and exits 0, or 1 when a file can't be read or written. A page left with no IDs is how parallel iterations on one page avoid colliding: the next load hands out IDs from 1 again.
+
 Tests: `npm test`. The property tests run 150 seeds; `ROUND_TRIP_SEEDS=3000 npm test` shakes harder (about 5 minutes). A bug found past seed 150 gets an example test in `test/scopes.test.mjs`, so `npm test` guards it.
 
 ## Try it
@@ -39,7 +47,7 @@ Your directives and markdown edits write into the file, so it shows as changed i
 Copies the committed files at HEAD into `<dir>/html-revisor/` (default `~/code/jessitron/iterate-on-docs`), runs the tests there, and commits there. It writes nothing else in iterate-on-docs, and it doesn't push. Users get the change when iterate-on-docs runs `./release`.
 
 - It refuses when this repo has uncommitted changes (except `SCOPES-DESIGN.html`), when HEAD is not on main, or when the copy has uncommitted changes.
-- It replaces the whole directory, leaving out dev-only files: `CLAUDE.md`, `OVERVIEW.html`, `PLAN.html`, `DESIGN.html`, `design/`, `index.html`, `.nojekyll`, `.gitignore`, `.claude/`, `deploy`. It writes `VENDORED.md` with the commit hash.
+- It replaces the whole directory, leaving out dev-only files: `CLAUDE.md`, `OVERVIEW.html`, `DESIGN.html`, `design/`, `index.html`, `.nojekyll`, `.gitignore`, `.claude/`, `deploy`. It writes `VENDORED.md` with the commit hash.
 - If the tests fail in the copy, it restores the directory and commits nothing.
 
 ## Contract with iterate-on-docs
@@ -57,6 +65,7 @@ The skills and the README in iterate-on-docs run and describe this tool. They re
 | Directive syntax | `<!-- @AI: … -->`, first child of its element, or just before a void or raw-text element (full list under [Directive format](#directive-format)) |
 | Finding directives | `grep '<!-- *@AI:'` |
 | Formatter CLI | `node ../../html-revisor/formatter.mjs <file>...`, from the skill's base directory. Rewrites each file in place into the same canonical form a page load gives. Silent and exit 0 on success; exit 1 with `<file>: <problem>` on stderr when a file can't be read or written or breaks a rule the formatter can't fix (it still writes the fixable part); exit 2 with usage when given no files |
+| Cleanup CLI | `node ../../html-revisor/cleanup.mjs <file>...`, from the skill's base directory, when the user says "good enough". Rewrites each file in place without directives (`<!-- @AI: … -->`) or element IDs, formatting kept. Prints each directive it removed on stdout as `<file>: <text>`, newlines as spaces. Exit 0 on success; exit 1 with `<file>: <problem>` on stderr when a file can't be read or written; exit 2 with usage when given no files |
 | Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill runs the formatter CLI before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
 | Element IDs | the formatter (GET, PUT, and the formatter CLI) writes `data-hrv="<n>"` on each element you can pick and `data-hrv-next="<n>"` on `<html>`. Agents leave both alone: don't change, copy, or remove them. A new element needs none; the next format gives it one |
 | Browser behavior | click a block, link, image, or part of an SVG to leave a directive on it or change its wording; both save into the file as you type. If the element changed on disk since the page loaded, the save is refused with an error that suggests a reload; a change elsewhere in the file only brings a notice |
@@ -140,12 +149,13 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 
 ## Design
 
-The code is in `server.mjs` and `formatter.mjs`, in three tiers, plus `client.css` and `client.js`, which the server inlines into each page. Dependencies point down: `server.mjs` imports `formatter.mjs`, and `formatter.mjs` imports nothing from `server.mjs`. How the UI looks, and the design decisions so far, are in [DESIGN.html](DESIGN.html); it links `client.css`, so it shows the real styles. How editing as markdown behaves, and its design decisions, are in [SCOPES-DESIGN.html](SCOPES-DESIGN.html#decided).
+The code is in `server.mjs` and `formatter.mjs`, in three tiers, plus `client.css` and `client.js`, which the server inlines into each page. Dependencies point down: `server.mjs` imports `formatter.mjs`, and `formatter.mjs` imports nothing from `server.mjs`. How the UI looks, and the design decisions so far, are in [DESIGN.html](DESIGN.html); it links `client.css`, so it shows the real styles. How editing as markdown behaves, and its design decisions, are in [SCOPES-DESIGN.html](SCOPES-DESIGN.html#decided); how elements keep their IDs across a save is in [its identity table](SCOPES-DESIGN.html#identity).
 
 The HTML parser is [linkedom](https://github.com/WebReflection/linkedom), bundled with its dependencies into `vendor/linkedom.mjs` (licenses in `vendor/linkedom.LICENSES.txt`) so the tool runs where `npm install` can't, such as behind a corporate proxy. The markdown parser is [markdown-it](https://github.com/markdown-it/markdown-it), bundled the same way into `vendor/markdown-it.mjs`. The HTML-to-markdown writer is our own, in `scopes.mjs`. To upgrade either: change the version in `package.json`'s devDependencies, then `npm install && npm run vendor`, and commit `vendor/`.
 
 - **Tier I, orchestration**: CLI arguments, the HTTP request handler, and the GET and PUT flows (format with IDs, lift directives, compute bases, inject; read, assign IDs, check the base, apply the one change, write). The PUT body is one change: `{"id": "<id>", "base": "<base>", "directive": "text"}` (empty text removes the directive) or `{"id": "<id>", "base": "<base>", "markdown": "…"}`. The answer is `{"ok": true, "count", "bases": {"<id>": "<base>"}, "before", "after"}`: new bases for the element, its ancestors, and the IDs inside it, and the file's hash before and after the save. A markdown save's answer adds `html` (what replaced the scope, as served), `id` (the ID that holds the scope now), and `markdowns` (the new markdown of the scopes around it). A base that doesn't match, or an ID that isn't in the file, gets 412 and `{"ok": false, "error"}`.
 - **Formatter**: `formatter.mjs`. Its Tier II is `parse` (adds a missing skeleton and rewrites into canonical forms: `b`→`strong`, `i`→`em`, table rows in `thead`/`tbody`), `assignIds` (element IDs), `serialize` (canonical layout), `normalize` (all three), and `validate`, the rules normalizing can't fix (none yet). Its Tier I is a CLI, `node formatter.mjs <file>...` (see the [Contract](#contract-with-iterate-on-docs)). It takes the rule for which elements are scopes from `scopes.mjs`.
+- **Cleanup**: `cleanup.mjs`. Tier II is `cleanup`: parse, remove directives and element IDs, serialize. Tier I is its CLI (see [Clean up](#clean-up)).
 - **Scopes**: `scopes.mjs`. A scope is what you pick to direct or edit: any block, plus links and images; its whole content edits as markdown. Tier II is `scopeElements` (which elements get IDs), `scopesWithin`, `scopeMarkdown` (a scope as markdown), and `scopeFromMarkdown` (the HTML its markdown saves as). Saving a scope's markdown unchanged gives back the same HTML, element IDs included; saving it edited, each element you left, moved, or changed keeps its ID and its directives, and a new one gets none. A directive on an element the edit deleted goes with it. `test/roundtrip.test.mjs` checks both on every page here and on generated ones. What markdown can't say comes out as HTML, and what isn't text (an svg, a script) rides along as a stand-in, `⟦svg⟧`. `node scopes.mjs --annotate SCOPES-DESIGN.html` writes each case's HTML, scopes, and markdown under it in [SCOPES-DESIGN.html#scopes](SCOPES-DESIGN.html#scopes).
 - **Tier II, domain**: pure functions. The formatter (imported from `formatter.mjs`), the directives language in `directives.mjs` (`collectDirectives`, `removeDirectives`, `placeDirective`, the placement rule, escaping), markdown edits (`markdownsOf`, `saveMarkdown`, `servedHTML`), and element identity: `elementById`, and `baseOf`, the hash of an element in canonical layout with directives and IDs stripped. A directive coming or going changes no base; a changed child changes its parent's. The IDs themselves come from the formatter's `assignIds`: `data-hrv` from a counter, never changed, never reused, and copies of one ID all get fresh ones.
 - **Tier III, interface**: the filesystem gateway (paths under the root, 403 on escape), content types, directory listing, and the client assets injected into served pages: `client.css` and `client.js`, read on each GET, so a change shows on reload without a restart.

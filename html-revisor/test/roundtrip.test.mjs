@@ -1,4 +1,4 @@
-// The round-trip property (PLAN.html stage 5): for every scope, scope → markdown → scope is the
+// The round-trip property: for every scope, scope → markdown → scope is the
 // same HTML, element IDs and directives included. Opening a scope and saving it unchanged
 // must leave the file unchanged.
 //
