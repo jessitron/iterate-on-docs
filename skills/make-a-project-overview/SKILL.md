@@ -27,9 +27,11 @@ in markdown.
 **Usual material, not a template.** Choose what helps this reader, on this project, now. One
 project needs no context map; another needs a picture nobody else would draw.
 
-- **Direction:** what the project is for and where it is headed: its purpose, goals, and what
+- **Purpose:** the problem this project solves
+- **Direction:** where it is headed: its goals, and what
   a stable stopping point looks like. Draw it. A journey toward a destination works, or a picture that suits
   the project better.
+- **What makes this hard:** the challenges and complexities that make the project non-trivial. At least one concrete example with pictures.
 - **Where it runs:** links to dashboards, traces, or deployments, when the project has them.
 - **Context map:** the parts of the domain and the language boundaries between them, when the
   project has more than one.
