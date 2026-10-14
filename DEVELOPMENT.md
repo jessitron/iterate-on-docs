@@ -86,3 +86,18 @@ It runs the HTML server's tests first.
 `html-revisor/` is a copy. The code lives in `~/code/jessitron/html-revisor`, and its
 `deploy` script replaces this directory and commits here. Don't edit the copy. A deploy is not a
 release: run `./release` afterward to ship it.
+
+## Images for the README
+
+An install copies everything on `main` into the plugin cache, so images stay off `main`. They
+live on the orphan `assets` branch, and the README links to them by raw URL
+(`https://raw.githubusercontent.com/jessitron/iterate-on-docs/assets/<file>`). To add one,
+commit it to `assets` and push that branch:
+
+```
+git switch assets            # or: git worktree add ../assets assets
+git add picture.webp && git commit
+git push origin assets
+```
+
+Compress first; `cwebp -q 85 picture.png -o picture.webp` shrinks a PNG comic about tenfold.

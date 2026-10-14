@@ -6,6 +6,8 @@ The core is iterate-on-a-document, an agent skill for refining a document with y
 file and leave instructions for the agent in it. The agent applies the intent of your edits,
 follows your instructions, and hands it back. Repeat until it makes you happy.
 
+![You toss ideas to the agent; it hands back a document; you mark it up in red; it hands back a revision; you say "good enough!"](https://raw.githubusercontent.com/jessitron/iterate-on-docs/assets/comic.webp)
+
 Programming is theory building: how does the world work now, and how should it work? We get that crisp, and then we ask the agent to make it true. For that to work, we need an artifact that clarifies this theory both for us and for every agent we start up. This plugin is about creating those artifacts.
 
 So there's also make-a-project-overview, for a particular document that gets you aligned on purpose, architecture, language, and whatever else you want about a project.
