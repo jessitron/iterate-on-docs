@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Rebuild vendor/ from node_modules, so html-revisor runs without npm install.
+# Run after upgrading a vendored package: npm install && npm run vendor
+set -euo pipefail
+here="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$here"
+meta="$(mktemp)"
+trap 'rm -f "$meta"' EXIT
+
+# bundle <package> <export statement>: writes vendor/<package>.mjs and its licenses file.
+bundle() {
+  local pkg="$1" exports="$2" version
+  version="$(node -p "require('./node_modules/$pkg/package.json').version")"
+  echo "$exports" | npx esbuild --bundle --platform=node --format=esm \
+    --banner:js="// $pkg $version and its dependencies, bundled by scripts/vendor. Do not edit. Licenses: vendor/$pkg.LICENSES.txt" \
+    --outfile="vendor/$pkg.mjs" --metafile="$meta" --log-level=warning
+  {
+    echo "Licenses for the packages bundled into vendor/$pkg.mjs."
+    # Every package that contributed code to the bundle, from esbuild's metafile.
+    for dep in $(node -e 'for (const f of Object.keys(JSON.parse(require("fs").readFileSync(process.argv[1])).inputs)) { const m = f.match(/^node_modules\/(@[^/]+\/)?[^/]+/); if (m) console.log(m[0]) }' "$meta" | sort -u); do
+      name="$(node -p "const p=require('./$dep/package.json'); p.name + ' ' + p.version + ' (' + p.license + ')'")"
+      printf '\n==== %s ====\n\n' "$name"
+      cat "$dep"/LICENSE*
+    done
+  } > "vendor/$pkg.LICENSES.txt"
+  echo "vendor/$pkg.mjs: $pkg $version"
+}
+
+bundle linkedom "export { parseHTML } from 'linkedom';"
+bundle markdown-it "export { default as MarkdownIt } from 'markdown-it';"

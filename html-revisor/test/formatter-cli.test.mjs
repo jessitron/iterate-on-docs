@@ -35,7 +35,7 @@ test('rewrites the file in place into canonical form, silent', () => {
   const out = fs.readFileSync(file, 'utf8');
   assert.equal(out, normalize(messy));
   assert.match(out, /^<!DOCTYPE html>\n<html data-hrv-next="\d+">\n/);
-  assert.match(out, /<p data-hrv="\d+">Ship the <b>formatter<\/b> first\.<\/p>/);
+  assert.match(out, /<p data-hrv="\d+">Ship the <strong>formatter<\/strong> first\.<\/p>/);
 });
 
 test('a second run changes nothing', () => {

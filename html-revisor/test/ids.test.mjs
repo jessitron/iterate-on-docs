@@ -15,7 +15,7 @@ test('every scope gets an ID, in document order; strong does not', () => {
   const out = normalize('<h1>Plan</h1><p>Ship the <b>formatter</b> <a href="x">first</a>.</p><ul><li>one</li><li>two</li></ul><img src="m.png">');
   const ids = idsOf(out);
   assert.deepEqual(ids.of('body, h1, p, a, ul, li, img'), ['1', '2', '3', '4', '5', '6', '7', '8']);
-  assert.deepEqual(ids.of('b, head, html'), [null, null, null]);
+  assert.deepEqual(ids.of('strong, head, html'), [null, null, null]);
   assert.equal(ids.next, '9');
 });
 
@@ -40,7 +40,7 @@ test('copies of an ID retire it: every copy gets a fresh one', () => {
 
 test('an ID past the counter moves the counter; junk IDs and IDs on non-scopes come off', () => {
   const ids = idsOf(normalize('<html data-hrv-next="2"><body data-hrv="1"><p data-hrv="40">a <b data-hrv="90">b</b></p><p data-hrv="x">c</p></body></html>'));
-  assert.deepEqual(ids.of('p, b'), ['40', null, '91']);
+  assert.deepEqual(ids.of('p, strong'), ['40', null, '91']);
   assert.equal(ids.next, '92', 'an ID that came off is not reused either');
 });
 

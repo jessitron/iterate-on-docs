@@ -7,13 +7,14 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
-    "vendor": "scripts/vendor-linkedom"
+    "vendor": "scripts/vendor"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "linkedom": "0.18.13"
+    "linkedom": "0.18.13",
+    "markdown-it": "15.0.2"
   }
 }

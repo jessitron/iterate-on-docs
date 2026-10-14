@@ -32,6 +32,12 @@ test('inline-only block stays on one line', () => {
   assert.match(out, /^ {6}<li>Ship it<\/li>$/m);
 });
 
+test('an empty block stays on one line, however long its tag', () => {
+  const tag = `<div class="${Array.from({ length: 30 }, (_, i) => `w${i}`).join(' ')}">`;
+  const out = layout(page(`${tag} \n </div>`));
+  assert.match(out, new RegExp(`^ {4}${tag}</div>$`, 'm'));
+});
+
 test('long inline-only block takes three lines', () => {
   const long = 'word '.repeat(30).trim();
   const out = layout(page(`<p>${long}</p>`));
@@ -40,8 +46,27 @@ test('long inline-only block takes three lines', () => {
 
 test('whitespace between inline siblings survives', () => {
   const out = layout('<body><p>a <b>b</b> &amp; c</p><p><b>x</b> <i>y</i></p></body>');
-  assert.match(out, /<p>a <b>b<\/b> &amp; c<\/p>/);
-  assert.match(out, /<p><b>x<\/b> <i>y<\/i><\/p>/);
+  assert.match(out, /<p>a <strong>b<\/strong> &amp; c<\/p>/);
+  assert.match(out, /<p><strong>x<\/strong> <em>y<\/em><\/p>/);
+});
+
+test('b is strong and i is em, attributes kept', () => {
+  const out = layout('<body><p><b class="k" id="j">x</b> <i>y <b>z</b></i></p></body>');
+  assert.match(out, /<p><strong class="k" id="j">x<\/strong> <em>y <strong>z<\/strong><\/em><\/p>/);
+});
+
+test('whitespace beside br goes', () => {
+  const out = layout('<body><p>a <br>\n  b<br> c</p></body>');
+  assert.match(out, /<p>a<br>b<br>c<\/p>/);
+});
+
+test('table rows go in sections: a leading row of th is the thead', () => {
+  const out = layout('<body><table><tr><th>a</th></tr><tr><td>1</td></tr><tr><td>2</td></tr></table></body>');
+  assert.match(out, /<table>\s*<thead>\s*<tr>\s*<th>a<\/th>\s*<\/tr>\s*<\/thead>\s*<tbody>\s*<tr>\s*<td>1<\/td>[\s\S]*<td>2<\/td>\s*<\/tr>\s*<\/tbody>\s*<\/table>/);
+  const plain = layout('<body><table><tr><td>1</td></tr></table></body>');
+  assert.match(plain, /<table>\s*<tbody>\s*<tr>\s*<td>1<\/td>/);
+  const sectioned = '<body><table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table></body>';
+  assert.equal(layout(sectioned), layout(layout(sectioned)));
 });
 
 test('only ASCII whitespace collapses; nbsp survives', () => {

@@ -37,9 +37,10 @@ async function withServer(fn, args = []) {
       const { document } = parseHTML(html);
       const json = document.querySelector('script#hrv-directives');
       const bases = JSON.parse(document.querySelector('script#hrv-bases').textContent);
-      return { res, html, document, bases, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
+      const markdowns = JSON.parse(document.querySelector('script#hrv-markdown').textContent);
+      return { res, html, document, bases, markdowns, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
     },
-    // PUT one change, as the tab sends it: {id, base, directive} or {id, base, text}.
+    // PUT one change, as the tab sends it: {id, base, directive} or {id, base, markdown}.
     put: (name, change) =>
       fetch(server.base + name, {
         method: 'PUT',
@@ -103,7 +104,7 @@ test('2. inline spacing survives', () =>
   withServer(async (s) => {
     s.write('spacing.html', '<!DOCTYPE html><html><body><p>a <b>b</b> &amp; c</p></body></html>');
     await s.get('spacing.html');
-    assert.match(s.read('spacing.html'), /<p data-hrv="\d+">a <b>b<\/b> &amp; c<\/p>/);
+    assert.match(s.read('spacing.html'), /<p data-hrv="\d+">a <strong>b<\/strong> &amp; c<\/p>/);
   }));
 
 test('3. preformatted content is untouched', () =>
@@ -312,12 +313,12 @@ test('an agent edit elsewhere does not block a save; the answer says the file ch
     assert.match(body.after, /^[0-9a-f]{12}$/);
   }));
 
-test('bases: directives do not change them; a text edit returns new ones for the element and its ancestors', () =>
+test('bases: directives do not change them; a markdown edit returns new ones for the element and its ancestors', () =>
   withServer(async (s) => {
     const { document, bases } = await s.page('page.html');
     const [ul, li, body] = [idOf(document, 'ul'), idOf(document, 'li'), idOf(document, 'body')];
     await s.put('page.html', { id: li, base: bases[li], directive: 'a directive' });
-    const res = await s.put('page.html', { id: li, base: bases[li], text: 'first' });
+    const res = await s.put('page.html', { id: li, base: bases[li], markdown: 'first' });
     assert.equal(res.status, 200, 'the directive left the base alone');
     const answer = await res.json();
     assert.ok([li, ul, body].every((id) => id in answer.bases));
@@ -327,34 +328,70 @@ test('bases: directives do not change them; a text edit returns new ones for the
     assert.deepEqual((await s.page('page.html')).bases, { ...bases, ...answer.bases });
   }));
 
-test('text edits: a PUT with text rewrites a text-only element and keeps its directive', () =>
+test('the served page carries the markdown of every scope but body', () =>
+  withServer(async (s) => {
+    const { document, markdowns } = await s.page('page.html');
+    assert.equal(markdowns[idOf(document, 'p:nth-of-type(2)')], 'Second **bold** paragraph');
+    assert.equal(markdowns[idOf(document, 'ul')], '- one\n- two');
+    assert.ok(!(idOf(document, 'body') in markdowns));
+  }));
+
+test('markdown edits: a PUT with markdown writes HTML and keeps the directive', () =>
   withServer(async (s) => {
     const { document, bases } = await s.page('page.html');
     const p = idOf(document, 'p');
     await s.put('page.html', { id: p, base: bases[p], directive: 'reworded' });
-    const res = await s.put('page.html', { id: p, base: bases[p], text: 'First <para> & more' });
+    const res = await s.put('page.html', { id: p, base: bases[p], markdown: 'First **para** & <more' });
     assert.equal(res.status, 200);
+    const answer = await res.json();
+    assert.equal(answer.id, p);
+    assert.equal(answer.html, `<p data-hrv="${p}">First <strong>para</strong> &amp; &lt;more</p>`);
+    assert.equal(answer.markdowns[p], 'First **para** & &lt;more', 'a < that could start a tag is escaped');
 
     const file = s.read('page.html');
-    assert.match(file, /<p data-hrv="\d+">\n {6}<!-- @AI: reworded -->\n {6}First &lt;para&gt; &amp; more\n {4}<\/p>/);
+    assert.match(file, /<p data-hrv="\d+">\n {6}<!-- @AI: reworded -->\n {6}First <strong>para<\/strong> &amp; &lt;more\n {4}<\/p>/);
     assert.equal(file, normalize(file));
     assert.deepEqual((await s.page('page.html')).directives, { [p]: 'reworded' });
   }));
 
-test('text edits refuse markup-holding elements and blank text', () =>
+test('markdown edits: a list keeps the IDs and directives of the items you left, and new ones get IDs', () =>
   withServer(async (s) => {
     const { document, bases } = await s.page('page.html');
-    const mixed = idOf(document, 'p:nth-of-type(2)');
-    const li = idOf(document, 'li');
-    const before = s.read('page.html');
-    assert.equal((await s.put('page.html', { id: mixed, base: bases[mixed], text: 'flattened' })).status, 400);
-    assert.equal((await s.put('page.html', { id: li, base: bases[li], text: '   ' })).status, 400);
-    assert.equal(s.read('page.html'), before);
+    const ul = idOf(document, 'ul');
+    const two = idOf(document, 'li:nth-of-type(2)');
+    await s.put('page.html', { id: two, base: bases[two], directive: 'on two' });
+    const answer = await (await s.put('page.html', { id: ul, base: bases[ul], markdown: '- one\n- *two*\n- three' })).json();
+    const after = await s.page('page.html');
+    const items = [...after.document.querySelectorAll('li')].map((li) => li.getAttribute('data-hrv'));
+    assert.equal(items[1], two);
+    assert.ok(items[2] && !Object.values(bases).includes(items[2]) && !(items[2] in bases), 'the new item has a new ID');
+    assert.deepEqual(after.directives, { [two]: 'on two' });
+    assert.ok(!answer.html.includes('@AI'), 'the answer is the served HTML, directives lifted');
+    assert.ok(items.every((id) => id in answer.bases && id in answer.markdowns));
+    assert.deepEqual(after.bases, { ...bases, ...answer.bases });
+    assert.deepEqual(after.markdowns[ul], answer.markdowns[ul]);
   }));
 
-test('a PUT body must be one change: id, base, and a directive or a text', () =>
+test('markdown edits refuse elements that are not scopes and blank markdown', () =>
   withServer(async (s) => {
-    for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', text: 'b' }, { id: 1, base: 'x', text: 'b' }]) {
+    const { document, bases } = await s.page('page.html');
+    const li = idOf(document, 'li');
+    const body = idOf(document, 'body');
+    const before = s.read('page.html');
+    assert.equal((await s.put('page.html', { id: li, base: bases[li], markdown: '   ' })).status, 400);
+    assert.equal((await s.put('page.html', { id: body, base: bases[body], markdown: 'all gone' })).status, 400);
+    assert.equal(s.read('page.html'), before);
+
+    s.write('rule.html', '<p>above</p><hr><p>below</p>');
+    const ruled = await s.page('rule.html');
+    const hr = idOf(ruled.document, 'hr');
+    assert.ok(!(hr in ruled.markdowns), 'an hr takes directives but is no scope');
+    assert.equal((await s.put('rule.html', { id: hr, base: ruled.bases[hr], markdown: 'not a rule' })).status, 400);
+  }));
+
+test('a PUT body must be one change: id, base, and a directive or a markdown', () =>
+  withServer(async (s) => {
+    for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', markdown: 'b' }, { id: 1, base: 'x', markdown: 'b' }, { id: '1', base: 'x', text: 'b' }]) {
       assert.equal((await s.put('page.html', body)).status, 400, JSON.stringify(body));
     }
   }));

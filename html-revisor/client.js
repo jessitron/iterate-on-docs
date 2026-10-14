@@ -3,14 +3,15 @@
   'use strict';
 
   var directives = {};      // id -> text, the full current set
-  var texts = {};           // id -> new text of each text element edited in this tab
+  var markdowns = {};       // id -> markdown of each scope, as the server last saw it
+  var edits = {};           // id -> markdown typed for a scope in this tab, not yet answered
   var bases = {};           // id -> base: the element's content as the server last saw it
   var markers = {};         // id -> marker element
   var box = null;           // the open directive box, if any
   var boxId = null;         // id of the element the open box is for
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
-  var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'text', id}
+  var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown', id}
   var version = null;       // fingerprint of the file as this tab last saw it
   var changedOnDisk = false; // a save found the file changed by someone else
 
@@ -19,6 +20,7 @@
     directives = JSON.parse(data.textContent) || {};
     version = data.getAttribute('data-version');
     bases = JSON.parse(document.getElementById('hrv-bases').textContent) || {};
+    markdowns = JSON.parse(document.getElementById('hrv-markdown').textContent) || {};
   } catch (e) {
     directives = directives || {};
   }
@@ -49,23 +51,11 @@
     return el;
   }
 
-  // An element holding only text, so the box can edit it without losing markup.
-  // Same rule as isTextElement on the server.
-  var NOT_TEXT = ('area base br col embed hr img input link meta param source track wbr ' +
-    'title iframe xmp noembed noframes script style template textarea').split(' ');
   var SPACE = /[ \t\n\r\f]+/g;   // the whitespace HTML collapses; not U+00A0
 
-  function isTextElement(el) {
-    var kids = el.childNodes;
-    if (NOT_TEXT.indexOf(el.localName) >= 0 || kids.length === 0) return false;
-    for (var i = 0; i < kids.length; i++) if (kids[i].nodeType !== 3) return false;
-    return el.textContent.replace(SPACE, '') !== '';
-  }
-
-  // The text as the reader sees it. Outside pre, layout whitespace collapses.
-  function shownText(el) {
-    if (el.localName === 'pre') return el.textContent;
-    return el.textContent.replace(SPACE, ' ').trim();
+  // A scope edits as markdown; the server sent the markdown of each one.
+  function isScope(id) {
+    return typeof markdowns[id] === 'string';
   }
 
   // Where the layer's origin sits in the document. Zero unless body is positioned.
@@ -118,7 +108,7 @@
   // ---- hover ----
 
   var hovered = null;
-  var flashed = null;       // the element the pill just stepped to; its marks show for a moment
+  var flashed = null;       // the element the docket just stepped to; its marks show for a moment
   var reviewing = true;     // review mode: hover marks, copy cursor, click to open, markers
   var hoverCrop = makeCrop('hrv-crop');
   var selectedCrop = makeCrop('hrv-crop hrv-selected');
@@ -148,13 +138,13 @@
 
   // ---- markers ----
 
-  // Each marker sits outside its element's box, clear of the crop marks, so it never covers what
-  // it marks. Its pencil tip points down-right at the element. The first choice is the left side,
+  // Each marker sits outside its element's box and flush against it: it never covers what it
+  // marks, and a gap would make it read as a neighbor's. It covers the crop mark at that corner.
+  // Its pencil tip points down-right at the element. The first choice is the left side,
   // top-aligned with the element's first line; with no room there, above the top-left corner.
   // A marker that would land on one already placed steps outward, further left or further up.
   // Inner elements go first, so a section and its first paragraph show two markers side by side.
   var TILE = 20, STEP = TILE + 2;
-  var markerGap = cropGap + 3;     // clear of the heavier crop marks too
 
   function overlaps(a, b) {
     return a.x < b.x + TILE && b.x < a.x + TILE && a.y < b.y + TILE && b.y < a.y + TILE;
@@ -162,10 +152,10 @@
 
   function markerSpot(rect, placed) {
     var x = rect.left + window.scrollX, y = rect.top + window.scrollY;
-    var spot = { x: x - markerGap - TILE, y: y };
+    var spot = { x: x - TILE, y: y };
     var dx = -STEP, dy = 0;
     if (spot.x < 2) {
-      spot = { x: Math.max(2, x - TILE / 2), y: y - markerGap - TILE };
+      spot = { x: Math.max(2, x - TILE / 2), y: y - TILE };
       dx = 0; dy = -STEP;
     }
     for (var i = 0; i < 20 && placed.some(function (p) { return overlaps(p, spot); }); i++) {
@@ -354,29 +344,29 @@
   window.addEventListener('resize', schedulePosition);
   if (window.ResizeObserver) new ResizeObserver(schedulePosition).observe(document.body);
 
-  // ---- the pill ----
+  // ---- the docket ----
 
   // Bottom right of the window. It counts the directives, steps through them in document order,
   // and holds a save error or the stale-file warning. Its icon and count switch review mode.
   var current = null;       // id of the element last stepped to or clicked
-  var problem = null;       // the save error or stale warning the pill shows, if any
+  var problem = null;       // the save error or stale warning the docket shows, if any
   var flashTimer = null;
 
-  var pill = document.createElement('div');
-  pill.className = 'hrv-pill';
-  var pillMsg = document.createElement('div');
-  pillMsg.className = 'hrv-pill-msg';
-  var pillMain = document.createElement('div');
-  pillMain.className = 'hrv-pill-main';
-  var pillCount = document.createElement('span');
-  pillMain.appendChild(icon());
-  pillMain.appendChild(pillCount);
-  pillMain.addEventListener('click', function () { setReviewing(!reviewing); });
-  pill.appendChild(pillMsg);
-  pill.appendChild(pillMain);
-  pill.appendChild(stepButton('↑', 'Previous directive (⌥↑)', -1));
-  pill.appendChild(stepButton('↓', 'Next directive (⌥↓)', 1));
-  layer.appendChild(pill);
+  var docket = document.createElement('div');
+  docket.className = 'hrv-docket';
+  var docketMsg = document.createElement('div');
+  docketMsg.className = 'hrv-docket-msg';
+  var docketMain = document.createElement('div');
+  docketMain.className = 'hrv-docket-main';
+  var docketCount = document.createElement('span');
+  docketMain.appendChild(icon());
+  docketMain.appendChild(docketCount);
+  docketMain.addEventListener('click', function () { setReviewing(!reviewing); });
+  docket.appendChild(docketMsg);
+  docket.appendChild(docketMain);
+  docket.appendChild(stepButton('↑', 'Previous directive (⌥↑)', -1));
+  docket.appendChild(stepButton('↓', 'Next directive (⌥↓)', 1));
+  layer.appendChild(docket);
 
   function stepButton(arrow, title, dir) {
     var b = document.createElement('div');
@@ -387,20 +377,20 @@
     return b;
   }
 
-  function updatePill() {
+  function updateDocket() {
     var n = directiveCount();
-    pillCount.textContent = n + (n === 1 ? ' directive' : ' directives') + (reviewing ? '' : ' · review off');
-    pillMsg.textContent = problem || '';
-    pillMain.title = reviewing
+    docketCount.textContent = n + (n === 1 ? ' directive' : ' directives') + (reviewing ? '' : ' · review off');
+    docketMsg.textContent = problem || '';
+    docketMain.title = reviewing
       ? 'Review mode: click to hide the marks and read the page'
       : 'Review mode is off: click to leave directives again';
-    pill.className = 'hrv-pill' + (n === 0 ? ' hrv-none' : '') + (reviewing ? '' : ' hrv-off') +
+    docket.className = 'hrv-docket' + (n === 0 ? ' hrv-none' : '') + (reviewing ? '' : ' hrv-off') +
       (problem ? ' hrv-error' : '');
   }
 
   function showProblem(text) {
     problem = text;
-    updatePill();
+    updateDocket();
   }
 
   // Elements with directives, in document order.
@@ -452,7 +442,7 @@
     else document.documentElement.setAttribute('data-hrv-review', 'off');
     layer.classList.toggle('hrv-reading', !on);
     positionHover();
-    updatePill();
+    updateDocket();
   }
 
   // ⌥↓ and ⌥↑ step, unless the reader is typing somewhere.
@@ -483,8 +473,45 @@
 
   function bodyFor(change) {
     var body = { id: change.id, base: bases[change.id] || '' };
-    body[change.kind] = change.kind === 'text' ? texts[change.id] : (directives[change.id] || '');
+    body[change.kind] = change.kind === 'markdown' ? edits[change.id] : (directives[change.id] || '');
     return body;
+  }
+
+  // A markdown save answers with the HTML that replaced the scope. The page takes it, and the
+  // markdown of the scopes around it. Elements the edit deleted take their directives with them.
+  // If the scope's own element went (a list typed into a paragraph), its ID moves to the one
+  // that holds it now, and so do its directive, the box, and changes not yet sent.
+  function applyScope(id, data) {
+    var el = elementFor(id);
+    if (el) {
+      var tpl = document.createElement('template');
+      tpl.innerHTML = data.html;
+      el.replaceWith(tpl.content);
+    }
+    for (var k in data.markdowns) markdowns[k] = data.markdowns[k];
+    if (data.id && data.id !== id) moveId(id, data.id);
+    for (var d in directives) {
+      if (!elementFor(d)) {
+        delete directives[d];
+        syncMarker(d);
+      }
+    }
+    if (box && !elementFor(boxId)) dropBox();
+    else if (box) box.querySelector('.hrv-what').textContent = describe(elementFor(boxId));
+    updateDocket();
+    schedulePosition();
+  }
+
+  function moveId(from, to) {
+    if (hasText(from) && !hasText(to)) directives[to] = directives[from];
+    delete directives[from];
+    syncMarker(from);
+    syncMarker(to);
+    if (from in edits) edits[to] = edits[from];
+    delete edits[from];
+    unsent.forEach(function (c) { if (c.id === from) c.id = to; });
+    if (boxId === from) boxId = to;
+    if (current === from) current = to;
   }
 
   // One PUT at a time, one change per PUT. When a PUT ends, the next change goes out.
@@ -514,6 +541,7 @@
         return;
       }
       for (var id in data.bases) bases[id] = data.bases[id];
+      if (change.kind === 'markdown') applyScope(change.id, data);
       if (data.before !== version) changedOnDisk = true;
       version = data.after;
       showProblem(changedOnDisk ? 'the page changed on disk; reload to see it' : null);
@@ -571,37 +599,30 @@
     ta.style.height = ta.scrollHeight + ta.offsetHeight - ta.clientHeight + 'px';
   }
 
-  // The Text field wears the element's own font, so editing feels like editing the page.
-  // Size stays between 12 and 20px: a hero heading would crowd the box, a footnote strain the eye.
-  function wearFont(ta, el) {
-    var cs = getComputedStyle(el);
-    ta.style.fontFamily = cs.fontFamily;
-    ta.style.fontStyle = cs.fontStyle;
-    ta.style.fontWeight = cs.fontWeight;
-    ta.style.fontSize = Math.max(12, Math.min(20, parseFloat(cs.fontSize) || 13)) + 'px';
-    ta.style.lineHeight = '1.35';
-  }
-
   function setDirective(id, text) {
     if (text.trim() === '') delete directives[id];
     else directives[id] = text;
     syncMarker(id);
-    updatePill();
+    updateDocket();
   }
 
   // Commit and close the open box.
   function closeBox() {
     if (!box) return;
     var ta = box.querySelector('textarea.hrv-directive');
-    var id = boxId;
-    setDirective(id, ta.value);
+    setDirective(boxId, ta.value);
+    dropBox();
+    saveNow();
+  }
+
+  // Close the box without committing: its element is gone, and its directive with it.
+  function dropBox() {
     clearTimeout(statusTimer);
     box.remove();
     box = null;
     boxId = null;
     positionCrop(selectedCrop, null);
     positionHover();
-    saveNow();
   }
 
   function deleteDirective(ta, id) {
@@ -632,24 +653,22 @@
     head.appendChild(what);
     box.appendChild(head);
 
-    // Text elements get a field for their text above the directive.
-    // The page shows each edit at once; blank text is not applied.
+    // A scope gets a field for its markdown above the directive. The page shows each edit when
+    // the server answers the save; blank markdown is not applied. A save can give the scope a
+    // new ID, so the handlers read boxId, not id.
     var textArea = null;
-    if (isTextElement(el)) {
+    if (isScope(id)) {
       textArea = document.createElement('textarea');
       textArea.className = 'hrv-text';
-      textArea.value = shownText(el);
-      wearFont(textArea, el);
+      textArea.value = markdowns[id];
       textArea.addEventListener('input', function () {
         fit(textArea);
         schedulePosition();
         if (textArea.value.replace(SPACE, '') === '') return;
-        el.textContent = textArea.value;
-        texts[id] = textArea.value;
-        what.textContent = describe(el);
-        scheduleSave('text', id);
+        edits[boxId] = textArea.value;
+        scheduleSave('markdown', boxId);
       });
-      box.appendChild(label('Text'));
+      box.appendChild(label('Content'));
       box.appendChild(textArea);
       box.appendChild(label('Directive'));
     }
@@ -661,8 +680,8 @@
     ta.addEventListener('input', function () {
       fit(ta);
       schedulePosition();
-      setDirective(id, ta.value);
-      scheduleSave('directive', id);
+      setDirective(boxId, ta.value);
+      scheduleSave('directive', boxId);
     });
     box.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
@@ -670,7 +689,7 @@
         closeBox();
       } else if (e.key === 'Backspace' && e.altKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        deleteDirective(ta, id);
+        deleteDirective(ta, boxId);
       }
     });
 
@@ -682,7 +701,7 @@
     del.className = 'hrv-btn hrv-quiet';
     del.textContent = 'Delete';
     del.title = 'Delete the directive (' + DELETE_KEY + ')';
-    del.addEventListener('click', function () { deleteDirective(ta, id); });
+    del.addEventListener('click', function () { deleteDirective(ta, boxId); });
 
     var done = document.createElement('div');
     done.className = 'hrv-btn hrv-done';
@@ -741,5 +760,5 @@
   // ---- start ----
 
   for (var id in directives) syncMarker(id);
-  updatePill();
+  updateDocket();
 })();

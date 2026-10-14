@@ -1,4 +1,4 @@
-// linkedom 0.18.13 and its dependencies, bundled by scripts/vendor-linkedom. Do not edit. Licenses: vendor/linkedom.LICENSES.txt
+// linkedom 0.18.13 and its dependencies, bundled by scripts/vendor. Do not edit. Licenses: vendor/linkedom.LICENSES.txt
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;

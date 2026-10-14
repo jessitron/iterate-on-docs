@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html data-hrv-next="3643">
+  <head>
+    <meta charset="utf-8">
+    <title>Scopes design: html-revisor</title>
+    <style>
+  body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  .card { border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; margin: 1rem 0; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 0.25rem 0.75rem; text-align: left; }
+  pre { background: #f4f4f4; padding: 0.75rem; }
+  .case { border-left: 4px solid #8250df; padding: 0.25rem 0 0.25rem 1rem; margin: 1.5rem 0; }
+  .case > h4 { margin: 0; }
+  .ask { color: #656d76; font-size: 0.9rem; margin: 0.1rem 0 0.5rem; }
+  .ex { border: 1px dashed #bbb; border-radius: 6px; padding: 0.25rem 0.75rem; }
+  .pill { font: 0.75rem ui-monospace, monospace; color: #656d76; border: 1px solid #ccc; border-radius: 999px; padding: 0 0.4rem; }
+  .stats { display: flex; gap: 1rem; }
+  .stat { display: flex; flex-direction: column; align-items: center; border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; }
+  .stat .big { font-size: 1.75rem; font-weight: 700; }
+  a.tile { display: block; border: 1px solid #ccc; border-radius: 8px; padding: 0.5rem 1rem; color: inherit; text-decoration: none; }
+  section.part { padding: 0.5rem 1rem; margin: 1rem 0; }
+  .row { display: flex; gap: 0.5rem; align-items: center; }
+</style>
+    <style id="scope-view">
+  table.scope-report { font-size: 0.75rem; margin: 0.5rem 0; width: 100%; }
+  table.scope-report td, table.scope-report th { vertical-align: top; padding: 0.15rem 0.5rem; }
+  table.scope-report td:first-child { font-family: ui-monospace, monospace; white-space: pre; }
+  table.scope-report pre, details.scope-report pre { margin: 0; padding: 0.15rem 0.4rem; background: #f6f8fa; white-space: pre-wrap; }
+  details.scope-report { font-size: 0.75rem; margin: 0.5rem 0; }
+</style>
+  </head>
+  <body data-hrv="1">
+    <h1 data-hrv="2">Project overview</h1>
+    <p data-hrv="3">
+      This page exercises html-revisor. Click anything to leave a directive on it.
+    </p>
+    <section data-hrv="2854" id="decided" class="part">
+      <h2 data-hrv="2855">Decided: editing as markdown</h2>
+      <p data-hrv="2856">
+        The design decisions for scopes and markdown editing. Each links to the cases below that show it.
+      </p>
+      <table data-hrv="2857">
+        <thead>
+          <tr>
+            <th data-hrv="2858">question</th>
+            <th data-hrv="2859">answer</th>
+            <th data-hrv="2860">see</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="2861">Editing notation</td>
+            <td data-hrv="2862">Markdown.</td>
+            <td data-hrv="2863"><a data-hrv="2864" href="#a1">A1</a></td>
+          </tr>
+          <tr>
+            <td data-hrv="2868">What can you pick to edit or direct?</td>
+            <td data-hrv="2869">
+              Any block: a section, a list, one item, a table, one cell, an svg text label. Each edits its whole content as markdown.
+            </td>
+            <td data-hrv="2870">
+              <a data-hrv="2871" href="#a1">A1</a>, <a data-hrv="2872" href="#c1">C1</a>, <a data-hrv="2873" href="#c6">C6</a>, <a data-hrv="2874" href="#d6">D6</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2875">Inline elements: hover and directives?</td>
+            <td data-hrv="2876">
+              Per element. <code>a</code> and <code>img</code>: yes. <code>strong</code>: no, it belongs to its block. <code>span</code>: yes, edited as its content, its tag kept; not inside a <code>pre</code>, where spans are highlighting, and not one that fills its parent, which it would hide.
+            </td>
+            <td data-hrv="2877">
+              <a data-hrv="2878" href="#b2">B2</a>, <a data-hrv="2879" href="#d2">D2</a>, <a data-hrv="2880" href="#e1">E1</a>, <a data-hrv="2881" href="#e2">E2</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2882">Headings</td>
+            <td data-hrv="2883">
+              <code>#</code> inside a bigger scope; picked alone, only the text.
+            </td>
+            <td data-hrv="2884"><a data-hrv="2885" href="#a3">A3</a></td>
+          </tr>
+          <tr>
+            <td data-hrv="2886">Line breaks and <code>&amp;nbsp;</code></td>
+            <td data-hrv="2887">
+              A <code>&lt;br&gt;</code> is a newline. U+00A0 shows as the character.
+            </td>
+            <td data-hrv="2888">
+              <a data-hrv="2889" href="#a4">A4</a>, <a data-hrv="2890" href="#a5">A5</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2891">Lists</td>
+            <td data-hrv="2892">
+              Markdown <code>- </code> lines, nested lists indented. Add and delete items by editing. A list holding paragraphs or tables: pick the inner blocks too.
+            </td>
+            <td data-hrv="2893">
+              <a data-hrv="2894" href="#c1">C1</a>, <a data-hrv="2895" href="#c2">C2</a>, <a data-hrv="2896" href="#c3">C3</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2897">Code blocks</td>
+            <td data-hrv="2898">
+              A fenced block: backticks for <code>&lt;pre&gt;&lt;code&gt;</code>, tildes for a bare <code>&lt;pre&gt;</code>. A pre holding markup (highlighting) is HTML, so its spans survive.
+            </td>
+            <td data-hrv="2899">
+              <a data-hrv="2900" href="#c11">C11</a>, <a data-hrv="2901" href="#d3">D3</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2902">Text beside blocks</td>
+            <td data-hrv="2903">
+              Paragraphs in the enclosing scope's markdown: text, list, text edits as one. Text saved unchanged stays bare.
+            </td>
+            <td data-hrv="2904">
+              <a data-hrv="2905" href="#c9">C9</a>, <a data-hrv="2906" href="#c10">C10</a>, <a data-hrv="2907" href="#f3">F3</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2908">Tables</td>
+            <td data-hrv="2909">
+              A table with a header row of plain cells is a markdown table; otherwise HTML. Each cell is a scope too.
+            </td>
+            <td data-hrv="2910">
+              <a data-hrv="2911" href="#c6">C6</a>, <a data-hrv="2912" href="#d4">D4</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2913">What markdown can't say</td>
+            <td data-hrv="2914">
+              Stays as inline HTML (<code>kbd</code>, <code>span class</code>, <code>a target</code>). Inside a bigger scope, a block with attributes is HTML too, inner markup and all, since markdown isn't read inside an HTML block.
+            </td>
+            <td data-hrv="2915">
+              <a data-hrv="2916" href="#b1">B1</a>, <a data-hrv="2917" href="#b2">B2</a>, <a data-hrv="2918" href="#b3">B3</a>, <a data-hrv="2919" href="#c4">C4</a>, <a data-hrv="2920" href="#c8">C8</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2921">Images</td>
+            <td data-hrv="2922">
+              <code>![alt](src)</code>; saving takes the other attributes from the original.
+            </td>
+            <td data-hrv="2923"><a data-hrv="2924" href="#d2">D2</a></td>
+          </tr>
+          <tr>
+            <td data-hrv="2925">What isn't text</td>
+            <td data-hrv="2926">
+              A stand-in: <code>⟦svg⟧</code>, <code>⟦script⟧</code>, restored in order from the prior HTML. A literal ⟦ is <code>\⟦</code>. Hidden elements get stand-ins too, so a save keeps them, and inside HTML the markdown writes, a style's blank lines can't end the HTML block. There, a literal ⟦ is <code>&amp;#x27E6;</code>, and a stand-in takes the next of its kind.
+            </td>
+            <td data-hrv="2927">
+              <a data-hrv="2928" href="#d1">D1</a>, <a data-hrv="2929" href="#d5">D5</a>, <a data-hrv="2930" href="#d7">D7</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2931">Writing markdown</td>
+            <td data-hrv="2932">
+              Rules make it readable; each block and run of phrasing is checked against the parser, and written as HTML where it wouldn't come back the same. The round-trip holds by construction.
+            </td>
+            <td data-hrv="2933">
+              <a data-hrv="2934" href="#a2">A2</a>, <a data-hrv="2935" href="#b4">B4</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2936">
+              Unlikely shapes in HTML ⇄ markdown (empty paragraphs, <code>dl</code>, stat tiles)
+            </td>
+            <td data-hrv="2937">May be ugly. Spend effort on the shapes agents write.</td>
+            <td data-hrv="2938">
+              <a data-hrv="2939" href="#c4">C4</a>, <a data-hrv="2940" href="#e1">E1</a>, <a data-hrv="2941" href="#f1">F1</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="2942">Where markdown converts</td>
+            <td data-hrv="2943">
+              On the server, where <code>scopes.mjs</code> and linkedom run; the client stays small. No live preview.
+            </td>
+            <td data-hrv="2944"></td>
+          </tr>
+          <tr>
+            <td data-hrv="2945">IDs after a markdown edit of a wider scope</td>
+            <td data-hrv="2946">Unchanged elements keep them, reconciled against the prior HTML.</td>
+            <td data-hrv="2947"><a data-hrv="2948" href="#c1">C1</a></td>
+          </tr>
+          <tr>
+            <td data-hrv="2949">A directive whose element a markdown save deleted?</td>
+            <td data-hrv="2950">Goes with it.</td>
+            <td data-hrv="2951"></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section data-hrv="2952" class="part">
+      <h2 data-hrv="4">Text you can edit</h2>
+      <p data-hrv="5">Click any block to edit it: the box shows its content as markdown.</p>
+      <p data-hrv="6">
+        This one has <strong>bold</strong> and <em>emphasis</em> inside; the box shows them as <code>**bold**</code> and <code>*emphasis*</code>. The bold word belongs to its paragraph: click it and you get the paragraph.
+      </p>
+      <p data-hrv="7">
+        Entities <strong>survive</strong> editing: Fish &amp; chips &lt;tasty&gt; cost&nbsp;$5.
+      </p>
+      <p data-hrv="8">
+        A <a data-hrv="9" href="test/fixtures/other.html">plain click on this link</a> opens the directive box; ⌘-click navigates.
+      </p>
+    </section>
+    <section data-hrv="2953" class="part">
+      <h2 data-hrv="10">Lists</h2>
+      <ul data-hrv="11">
+        <li data-hrv="12">First item</li>
+        <li data-hrv="13">Second item</li>
+        <li data-hrv="14">Third item with <code>code</code> inside</li>
+      </ul>
+    </section>
+    <section data-hrv="2954" class="part">
+      <h2 data-hrv="15">A table</h2>
+      <p data-hrv="2852">A super-basic, well-formed table with no html attributes.</p>
+      <table data-hrv="16">
+        <thead>
+          <tr>
+            <th data-hrv="17">Component</th>
+            <th data-hrv="18">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="19">Server</td>
+            <td data-hrv="20">Done</td>
+          </tr>
+          <tr>
+            <td data-hrv="21">Client</td>
+            <td data-hrv="22">In progress</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section data-hrv="2955" class="part">
+      <h2 data-hrv="23">Elements whose directives sit beside them</h2>
+      <hr data-hrv="24">
+      <pre data-hrv="25">  preformatted text
+    keeps its   spacing</pre>
+      <div data-hrv="26" class="card">
+        <h3 data-hrv="27">A card</h3>
+        <p data-hrv="28">
+          Cards are wrappers: clicking the margin inside the card opens the directive box for the card itself.
+        </p>
+      </div>
+    </section>
+    <section data-hrv="29" id="scopes">
+      <h2 data-hrv="30">What is a scope?</h2>
+      <p data-hrv="31">
+        A scope is any block you can pick: you leave a directive on it, or edit its whole content as markdown. Each case has the same four parts: its name, the question it asks in grey, the example HTML in a dashed box, and a table of the scopes the example would make. Disagree with a row? Leave a directive on it.
+      </p>
+      <p data-hrv="2956" class="scope-report">
+        Under each example: its HTML (click to open), then a row for each element you could pick, nested inside the element that holds it. The last column is the markdown you would edit if you picked that element. ⟦svg⟧ marks something that isn't text riding inside the markdown.
+      </p>
+      <h3 data-hrv="33">A. Clear prose</h3>
+      <div id="a1" data-hrv="34" class="case">
+        <h4 data-hrv="35">A1. Plain paragraph</h4>
+        <p data-hrv="36" class="ask">The baseline: one scope, edits as plain text.</p>
+        <div data-hrv="37" class="ex">
+          <p data-hrv="38">The formatter moves out of the server and runs on its own.</p>
+        </div>
+        <details data-hrv="2957" class="scope-report">
+          <summary data-hrv="2958">HTML</summary>
+          <pre data-hrv="2959">&lt;p&gt;The formatter moves out of the server and runs on its own.&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="2960" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="2961">element</th>
+              <th data-hrv="2962">what markdown can say</th>
+              <th data-hrv="2963">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="2964">&lt;p&gt;</td>
+              <td data-hrv="2965">all markdown</td>
+              <td data-hrv="2966">
+                <pre data-hrv="2967">The formatter moves out of the server and runs on its own.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="a2" data-hrv="50" class="case">
+        <h4 data-hrv="51">A2. Paragraph with markdown-able markup</h4>
+        <p data-hrv="52" class="ask">
+          One scope. Markdown: <code>**bold**</code>, <code>*em*</code>, <code>`code`</code>, <code>[link](…)</code>.
+        </p>
+        <div data-hrv="53" class="ex">
+          <p data-hrv="54">
+            Run <code>npm test</code>, then read <strong>every</strong> failure, <em>especially</em> the <a data-hrv="55" href="#scopes">first one</a>.
+          </p>
+        </div>
+        <details data-hrv="2968" class="scope-report">
+          <summary data-hrv="2969">HTML</summary>
+          <pre data-hrv="2970">&lt;p&gt;
+  Run &lt;code&gt;npm test&lt;/code&gt;, then read &lt;strong&gt;every&lt;/strong&gt; failure, &lt;em&gt;especially&lt;/em&gt; the &lt;a href="#scopes"&gt;first one&lt;/a&gt;.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="2971" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="2972">element</th>
+              <th data-hrv="2973">what markdown can say</th>
+              <th data-hrv="2974">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="2975">&lt;p&gt;</td>
+              <td data-hrv="2976">all markdown</td>
+              <td data-hrv="2977">
+                <pre data-hrv="2978">Run `npm test`, then read **every** failure, *especially* the [first one](#scopes).</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="2979"> &lt;a&gt;</td>
+              <td data-hrv="2980">all markdown</td>
+              <td data-hrv="2981">
+                <pre data-hrv="2982">[first one](#scopes)</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="a3" data-hrv="71" class="case">
+        <h4 data-hrv="72">A3. Heading with inline markup</h4>
+        <p data-hrv="73" class="ask">
+          A heading is its own scope. Does the markdown include the <code>#</code>, or is that the element's business?
+        </p>
+        <div data-hrv="74" class="ex">
+          <h3 data-hrv="75">Moving <code>normalize</code> into <em>formatter.mjs</em></h3>
+        </div>
+        <details data-hrv="2983" class="scope-report">
+          <summary data-hrv="2984">HTML</summary>
+          <pre data-hrv="2985">&lt;h3&gt;Moving &lt;code&gt;normalize&lt;/code&gt; into &lt;em&gt;formatter.mjs&lt;/em&gt;&lt;/h3&gt;</pre>
+        </details>
+        <table data-hrv="2986" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="2987">element</th>
+              <th data-hrv="2988">what markdown can say</th>
+              <th data-hrv="2989">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="2990">&lt;h3&gt;</td>
+              <td data-hrv="2991">all markdown</td>
+              <td data-hrv="2992">
+                <pre data-hrv="2993">Moving `normalize` into *formatter.mjs*</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="a4" data-hrv="87" class="case">
+        <h4 data-hrv="88">A4. Line breaks</h4>
+        <p data-hrv="89" class="ask">
+          A <code>&lt;br&gt;</code> becomes a trailing backslash or two spaces in markdown. Which round-trips?
+        </p>
+        <div data-hrv="90" class="ex">
+          <p data-hrv="91">Jess Kerr<br>html-revisor<br>October 2026</p>
+        </div>
+        <details data-hrv="2994" class="scope-report">
+          <summary data-hrv="2995">HTML</summary>
+          <pre data-hrv="2996">&lt;p&gt;Jess Kerr&lt;br&gt;html-revisor&lt;br&gt;October 2026&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="2997" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="2998">element</th>
+              <th data-hrv="2999">what markdown can say</th>
+              <th data-hrv="3000">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3001">&lt;p&gt;</td>
+              <td data-hrv="3002">all markdown</td>
+              <td data-hrv="3003">
+                <pre data-hrv="3004">Jess Kerr
+html-revisor
+October 2026</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="a5" data-hrv="103" class="case">
+        <h4 data-hrv="104">A5. Entities and non-breaking spaces</h4>
+        <p data-hrv="105" class="ask">
+          Markdown has no <code>&amp;nbsp;</code>. Does the field show a real U+00A0, or the entity?
+        </p>
+        <div data-hrv="106" class="ex">
+          <p data-hrv="107">
+            Fish &amp; chips cost&nbsp;$5 &lt;each&gt; — “quoted” and 5&nbsp;×&nbsp;3.
+          </p>
+        </div>
+        <details data-hrv="3005" class="scope-report">
+          <summary data-hrv="3006">HTML</summary>
+          <pre data-hrv="3007">&lt;p&gt;
+  Fish &amp;amp; chips cost&amp;#160;$5 &amp;lt;each&amp;gt; — “quoted” and 5&amp;#160;×&amp;#160;3.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3008" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3009">element</th>
+              <th data-hrv="3010">what markdown can say</th>
+              <th data-hrv="3011">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3012">&lt;p&gt;</td>
+              <td data-hrv="3013">all markdown</td>
+              <td data-hrv="3014">
+                <pre data-hrv="3015">Fish &amp; chips cost&nbsp;$5 &amp;lt;each&gt; — “quoted” and 5&nbsp;×&nbsp;3.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-hrv="119">B. Inline markup markdown can't say</h3>
+      <div id="b1" data-hrv="120" class="case">
+        <h4 data-hrv="121">B1. Phrasing elements with no markdown syntax</h4>
+        <p data-hrv="122" class="ask">
+          These pass through as raw HTML in the markdown. Is that readable enough to edit?
+        </p>
+        <div data-hrv="123" class="ex">
+          <p data-hrv="124">
+            Press <kbd>⌘</kbd>+<kbd>↵</kbd> to save. H<sub>2</sub>O, x<sup>2</sup>, <mark>highlighted</mark>, <del>removed</del> <ins>added</ins>, <s>struck</s>, <abbr title="Domain-Driven Design">DDD</abbr>, <q>a quote</q>, <time datetime="2026-10-12">today</time>, <small>fine print</small>, <u>underlined</u>.
+          </p>
+        </div>
+        <details data-hrv="3016" class="scope-report">
+          <summary data-hrv="3017">HTML</summary>
+          <pre data-hrv="3018">&lt;p&gt;
+  Press &lt;kbd&gt;⌘&lt;/kbd&gt;+&lt;kbd&gt;↵&lt;/kbd&gt; to save. H&lt;sub&gt;2&lt;/sub&gt;O, x&lt;sup&gt;2&lt;/sup&gt;, &lt;mark&gt;highlighted&lt;/mark&gt;, &lt;del&gt;removed&lt;/del&gt; &lt;ins&gt;added&lt;/ins&gt;, &lt;s&gt;struck&lt;/s&gt;, &lt;abbr title="Domain-Driven Design"&gt;DDD&lt;/abbr&gt;, &lt;q&gt;a quote&lt;/q&gt;, &lt;time datetime="2026-10-12"&gt;today&lt;/time&gt;, &lt;small&gt;fine print&lt;/small&gt;, &lt;u&gt;underlined&lt;/u&gt;.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3019" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3020">element</th>
+              <th data-hrv="3021">what markdown can say</th>
+              <th data-hrv="3022">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3023">&lt;p&gt;</td>
+              <td data-hrv="3024">markdown with HTML</td>
+              <td data-hrv="3025">
+                <pre data-hrv="3026">Press &lt;kbd&gt;⌘&lt;/kbd&gt;+&lt;kbd&gt;↵&lt;/kbd&gt; to save. H&lt;sub&gt;2&lt;/sub&gt;O, x&lt;sup&gt;2&lt;/sup&gt;, &lt;mark&gt;highlighted&lt;/mark&gt;, &lt;del&gt;removed&lt;/del&gt; &lt;ins&gt;added&lt;/ins&gt;, &lt;s&gt;struck&lt;/s&gt;, &lt;abbr title="Domain-Driven Design"&gt;DDD&lt;/abbr&gt;, &lt;q&gt;a quote&lt;/q&gt;, &lt;time datetime="2026-10-12"&gt;today&lt;/time&gt;, &lt;small&gt;fine print&lt;/small&gt;, &lt;u&gt;underlined&lt;/u&gt;.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="b2" data-hrv="136" class="case">
+        <h4 data-hrv="137">B2. Attributes on inline elements</h4>
+        <p data-hrv="138" class="ask">
+          Markdown links carry href and title only. Where do <code>class</code>, <code>target</code>, <code>style</code> go?
+        </p>
+        <div data-hrv="139" class="ex">
+          <p data-hrv="140">
+            See <a data-hrv="141" href="#scopes" title="this section" target="_blank" class="ref">the section</a> and a <span data-hrv="3027" style="color: #bc4c00">warning-colored</span> word.
+          </p>
+        </div>
+        <details data-hrv="3028" class="scope-report">
+          <summary data-hrv="3029">HTML</summary>
+          <pre data-hrv="3030">&lt;p&gt;
+  See &lt;a href="#scopes" title="this section" target="_blank" class="ref"&gt;the section&lt;/a&gt; and a &lt;span style="color: #bc4c00"&gt;warning-colored&lt;/span&gt; word.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3031" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3032">element</th>
+              <th data-hrv="3033">what markdown can say</th>
+              <th data-hrv="3034">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3035">&lt;p&gt;</td>
+              <td data-hrv="3036">markdown with HTML</td>
+              <td data-hrv="3037">
+                <pre data-hrv="3038">See &lt;a href="#scopes" title="this section" target="_blank" class="ref"&gt;the section&lt;/a&gt; and a &lt;span style="color: #bc4c00"&gt;warning-colored&lt;/span&gt; word.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3039"> &lt;a.ref&gt;</td>
+              <td data-hrv="3040">markdown with HTML</td>
+              <td data-hrv="3041">
+                <pre data-hrv="3042">&lt;a href="#scopes" title="this section" target="_blank" class="ref"&gt;the section&lt;/a&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3043"> &lt;span&gt;</td>
+              <td data-hrv="3044">all markdown</td>
+              <td data-hrv="3045">
+                <pre data-hrv="3046">warning-colored</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="b3" data-hrv="157" class="case">
+        <h4 data-hrv="158">B3. Styled span as a component</h4>
+        <p data-hrv="159" class="ask">
+          PLAN.html does this with yak ids. Raw HTML in the markdown, or a token the editor protects?
+        </p>
+        <div data-hrv="160" class="ex">
+          <p data-hrv="161">
+            Split out the formatter <span data-hrv="3047" class="pill">stez</span>, then decide scopes <span data-hrv="3048" class="pill">a17m</span>.
+          </p>
+        </div>
+        <details data-hrv="3049" class="scope-report">
+          <summary data-hrv="3050">HTML</summary>
+          <pre data-hrv="3051">&lt;p&gt;
+  Split out the formatter &lt;span class="pill"&gt;stez&lt;/span&gt;, then decide scopes &lt;span class="pill"&gt;a17m&lt;/span&gt;.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3052" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3053">element</th>
+              <th data-hrv="3054">what markdown can say</th>
+              <th data-hrv="3055">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3056">&lt;p&gt;</td>
+              <td data-hrv="3057">markdown with HTML</td>
+              <td data-hrv="3058">
+                <pre data-hrv="3059">Split out the formatter &lt;span class="pill"&gt;stez&lt;/span&gt;, then decide scopes &lt;span class="pill"&gt;a17m&lt;/span&gt;.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3060"> &lt;span.pill&gt;</td>
+              <td data-hrv="3061">all markdown</td>
+              <td data-hrv="3062">
+                <pre data-hrv="3063">stez</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3064"> &lt;span.pill&gt;</td>
+              <td data-hrv="3065">all markdown</td>
+              <td data-hrv="3066">
+                <pre data-hrv="3067">a17m</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="b4" data-hrv="173" class="case">
+        <h4 data-hrv="174">B4. b vs strong, i vs em</h4>
+        <p data-hrv="175" class="ask">
+          Markdown has one syntax for each pair. The formatter makes them canonical; does anyone mind?
+        </p>
+        <div data-hrv="176" class="ex">
+          <p data-hrv="177">
+            <strong>b</strong> and <strong>strong</strong>; <em>i</em> and <em>em</em>.
+          </p>
+        </div>
+        <details data-hrv="3068" class="scope-report">
+          <summary data-hrv="3069">HTML</summary>
+          <pre data-hrv="3070">&lt;p&gt;
+  &lt;strong&gt;b&lt;/strong&gt; and &lt;strong&gt;strong&lt;/strong&gt;; &lt;em&gt;i&lt;/em&gt; and &lt;em&gt;em&lt;/em&gt;.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3071" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3072">element</th>
+              <th data-hrv="3073">what markdown can say</th>
+              <th data-hrv="3074">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3075">&lt;p&gt;</td>
+              <td data-hrv="3076">all markdown</td>
+              <td data-hrv="3077">
+                <pre data-hrv="3078">**b** and **strong**; *i* and *em*.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="b5" data-hrv="189" class="case">
+        <h4 data-hrv="190">B5. Footnote reference</h4>
+        <p data-hrv="191" class="ask">
+          A <code>sup</code> around a link: two nested raw tags, or one markdown link inside raw <code>sup</code>?
+        </p>
+        <div data-hrv="192" class="ex">
+          <p data-hrv="193">
+            Linkedom skips the skeleton.<sup><a data-hrv="194" href="#fn1">1</a></sup>
+          </p>
+        </div>
+        <details data-hrv="3079" class="scope-report">
+          <summary data-hrv="3080">HTML</summary>
+          <pre data-hrv="3081">&lt;p&gt;
+  Linkedom skips the skeleton.&lt;sup&gt;&lt;a href="#fn1"&gt;1&lt;/a&gt;&lt;/sup&gt;
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3082" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3083">element</th>
+              <th data-hrv="3084">what markdown can say</th>
+              <th data-hrv="3085">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3086">&lt;p&gt;</td>
+              <td data-hrv="3087">markdown with HTML</td>
+              <td data-hrv="3088">
+                <pre data-hrv="3089">Linkedom skips the skeleton.&lt;sup&gt;[1](#fn1)&lt;/sup&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3090"> &lt;a&gt;</td>
+              <td data-hrv="3091">all markdown</td>
+              <td data-hrv="3092">
+                <pre data-hrv="3093">[1](#fn1)</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-hrv="210">C. Containers: one scope or many?</h3>
+      <div id="c1" data-hrv="211" class="case">
+        <h4 data-hrv="212">C1. Simple list</h4>
+        <p data-hrv="213" class="ask">
+          One scope (edit as <code>- item</code> lines, add and remove items) or one per <code>&lt;li&gt;</code>?
+        </p>
+        <div data-hrv="214" class="ex">
+          <ul data-hrv="215">
+            <li data-hrv="216">Formatter</li>
+            <li data-hrv="217">Scopes with <strong>bold</strong></li>
+            <li data-hrv="218">Round-trip</li>
+          </ul>
+        </div>
+        <details data-hrv="3094" class="scope-report">
+          <summary data-hrv="3095">HTML</summary>
+          <pre data-hrv="3096">&lt;ul&gt;
+  &lt;li&gt;Formatter&lt;/li&gt;
+  &lt;li&gt;Scopes with &lt;strong&gt;bold&lt;/strong&gt;&lt;/li&gt;
+  &lt;li&gt;Round-trip&lt;/li&gt;
+&lt;/ul&gt;</pre>
+        </details>
+        <table data-hrv="3097" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3098">element</th>
+              <th data-hrv="3099">what markdown can say</th>
+              <th data-hrv="3100">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3101">&lt;ul&gt;</td>
+              <td data-hrv="3102">all markdown</td>
+              <td data-hrv="3103">
+                <pre data-hrv="3104">- Formatter
+- Scopes with **bold**
+- Round-trip</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3105"> &lt;li&gt;</td>
+              <td data-hrv="3106">all markdown</td>
+              <td data-hrv="3107">
+                <pre data-hrv="3108">Formatter</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3109"> &lt;li&gt;</td>
+              <td data-hrv="3110">all markdown</td>
+              <td data-hrv="3111">
+                <pre data-hrv="3112">Scopes with **bold**</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3113"> &lt;li&gt;</td>
+              <td data-hrv="3114">all markdown</td>
+              <td data-hrv="3115">
+                <pre data-hrv="3116">Round-trip</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c2" data-hrv="242" class="case">
+        <h4 data-hrv="243">C2. Nested list</h4>
+        <p data-hrv="244" class="ask">
+          The inner list sits inside the first item's text. Where's the boundary?
+        </p>
+        <div data-hrv="245" class="ex">
+          <ul data-hrv="246">
+            <li data-hrv="247">
+              Stage 1
+              <ul data-hrv="248">
+                <li data-hrv="249">move the code</li>
+                <li data-hrv="250">add a CLI</li>
+              </ul>
+            </li>
+            <li data-hrv="251">Stage 2</li>
+          </ul>
+        </div>
+        <details data-hrv="3117" class="scope-report">
+          <summary data-hrv="3118">HTML</summary>
+          <pre data-hrv="3119">&lt;ul&gt;
+  &lt;li&gt;
+    Stage 1
+    &lt;ul&gt;
+      &lt;li&gt;move the code&lt;/li&gt;
+      &lt;li&gt;add a CLI&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Stage 2&lt;/li&gt;
+&lt;/ul&gt;</pre>
+        </details>
+        <table data-hrv="3120" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3121">element</th>
+              <th data-hrv="3122">what markdown can say</th>
+              <th data-hrv="3123">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3124">&lt;ul&gt;</td>
+              <td data-hrv="3125">all markdown</td>
+              <td data-hrv="3126">
+                <pre data-hrv="3127">- Stage 1
+  - move the code
+  - add a CLI
+- Stage 2</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3128"> &lt;li&gt;</td>
+              <td data-hrv="3129">all markdown</td>
+              <td data-hrv="3130">
+                <pre data-hrv="3131">Stage 1
+- move the code
+- add a CLI</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3132">  &lt;ul&gt;</td>
+              <td data-hrv="3133">all markdown</td>
+              <td data-hrv="3134">
+                <pre data-hrv="3135">- move the code
+- add a CLI</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3136">   &lt;li&gt;</td>
+              <td data-hrv="3137">all markdown</td>
+              <td data-hrv="3138">
+                <pre data-hrv="3139">move the code</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3140">   &lt;li&gt;</td>
+              <td data-hrv="3141">all markdown</td>
+              <td data-hrv="3142">
+                <pre data-hrv="3143">add a CLI</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3144"> &lt;li&gt;</td>
+              <td data-hrv="3145">all markdown</td>
+              <td data-hrv="3146">
+                <pre data-hrv="3147">Stage 2</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c3" data-hrv="283" class="case">
+        <h4 data-hrv="284">C3. List item with paragraphs</h4>
+        <p data-hrv="285" class="ask">
+          A loose list: the <code>li</code> holds blocks, not phrasing. Scopes are the <code>p</code>s, then?
+        </p>
+        <div data-hrv="286" class="ex">
+          <ol data-hrv="287" start="3">
+            <li data-hrv="288">
+              <p data-hrv="289">Round-trip.</p>
+              <p data-hrv="290">Opening and saving must change nothing.</p>
+            </li>
+            <li data-hrv="291">
+              <p data-hrv="292">Markdown in the box.</p>
+            </li>
+          </ol>
+        </div>
+        <details data-hrv="3148" class="scope-report">
+          <summary data-hrv="3149">HTML</summary>
+          <pre data-hrv="3150">&lt;ol start="3"&gt;
+  &lt;li&gt;
+    &lt;p&gt;Round-trip.&lt;/p&gt;
+    &lt;p&gt;Opening and saving must change nothing.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Markdown in the box.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;</pre>
+        </details>
+        <table data-hrv="3151" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3152">element</th>
+              <th data-hrv="3153">what markdown can say</th>
+              <th data-hrv="3154">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3155">&lt;ol&gt;</td>
+              <td data-hrv="3156">all markdown</td>
+              <td data-hrv="3157">
+                <pre data-hrv="3158">3. Round-trip.
+
+   Opening and saving must change nothing.
+
+4. Markdown in the box.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3159"> &lt;li&gt;</td>
+              <td data-hrv="3160">all markdown</td>
+              <td data-hrv="3161">
+                <pre data-hrv="3162">Round-trip.
+
+Opening and saving must change nothing.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3163">  &lt;p&gt;</td>
+              <td data-hrv="3164">all markdown</td>
+              <td data-hrv="3165">
+                <pre data-hrv="3166">Round-trip.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3167">  &lt;p&gt;</td>
+              <td data-hrv="3168">all markdown</td>
+              <td data-hrv="3169">
+                <pre data-hrv="3170">Opening and saving must change nothing.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3171"> &lt;li&gt;</td>
+              <td data-hrv="3172">markdown with HTML</td>
+              <td data-hrv="3173">
+                <pre data-hrv="3174">&lt;p&gt;Markdown in the box.&lt;/p&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3175">  &lt;p&gt;</td>
+              <td data-hrv="3176">all markdown</td>
+              <td data-hrv="3177">
+                <pre data-hrv="3178">Markdown in the box.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c4" data-hrv="324" class="case">
+        <h4 data-hrv="325">C4. Definition list</h4>
+        <p data-hrv="326" class="ask">
+          Markdown has no <code>dl</code>. Each <code>dt</code> and <code>dd</code> its own scope?
+        </p>
+        <div data-hrv="327" class="ex">
+          <dl data-hrv="328">
+            <dt data-hrv="329">directive</dt>
+            <dd data-hrv="330">An <code>@AI</code> request, stored as an HTML comment.</dd>
+            <dt data-hrv="331">scope</dt>
+            <dd data-hrv="332">The unit of editing and directives.</dd>
+          </dl>
+        </div>
+        <details data-hrv="3179" class="scope-report">
+          <summary data-hrv="3180">HTML</summary>
+          <pre data-hrv="3181">&lt;dl&gt;
+  &lt;dt&gt;directive&lt;/dt&gt;
+  &lt;dd&gt;An &lt;code&gt;@AI&lt;/code&gt; request, stored as an HTML comment.&lt;/dd&gt;
+  &lt;dt&gt;scope&lt;/dt&gt;
+  &lt;dd&gt;The unit of editing and directives.&lt;/dd&gt;
+&lt;/dl&gt;</pre>
+        </details>
+        <table data-hrv="3182" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3183">element</th>
+              <th data-hrv="3184">what markdown can say</th>
+              <th data-hrv="3185">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3186">&lt;dl&gt;</td>
+              <td data-hrv="3187">markdown with HTML</td>
+              <td data-hrv="3188">
+                <pre data-hrv="3189">&lt;dt&gt;directive&lt;/dt&gt;
+
+&lt;dd&gt;An &lt;code&gt;@AI&lt;/code&gt; request, stored as an HTML comment.&lt;/dd&gt;
+
+&lt;dt&gt;scope&lt;/dt&gt;
+
+&lt;dd&gt;The unit of editing and directives.&lt;/dd&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3190"> &lt;dt&gt;</td>
+              <td data-hrv="3191">all markdown</td>
+              <td data-hrv="3192">
+                <pre data-hrv="3193">directive</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3194"> &lt;dd&gt;</td>
+              <td data-hrv="3195">all markdown</td>
+              <td data-hrv="3196">
+                <pre data-hrv="3197">An `@AI` request, stored as an HTML comment.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3198"> &lt;dt&gt;</td>
+              <td data-hrv="3199">all markdown</td>
+              <td data-hrv="3200">
+                <pre data-hrv="3201">scope</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3202"> &lt;dd&gt;</td>
+              <td data-hrv="3203">all markdown</td>
+              <td data-hrv="3204">
+                <pre data-hrv="3205">The unit of editing and directives.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c5" data-hrv="360" class="case">
+        <h4 data-hrv="361">C5. Blockquote</h4>
+        <p data-hrv="362" class="ask">
+          With paragraphs inside, the paragraphs are scopes. With bare text, the blockquote is.
+        </p>
+        <div data-hrv="363" class="ex">
+          <blockquote data-hrv="364">
+            <p data-hrv="365">The curious mind over the inventive mind.</p>
+            <p data-hrv="366">— Clausewitz</p>
+          </blockquote>
+          <blockquote data-hrv="367">A blockquote holding text directly.</blockquote>
+        </div>
+        <details data-hrv="3206" class="scope-report">
+          <summary data-hrv="3207">HTML</summary>
+          <pre data-hrv="3208">&lt;blockquote&gt;
+  &lt;p&gt;The curious mind over the inventive mind.&lt;/p&gt;
+  &lt;p&gt;— Clausewitz&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;A blockquote holding text directly.&lt;/blockquote&gt;</pre>
+        </details>
+        <table data-hrv="3209" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3210">element</th>
+              <th data-hrv="3211">what markdown can say</th>
+              <th data-hrv="3212">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3213">&lt;blockquote&gt;</td>
+              <td data-hrv="3214">all markdown</td>
+              <td data-hrv="3215">
+                <pre data-hrv="3216">The curious mind over the inventive mind.
+
+— Clausewitz</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3217"> &lt;p&gt;</td>
+              <td data-hrv="3218">all markdown</td>
+              <td data-hrv="3219">
+                <pre data-hrv="3220">The curious mind over the inventive mind.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3221"> &lt;p&gt;</td>
+              <td data-hrv="3222">all markdown</td>
+              <td data-hrv="3223">
+                <pre data-hrv="3224">— Clausewitz</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3225">&lt;blockquote&gt;</td>
+              <td data-hrv="3226">all markdown</td>
+              <td data-hrv="3227">
+                <pre data-hrv="3228">A blockquote holding text directly.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c6" data-hrv="391" class="case">
+        <h4 data-hrv="392">C6. Table cells</h4>
+        <p data-hrv="393" class="ask">
+          Each cell a scope? The header row too? A cell holding a list?
+        </p>
+        <div data-hrv="394" class="ex">
+          <table data-hrv="395">
+            <caption data-hrv="396">Stages</caption>
+            <tbody>
+              <tr>
+                <th data-hrv="397">stage</th>
+                <th data-hrv="398">status</th>
+              </tr>
+              <tr>
+                <td data-hrv="399">Formatter</td>
+                <td data-hrv="400">
+                  <strong>in progress</strong>, see <a data-hrv="401" href="#scopes">PLAN</a>
+                </td>
+              </tr>
+              <tr>
+                <td data-hrv="402">Scopes</td>
+                <td data-hrv="403">
+                  <ul data-hrv="404">
+                    <li data-hrv="405">decide</li>
+                    <li data-hrv="406">build</li>
+                  </ul>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <details data-hrv="3229" class="scope-report">
+          <summary data-hrv="3230">HTML</summary>
+          <pre data-hrv="3231">&lt;table&gt;
+  &lt;caption&gt;Stages&lt;/caption&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;th&gt;stage&lt;/th&gt;
+      &lt;th&gt;status&lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Formatter&lt;/td&gt;
+      &lt;td&gt;
+        &lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;PLAN&lt;/a&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Scopes&lt;/td&gt;
+      &lt;td&gt;
+        &lt;ul&gt;
+          &lt;li&gt;decide&lt;/li&gt;
+          &lt;li&gt;build&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+        </details>
+        <table data-hrv="3232" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3233">element</th>
+              <th data-hrv="3234">what markdown can say</th>
+              <th data-hrv="3235">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3236">&lt;table&gt;</td>
+              <td data-hrv="3237">markdown with HTML</td>
+              <td data-hrv="3238">
+                <pre data-hrv="3239">&lt;table&gt;
+  &lt;caption&gt;Stages&lt;/caption&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;th&gt;stage&lt;/th&gt;
+      &lt;th&gt;status&lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Formatter&lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;PLAN&lt;/a&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Scopes&lt;/td&gt;
+      &lt;td&gt;
+        &lt;ul&gt;
+          &lt;li&gt;decide&lt;/li&gt;
+          &lt;li&gt;build&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3240"> &lt;caption&gt;</td>
+              <td data-hrv="3241">all markdown</td>
+              <td data-hrv="3242">
+                <pre data-hrv="3243">Stages</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3244"> &lt;th&gt;</td>
+              <td data-hrv="3245">all markdown</td>
+              <td data-hrv="3246">
+                <pre data-hrv="3247">stage</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3248"> &lt;th&gt;</td>
+              <td data-hrv="3249">all markdown</td>
+              <td data-hrv="3250">
+                <pre data-hrv="3251">status</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3252"> &lt;td&gt;</td>
+              <td data-hrv="3253">all markdown</td>
+              <td data-hrv="3254">
+                <pre data-hrv="3255">Formatter</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3256"> &lt;td&gt;</td>
+              <td data-hrv="3257">all markdown</td>
+              <td data-hrv="3258">
+                <pre data-hrv="3259">**in progress**, see [PLAN](#scopes)</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3260">  &lt;a&gt;</td>
+              <td data-hrv="3261">all markdown</td>
+              <td data-hrv="3262">
+                <pre data-hrv="3263">[PLAN](#scopes)</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3264"> &lt;td&gt;</td>
+              <td data-hrv="3265">all markdown</td>
+              <td data-hrv="3266">
+                <pre data-hrv="3267">Scopes</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3268"> &lt;td&gt;</td>
+              <td data-hrv="3269">all markdown</td>
+              <td data-hrv="3270">
+                <pre data-hrv="3271">- decide
+- build</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3272">  &lt;ul&gt;</td>
+              <td data-hrv="3273">all markdown</td>
+              <td data-hrv="3274">
+                <pre data-hrv="3275">- decide
+- build</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3276">   &lt;li&gt;</td>
+              <td data-hrv="3277">all markdown</td>
+              <td data-hrv="3278">
+                <pre data-hrv="3279">decide</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3280">   &lt;li&gt;</td>
+              <td data-hrv="3281">all markdown</td>
+              <td data-hrv="3282">
+                <pre data-hrv="3283">build</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c7" data-hrv="462" class="case">
+        <h4 data-hrv="463">C7. Figure with caption</h4>
+        <p data-hrv="464" class="ask">
+          The caption is prose; the figure is a container; the image is nonprose.
+        </p>
+        <div data-hrv="465" class="ex">
+          <figure data-hrv="466">
+            <svg data-hrv="467" viewBox="0 0 120 40" width="120">
+              <rect data-hrv="468" x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df"></rect><text data-hrv="469" x="60" y="25" text-anchor="middle" font-size="12">diagram yo</text>
+            </svg>
+            <figcaption data-hrv="470">The <em>path</em>, as of today.</figcaption>
+          </figure>
+        </div>
+        <details data-hrv="3284" class="scope-report">
+          <summary data-hrv="3285">HTML</summary>
+          <pre data-hrv="3286">&lt;figure&gt;
+  &lt;svg viewBox="0 0 120 40" width="120"&gt;
+    &lt;rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df" /&gt;&lt;text x="60" y="25" text-anchor="middle" font-size="12"&gt;diagram yo&lt;/text&gt;
+  &lt;/svg&gt;
+  &lt;figcaption&gt;The &lt;em&gt;path&lt;/em&gt;, as of today.&lt;/figcaption&gt;
+&lt;/figure&gt;</pre>
+        </details>
+        <table data-hrv="3287" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3288">element</th>
+              <th data-hrv="3289">what markdown can say</th>
+              <th data-hrv="3290">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3291">&lt;figure&gt;</td>
+              <td data-hrv="3292">markdown with HTML and ⟦tokens⟧</td>
+              <td data-hrv="3293">
+                <pre data-hrv="3294">⟦svg⟧
+
+&lt;figcaption&gt;The &lt;em&gt;path&lt;/em&gt;, as of today.&lt;/figcaption&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3295"> &lt;text&gt;</td>
+              <td data-hrv="3296">svg text: markdown inside the label</td>
+              <td data-hrv="3297">
+                <pre data-hrv="3298">diagram yo</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3299"> &lt;figcaption&gt;</td>
+              <td data-hrv="3300">all markdown</td>
+              <td data-hrv="3301">
+                <pre data-hrv="3302">The *path*, as of today.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c8" data-hrv="490" class="case">
+        <h4 data-hrv="491">C8. Details and summary</h4>
+        <p data-hrv="492" class="ask">Summary is phrasing; the body is flow. Two scopes?</p>
+        <div data-hrv="493" class="ex">
+          <details data-hrv="494" open>
+            <summary data-hrv="495">Why <strong>formatter</strong> first?</summary>
+            <p data-hrv="496">It can take validation steps.</p>
+          </details>
+        </div>
+        <details data-hrv="3303" class="scope-report">
+          <summary data-hrv="3304">HTML</summary>
+          <pre data-hrv="3305">&lt;details open&gt;
+  &lt;summary&gt;Why &lt;strong&gt;formatter&lt;/strong&gt; first?&lt;/summary&gt;
+  &lt;p&gt;It can take validation steps.&lt;/p&gt;
+&lt;/details&gt;</pre>
+        </details>
+        <table data-hrv="3306" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3307">element</th>
+              <th data-hrv="3308">what markdown can say</th>
+              <th data-hrv="3309">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3310">&lt;details&gt;</td>
+              <td data-hrv="3311">markdown with HTML</td>
+              <td data-hrv="3312">
+                <pre data-hrv="3313">&lt;summary&gt;Why &lt;strong&gt;formatter&lt;/strong&gt; first?&lt;/summary&gt;
+
+It can take validation steps.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3314"> &lt;summary&gt;</td>
+              <td data-hrv="3315">all markdown</td>
+              <td data-hrv="3316">
+                <pre data-hrv="3317">Why **formatter** first?</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3318"> &lt;p&gt;</td>
+              <td data-hrv="3319">all markdown</td>
+              <td data-hrv="3320">
+                <pre data-hrv="3321">It can take validation steps.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c9" data-hrv="516" class="case">
+        <h4 data-hrv="517">C9. Div holding text directly</h4>
+        <p data-hrv="518" class="ask">
+          No <code>p</code>, but it reads as a paragraph. Same as a <code>p</code>?
+        </p>
+        <div data-hrv="519" class="ex">
+          <div data-hrv="520">A div with <em>text</em> and no paragraph element.</div>
+        </div>
+        <details data-hrv="3322" class="scope-report">
+          <summary data-hrv="3323">HTML</summary>
+          <pre data-hrv="3324">&lt;div&gt;A div with &lt;em&gt;text&lt;/em&gt; and no paragraph element.&lt;/div&gt;</pre>
+        </details>
+        <table data-hrv="3325" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3326">element</th>
+              <th data-hrv="3327">what markdown can say</th>
+              <th data-hrv="3328">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3329">&lt;div&gt;</td>
+              <td data-hrv="3330">all markdown</td>
+              <td data-hrv="3331">
+                <pre data-hrv="3332">A div with *text* and no paragraph element.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c10" data-hrv="532" class="case">
+        <h4 data-hrv="533">C10. Text and blocks mixed in one container</h4>
+        <p data-hrv="534" class="ask">
+          Bare text, then a block, then more bare text. Each text run an anonymous scope? Or does the formatter wrap them in <code>p</code>?
+        </p>
+        <div data-hrv="535" class="ex">
+          <div data-hrv="536">
+            Text before the list, <strong>with bold</strong>.
+            <ul data-hrv="537">
+              <li data-hrv="538">an item</li>
+            </ul>
+            Text after the list.
+          </div>
+        </div>
+        <details data-hrv="3333" class="scope-report">
+          <summary data-hrv="3334">HTML</summary>
+          <pre data-hrv="3335">&lt;div&gt;
+  Text before the list, &lt;strong&gt;with bold&lt;/strong&gt;.
+  &lt;ul&gt;
+    &lt;li&gt;an item&lt;/li&gt;
+  &lt;/ul&gt;
+  Text after the list.
+&lt;/div&gt;</pre>
+        </details>
+        <table data-hrv="3336" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3337">element</th>
+              <th data-hrv="3338">what markdown can say</th>
+              <th data-hrv="3339">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3340">&lt;div&gt;</td>
+              <td data-hrv="3341">all markdown</td>
+              <td data-hrv="3342">
+                <pre data-hrv="3343">Text before the list, **with bold**.
+
+- an item
+
+Text after the list.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3344"> &lt;ul&gt;</td>
+              <td data-hrv="3345">all markdown</td>
+              <td data-hrv="3346">
+                <pre data-hrv="3347">- an item</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3348">  &lt;li&gt;</td>
+              <td data-hrv="3349">all markdown</td>
+              <td data-hrv="3350">
+                <pre data-hrv="3351">an item</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="c11" data-hrv="558" class="case">
+        <h4 data-hrv="559">C11. Code block</h4>
+        <p data-hrv="560" class="ask">
+          A scope edited as a fenced block? Spans from syntax highlighting can't survive markdown.
+        </p>
+        <div data-hrv="561" class="ex">
+          <pre data-hrv="562"><code>node formatter.mjs PLAN.html
+echo $?</code></pre>
+          <pre data-hrv="563"><code><span style="color: #cf222e; font-weight: 600">const</span> x = <span style="color: #0550ae">1</span>;</code></pre>
+        </div>
+        <details data-hrv="3352" class="scope-report">
+          <summary data-hrv="3353">HTML</summary>
+          <pre data-hrv="3354">&lt;pre&gt;&lt;code&gt;node formatter.mjs PLAN.html
+echo $?&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;&lt;span style="color: #cf222e; font-weight: 600"&gt;const&lt;/span&gt; x = &lt;span style="color: #0550ae"&gt;1&lt;/span&gt;;&lt;/code&gt;&lt;/pre&gt;</pre>
+        </details>
+        <table data-hrv="3355" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3356">element</th>
+              <th data-hrv="3357">what markdown can say</th>
+              <th data-hrv="3358">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3359">&lt;pre&gt;</td>
+              <td data-hrv="3360">all markdown</td>
+              <td data-hrv="3361">
+                <pre data-hrv="3362">```
+node formatter.mjs PLAN.html
+echo $?
+```</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3363">&lt;pre&gt;</td>
+              <td data-hrv="3364">markdown with HTML</td>
+              <td data-hrv="3365">
+                <pre data-hrv="3366">&lt;pre&gt;&lt;code&gt;&lt;span style="color: #cf222e; font-weight: 600"&gt;const&lt;/span&gt; x = &lt;span style="color: #0550ae"&gt;1&lt;/span&gt;;&lt;/code&gt;&lt;/pre&gt;</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-hrv="579">D. Nonprose inside prose</h3>
+      <div id="d1" data-hrv="580" class="case">
+        <h4 data-hrv="581">D1. Inline icon</h4>
+        <p data-hrv="582" class="ask">
+          An <code>svg</code> inside a sentence. A token in the markdown? Raw SVG would swamp the text.
+        </p>
+        <div data-hrv="583" class="ex">
+          <p data-hrv="584">
+            Click the
+            <svg data-hrv="585" viewBox="0 0 16 16" width="14" height="14">
+              <circle data-hrv="586" cx="8" cy="8" r="6" fill="#d6336c"></circle>
+            </svg>
+            marker to open the directive box.
+          </p>
+        </div>
+        <details data-hrv="3367" class="scope-report">
+          <summary data-hrv="3368">HTML</summary>
+          <pre data-hrv="3369">&lt;p&gt;
+  Click the
+  &lt;svg viewBox="0 0 16 16" width="14" height="14"&gt;
+    &lt;circle cx="8" cy="8" r="6" fill="#d6336c" /&gt;
+  &lt;/svg&gt;
+  marker to open the directive box.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3370" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3371">element</th>
+              <th data-hrv="3372">what markdown can say</th>
+              <th data-hrv="3373">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3374">&lt;p&gt;</td>
+              <td data-hrv="3375">markdown with ⟦tokens⟧</td>
+              <td data-hrv="3376">
+                <pre data-hrv="3377">Click the ⟦svg⟧ marker to open the directive box.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d2" data-hrv="598" class="case">
+        <h4 data-hrv="599">D2. Inline image</h4>
+        <p data-hrv="600" class="ask">
+          Markdown has <code>![alt](src)</code>, but not width or class.
+        </p>
+        <div data-hrv="601" class="ex">
+          <p data-hrv="602">
+            The armadillo <img data-hrv="603" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cellipse cx='10' cy='6' rx='9' ry='5' fill='%23998'/%3E%3C/svg%3E" alt="armadillo" width="20"> lives in DESIGN.html.
+          </p>
+        </div>
+        <details data-hrv="3378" class="scope-report">
+          <summary data-hrv="3379">HTML</summary>
+          <pre data-hrv="3380">&lt;p&gt;
+  The armadillo &lt;img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cellipse cx='10' cy='6' rx='9' ry='5' fill='%23998'/%3E%3C/svg%3E" alt="armadillo" width="20"&gt; lives in DESIGN.html.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3381" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3382">element</th>
+              <th data-hrv="3383">what markdown can say</th>
+              <th data-hrv="3384">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3385">&lt;p&gt;</td>
+              <td data-hrv="3386">all markdown</td>
+              <td data-hrv="3387">
+                <pre data-hrv="3388">The armadillo ![armadillo](&lt;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cellipse cx='10' cy='6' rx='9' ry='5' fill='%23998'/%3E%3C/svg%3E&gt;) lives in DESIGN.html.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3389"> &lt;img&gt;</td>
+              <td data-hrv="3390">all markdown</td>
+              <td data-hrv="3391">
+                <pre data-hrv="3392">![armadillo](&lt;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12'%3E%3Cellipse cx='10' cy='6' rx='9' ry='5' fill='%23998'/%3E%3C/svg%3E&gt;)</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d3" data-hrv="619" class="case">
+        <h4 data-hrv="620">D3. Code block in a list item</h4>
+        <p data-hrv="621" class="ask">
+          Prose, then nonprose, then prose, all in one <code>li</code>.
+        </p>
+        <div data-hrv="622" class="ex">
+          <ul data-hrv="623">
+            <li data-hrv="624">
+              Run the formatter:
+              <pre data-hrv="625"><code>node formatter.mjs try-me.html</code></pre>
+              then reload the page.
+            </li>
+          </ul>
+        </div>
+        <details data-hrv="3393" class="scope-report">
+          <summary data-hrv="3394">HTML</summary>
+          <pre data-hrv="3395">&lt;ul&gt;
+  &lt;li&gt;
+    Run the formatter:
+    &lt;pre&gt;&lt;code&gt;node formatter.mjs try-me.html&lt;/code&gt;&lt;/pre&gt;
+    then reload the page.
+  &lt;/li&gt;
+&lt;/ul&gt;</pre>
+        </details>
+        <table data-hrv="3396" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3397">element</th>
+              <th data-hrv="3398">what markdown can say</th>
+              <th data-hrv="3399">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3400">&lt;ul&gt;</td>
+              <td data-hrv="3401">all markdown</td>
+              <td data-hrv="3402">
+                <pre data-hrv="3403">- Run the formatter:
+  ```
+  node formatter.mjs try-me.html
+  ```
+  then reload the page.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3404"> &lt;li&gt;</td>
+              <td data-hrv="3405">all markdown</td>
+              <td data-hrv="3406">
+                <pre data-hrv="3407">Run the formatter:
+```
+node formatter.mjs try-me.html
+```
+then reload the page.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3408">  &lt;pre&gt;</td>
+              <td data-hrv="3409">all markdown</td>
+              <td data-hrv="3410">
+                <pre data-hrv="3411">```
+node formatter.mjs try-me.html
+```</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d4" data-hrv="645" class="case">
+        <h4 data-hrv="646">D4. Table in a list item</h4>
+        <p data-hrv="647" class="ask">Same shape as D3, with a bigger nonprose piece.</p>
+        <div data-hrv="648" class="ex">
+          <ul data-hrv="649">
+            <li data-hrv="650">
+              Exit codes:
+              <table data-hrv="651">
+                <tbody>
+                  <tr>
+                    <td data-hrv="652">0</td>
+                    <td data-hrv="653">formatted</td>
+                  </tr>
+                  <tr>
+                    <td data-hrv="654">1</td>
+                    <td data-hrv="655">can't fix</td>
+                  </tr>
+                </tbody>
+              </table>
+            </li>
+          </ul>
+        </div>
+        <details data-hrv="3412" class="scope-report">
+          <summary data-hrv="3413">HTML</summary>
+          <pre data-hrv="3414">&lt;ul&gt;
+  &lt;li&gt;
+    Exit codes:
+    &lt;table&gt;
+      &lt;tbody&gt;
+        &lt;tr&gt;
+          &lt;td&gt;0&lt;/td&gt;
+          &lt;td&gt;formatted&lt;/td&gt;
+        &lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;td&gt;1&lt;/td&gt;
+          &lt;td&gt;can't fix&lt;/td&gt;
+        &lt;/tr&gt;
+      &lt;/tbody&gt;
+    &lt;/table&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;</pre>
+        </details>
+        <table data-hrv="3415" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3416">element</th>
+              <th data-hrv="3417">what markdown can say</th>
+              <th data-hrv="3418">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3419">&lt;ul&gt;</td>
+              <td data-hrv="3420">markdown with HTML</td>
+              <td data-hrv="3421">
+                <pre data-hrv="3422">- Exit codes:
+  &lt;table&gt;
+    &lt;tbody&gt;
+      &lt;tr&gt;
+        &lt;td&gt;0&lt;/td&gt;
+        &lt;td&gt;formatted&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+        &lt;td&gt;1&lt;/td&gt;
+        &lt;td&gt;can't fix&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3423"> &lt;li&gt;</td>
+              <td data-hrv="3424">markdown with HTML</td>
+              <td data-hrv="3425">
+                <pre data-hrv="3426">Exit codes:
+&lt;table&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;0&lt;/td&gt;
+      &lt;td&gt;formatted&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;1&lt;/td&gt;
+      &lt;td&gt;can't fix&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3427">  &lt;table&gt;</td>
+              <td data-hrv="3428">markdown with HTML</td>
+              <td data-hrv="3429">
+                <pre data-hrv="3430">&lt;table&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;0&lt;/td&gt;
+      &lt;td&gt;formatted&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;1&lt;/td&gt;
+      &lt;td&gt;can't fix&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3431">   &lt;td&gt;</td>
+              <td data-hrv="3432">all markdown</td>
+              <td data-hrv="3433">
+                <pre data-hrv="3434">0</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3435">   &lt;td&gt;</td>
+              <td data-hrv="3436">all markdown</td>
+              <td data-hrv="3437">
+                <pre data-hrv="3438">formatted</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3439">   &lt;td&gt;</td>
+              <td data-hrv="3440">all markdown</td>
+              <td data-hrv="3441">
+                <pre data-hrv="3442">1</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3443">   &lt;td&gt;</td>
+              <td data-hrv="3444">all markdown</td>
+              <td data-hrv="3445">
+                <pre data-hrv="3446">can't fix</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d5" data-hrv="691" class="case">
+        <h4 data-hrv="692">D5. A diagram in a paragraph</h4>
+        <p data-hrv="693" class="ask">
+          A big <code>svg</code> between sentences. Does it split the paragraph into two scopes?
+        </p>
+        <div data-hrv="694" class="ex">
+          <p data-hrv="695">
+            Here is the path.
+            <svg data-hrv="696" viewBox="0 0 200 30" width="200">
+              <line data-hrv="697" x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4"></line><circle data-hrv="698" cx="10" cy="15" r="6" fill="#1a7f37"></circle><circle data-hrv="699" cx="100" cy="15" r="6" fill="#0969da"></circle><circle data-hrv="700" cx="190" cy="15" r="6" fill="#0969da"></circle>
+            </svg>
+            It has six stages.
+          </p>
+        </div>
+        <details data-hrv="3447" class="scope-report">
+          <summary data-hrv="3448">HTML</summary>
+          <pre data-hrv="3449">&lt;p&gt;
+  Here is the path.
+  &lt;svg viewBox="0 0 200 30" width="200"&gt;
+    &lt;line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4" /&gt;&lt;circle cx="10" cy="15" r="6" fill="#1a7f37" /&gt;&lt;circle cx="100" cy="15" r="6" fill="#0969da" /&gt;&lt;circle cx="190" cy="15" r="6" fill="#0969da" /&gt;
+  &lt;/svg&gt;
+  It has six stages.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3450" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3451">element</th>
+              <th data-hrv="3452">what markdown can say</th>
+              <th data-hrv="3453">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3454">&lt;p&gt;</td>
+              <td data-hrv="3455">markdown with ⟦tokens⟧</td>
+              <td data-hrv="3456">
+                <pre data-hrv="3457">Here is the path. ⟦svg⟧ It has six stages.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d6" data-hrv="712" class="case">
+        <h4 data-hrv="713">D6. Text inside an SVG</h4>
+        <p data-hrv="714" class="ask">
+          SVG <code>text</code> takes directives today. Is it a scope too, editable as markdown?
+        </p>
+        <div data-hrv="715" class="ex">
+          <svg data-hrv="716" viewBox="0 0 240 40" width="240">
+            <text data-hrv="717" x="10" y="25" font-size="14">Formatter <tspan data-hrv="718" font-weight="700">alone</tspan></text>
+          </svg>
+        </div>
+        <details data-hrv="3458" class="scope-report">
+          <summary data-hrv="3459">HTML</summary>
+          <pre data-hrv="3460">&lt;svg viewBox="0 0 240 40" width="240"&gt;
+  &lt;text x="10" y="25" font-size="14"&gt;Formatter &lt;tspan font-weight="700"&gt;alone&lt;/tspan&gt;&lt;/text&gt;
+&lt;/svg&gt;</pre>
+        </details>
+        <table data-hrv="3461" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3462">element</th>
+              <th data-hrv="3463">what markdown can say</th>
+              <th data-hrv="3464">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3465">&lt;text&gt;</td>
+              <td data-hrv="3466">svg text: markdown inside the label</td>
+              <td data-hrv="3467">
+                <pre data-hrv="3468">Formatter &lt;tspan font-weight="700"&gt;alone&lt;/tspan&gt;</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d7" data-hrv="730" class="case">
+        <h4 data-hrv="731">D7. Form controls in text</h4>
+        <p data-hrv="732" class="ask">
+          Unlikely in an overview page, but phrasing content. Nonprose token?
+        </p>
+        <div data-hrv="733" class="ex">
+          <p data-hrv="734">
+            Show <input type="checkbox" checked> done stages, or <button>reset</button>.
+          </p>
+        </div>
+        <details data-hrv="3469" class="scope-report">
+          <summary data-hrv="3470">HTML</summary>
+          <pre data-hrv="3471">&lt;p&gt;
+  Show &lt;input type="checkbox" checked&gt; done stages, or &lt;button&gt;reset&lt;/button&gt;.
+&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3472" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3473">element</th>
+              <th data-hrv="3474">what markdown can say</th>
+              <th data-hrv="3475">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3476">&lt;p&gt;</td>
+              <td data-hrv="3477">markdown with ⟦tokens⟧</td>
+              <td data-hrv="3478">
+                <pre data-hrv="3479">Show ⟦input⟧ done stages, or ⟦button⟧.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-hrv="746">E. Phrasing that isn't prose</h3>
+      <div id="e1" data-hrv="747" class="case">
+        <h4 data-hrv="748">E1. Stat tiles</h4>
+        <p data-hrv="749" class="ask">
+          All spans, so phrasing by the spec. But it's layout. Scopes per tile, per span, or none?
+        </p>
+        <div data-hrv="750" class="ex">
+          <div data-hrv="751" class="stats">
+            <div data-hrv="752" class="stat">
+              <span data-hrv="3480" class="big">6</span><span data-hrv="2212">stages</span>
+            </div>
+            <div data-hrv="753" class="stat">
+              <span data-hrv="2213" class="big">1</span><span data-hrv="2214">in progress</span>
+            </div>
+          </div>
+        </div>
+        <details data-hrv="3481" class="scope-report">
+          <summary data-hrv="3482">HTML</summary>
+          <pre data-hrv="3483">&lt;div class="stats"&gt;
+  &lt;div class="stat"&gt;
+    &lt;span class="big"&gt;6&lt;/span&gt;&lt;span&gt;stages&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div class="stat"&gt;
+    &lt;span class="big"&gt;1&lt;/span&gt;&lt;span&gt;in progress&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+        </details>
+        <table data-hrv="3484" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3485">element</th>
+              <th data-hrv="3486">what markdown can say</th>
+              <th data-hrv="3487">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3488">&lt;div.stats&gt;</td>
+              <td data-hrv="3489">markdown with HTML</td>
+              <td data-hrv="3490">
+                <pre data-hrv="3491">&lt;div class="stat"&gt;&lt;span class="big"&gt;6&lt;/span&gt;&lt;span&gt;stages&lt;/span&gt;&lt;/div&gt;
+
+&lt;div class="stat"&gt;&lt;span class="big"&gt;1&lt;/span&gt;&lt;span&gt;in progress&lt;/span&gt;&lt;/div&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3492"> &lt;div.stat&gt;</td>
+              <td data-hrv="3493">markdown with HTML</td>
+              <td data-hrv="3494">
+                <pre data-hrv="3495">&lt;span class="big"&gt;6&lt;/span&gt;&lt;span&gt;stages&lt;/span&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3496">  &lt;span.big&gt;</td>
+              <td data-hrv="3497">all markdown</td>
+              <td data-hrv="3498">
+                <pre data-hrv="3499">6</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3500">  &lt;span&gt;</td>
+              <td data-hrv="3501">all markdown</td>
+              <td data-hrv="3502">
+                <pre data-hrv="3503">stages</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3504"> &lt;div.stat&gt;</td>
+              <td data-hrv="3505">markdown with HTML</td>
+              <td data-hrv="3506">
+                <pre data-hrv="3507">&lt;span class="big"&gt;1&lt;/span&gt;&lt;span&gt;in progress&lt;/span&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3508">  &lt;span.big&gt;</td>
+              <td data-hrv="3509">all markdown</td>
+              <td data-hrv="3510">
+                <pre data-hrv="3511">1</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3512">  &lt;span&gt;</td>
+              <td data-hrv="3513">all markdown</td>
+              <td data-hrv="3514">
+                <pre data-hrv="3515">in progress</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="e2" data-hrv="773" class="case">
+        <h4 data-hrv="774">E2. A label row</h4>
+        <p data-hrv="775" class="ask">
+          Spans side by side in a flex row. One sentence, or three labels?
+        </p>
+        <div data-hrv="776" class="ex">
+          <div data-hrv="777" class="row">
+            <span data-hrv="3516" class="pill">stage 1</span><span data-hrv="3517">Formatter</span><span data-hrv="3518">→ done</span>
+          </div>
+        </div>
+        <details data-hrv="3519" class="scope-report">
+          <summary data-hrv="3520">HTML</summary>
+          <pre data-hrv="3521">&lt;div class="row"&gt;
+  &lt;span class="pill"&gt;stage 1&lt;/span&gt;&lt;span&gt;Formatter&lt;/span&gt;&lt;span&gt;→ done&lt;/span&gt;
+&lt;/div&gt;</pre>
+        </details>
+        <table data-hrv="3522" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3523">element</th>
+              <th data-hrv="3524">what markdown can say</th>
+              <th data-hrv="3525">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3526">&lt;div.row&gt;</td>
+              <td data-hrv="3527">markdown with HTML</td>
+              <td data-hrv="3528">
+                <pre data-hrv="3529">&lt;span class="pill"&gt;stage 1&lt;/span&gt;&lt;span&gt;Formatter&lt;/span&gt;&lt;span&gt;→ done&lt;/span&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3530"> &lt;span.pill&gt;</td>
+              <td data-hrv="3531">all markdown</td>
+              <td data-hrv="3532">
+                <pre data-hrv="3533">stage 1</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3534"> &lt;span&gt;</td>
+              <td data-hrv="3535">all markdown</td>
+              <td data-hrv="3536">
+                <pre data-hrv="3537">Formatter</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3538"> &lt;span&gt;</td>
+              <td data-hrv="3539">all markdown</td>
+              <td data-hrv="3540">
+                <pre data-hrv="3541">→ done</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="e3" data-hrv="789" class="case">
+        <h4 data-hrv="790">E3. A link wrapping blocks</h4>
+        <p data-hrv="791" class="ask">
+          A card that's one big link. The link is the container; its heading and paragraph are scopes?
+        </p>
+        <div data-hrv="792" class="ex">
+          <a data-hrv="793" class="tile" href="#scopes">
+            <h4 data-hrv="794">DESIGN.html</h4>
+            <p data-hrv="795">Everything the tool adds to a page.</p>
+          </a>
+        </div>
+        <details data-hrv="3542" class="scope-report">
+          <summary data-hrv="3543">HTML</summary>
+          <pre data-hrv="3544">&lt;a class="tile" href="#scopes"&gt;
+  &lt;h4&gt;DESIGN.html&lt;/h4&gt;
+  &lt;p&gt;Everything the tool adds to a page.&lt;/p&gt;
+&lt;/a&gt;</pre>
+        </details>
+        <table data-hrv="3545" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3546">element</th>
+              <th data-hrv="3547">what markdown can say</th>
+              <th data-hrv="3548">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3549">&lt;a.tile&gt;</td>
+              <td data-hrv="3550">all markdown</td>
+              <td data-hrv="3551">
+                <pre data-hrv="3552">#### DESIGN.html
+
+Everything the tool adds to a page.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3553"> &lt;h4&gt;</td>
+              <td data-hrv="3554">all markdown</td>
+              <td data-hrv="3555">
+                <pre data-hrv="3556">DESIGN.html</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3557"> &lt;p&gt;</td>
+              <td data-hrv="3558">all markdown</td>
+              <td data-hrv="3559">
+                <pre data-hrv="3560">Everything the tool adds to a page.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="e4" data-hrv="815" class="case">
+        <h4 data-hrv="816">E4. Paragraph that is all link</h4>
+        <p data-hrv="817" class="ask">
+          Edit the link text, or the paragraph? Same scope either way?
+        </p>
+        <div data-hrv="818" class="ex">
+          <p data-hrv="819"><a data-hrv="820" href="#scopes">Back to the top of the cases</a></p>
+        </div>
+        <details data-hrv="3561" class="scope-report">
+          <summary data-hrv="3562">HTML</summary>
+          <pre data-hrv="3563">&lt;p&gt;&lt;a href="#scopes"&gt;Back to the top of the cases&lt;/a&gt;&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3564" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3565">element</th>
+              <th data-hrv="3566">what markdown can say</th>
+              <th data-hrv="3567">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3568">&lt;p&gt;</td>
+              <td data-hrv="3569">all markdown</td>
+              <td data-hrv="3570">
+                <pre data-hrv="3571">[Back to the top of the cases](#scopes)</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3572"> &lt;a&gt;</td>
+              <td data-hrv="3573">all markdown</td>
+              <td data-hrv="3574">
+                <pre data-hrv="3575">[Back to the top of the cases](#scopes)</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-hrv="836">F. Odd shapes</h3>
+      <div id="f1" data-hrv="837" class="case">
+        <h4 data-hrv="838">F1. Empty and blank paragraphs</h4>
+        <p data-hrv="839" class="ask">
+          Scopes with nothing to edit. Skip them, or let you type into them?
+        </p>
+        <div data-hrv="840" class="ex">
+          <p data-hrv="841"></p>
+          <p data-hrv="842">&nbsp;</p>
+          <p data-hrv="843">Between two empties.</p>
+        </div>
+        <details data-hrv="3576" class="scope-report">
+          <summary data-hrv="3577">HTML</summary>
+          <pre data-hrv="3578">&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&amp;#160;&lt;/p&gt;
+&lt;p&gt;Between two empties.&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3579" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3580">element</th>
+              <th data-hrv="3581">what markdown can say</th>
+              <th data-hrv="3582">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3583">&lt;p&gt;</td>
+              <td data-hrv="3584">nothing to edit</td>
+              <td data-hrv="3585"></td>
+            </tr>
+            <tr>
+              <td data-hrv="3586">&lt;p&gt;</td>
+              <td data-hrv="3587">nothing to edit</td>
+              <td data-hrv="3588">
+                <pre data-hrv="3589">&nbsp;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3590">&lt;p&gt;</td>
+              <td data-hrv="3591">all markdown</td>
+              <td data-hrv="3592">
+                <pre data-hrv="3593">Between two empties.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="f2" data-hrv="861" class="case">
+        <h4 data-hrv="862">F2. Sibling scopes with no wrapper</h4>
+        <p data-hrv="863" class="ask">
+          A heading and paragraphs straight in a section. Each its own scope, or the section as one markdown doc?
+        </p>
+        <div data-hrv="864" class="ex">
+          <section data-hrv="865">
+            <h4 data-hrv="866">A section</h4>
+            <p data-hrv="867">First paragraph.</p>
+            <p data-hrv="868">Second paragraph.</p>
+            <hr data-hrv="869">
+            <p data-hrv="870">After a rule.</p>
+          </section>
+        </div>
+        <details data-hrv="3594" class="scope-report">
+          <summary data-hrv="3595">HTML</summary>
+          <pre data-hrv="3596">&lt;section&gt;
+  &lt;h4&gt;A section&lt;/h4&gt;
+  &lt;p&gt;First paragraph.&lt;/p&gt;
+  &lt;p&gt;Second paragraph.&lt;/p&gt;
+  &lt;hr&gt;
+  &lt;p&gt;After a rule.&lt;/p&gt;
+&lt;/section&gt;</pre>
+        </details>
+        <table data-hrv="3597" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3598">element</th>
+              <th data-hrv="3599">what markdown can say</th>
+              <th data-hrv="3600">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3601">&lt;section&gt;</td>
+              <td data-hrv="3602">all markdown</td>
+              <td data-hrv="3603">
+                <pre data-hrv="3604">#### A section
+
+First paragraph.
+
+Second paragraph.
+
+---
+
+After a rule.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3605"> &lt;h4&gt;</td>
+              <td data-hrv="3606">all markdown</td>
+              <td data-hrv="3607">
+                <pre data-hrv="3608">A section</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3609"> &lt;p&gt;</td>
+              <td data-hrv="3610">all markdown</td>
+              <td data-hrv="3611">
+                <pre data-hrv="3612">First paragraph.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3613"> &lt;p&gt;</td>
+              <td data-hrv="3614">all markdown</td>
+              <td data-hrv="3615">
+                <pre data-hrv="3616">Second paragraph.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3617"> &lt;p&gt;</td>
+              <td data-hrv="3618">all markdown</td>
+              <td data-hrv="3619">
+                <pre data-hrv="3620">After a rule.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="f3" data-hrv="898" class="case">
+        <h4 data-hrv="899">F3. A list inside a paragraph</h4>
+        <p data-hrv="900" class="ask">
+          Written as <code>&lt;p&gt;Before the list&lt;ul&gt;…&lt;/ul&gt;after the list&lt;/p&gt;</code>. The formatter does what a browser does: it closes the <code>p</code> at the <code>ul</code>, leaves the trailing text bare (C10), and turns the stray <code>&lt;/p&gt;</code> into an empty <code>p</code> (F1). Leave it, or should the formatter wrap the bare text?
+        </p>
+        <div data-hrv="901" class="ex">
+          <p data-hrv="902">Before the list</p>
+          <ul data-hrv="903">
+            <li data-hrv="904">inside</li>
+          </ul>
+          after the list
+          <p data-hrv="905"></p>
+        </div>
+        <details data-hrv="3621" class="scope-report">
+          <summary data-hrv="3622">HTML</summary>
+          <pre data-hrv="3623">&lt;p&gt;Before the list&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;inside&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;/p&gt;</pre>
+        </details>
+        <table data-hrv="3624" class="scope-report">
+          <thead>
+            <tr>
+              <th data-hrv="3625">element</th>
+              <th data-hrv="3626">what markdown can say</th>
+              <th data-hrv="3627">what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="3628">&lt;p&gt;</td>
+              <td data-hrv="3629">all markdown</td>
+              <td data-hrv="3630">
+                <pre data-hrv="3631">Before the list</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3632">&lt;ul&gt;</td>
+              <td data-hrv="3633">all markdown</td>
+              <td data-hrv="3634">
+                <pre data-hrv="3635">- inside</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3636"> &lt;li&gt;</td>
+              <td data-hrv="3637">all markdown</td>
+              <td data-hrv="3638">
+                <pre data-hrv="3639">inside</pre>
+              </td>
+            </tr>
+            <tr>
+              <td data-hrv="3640">&lt;p&gt;</td>
+              <td data-hrv="3641">nothing to edit</td>
+              <td data-hrv="3642"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </body>
+</html>
