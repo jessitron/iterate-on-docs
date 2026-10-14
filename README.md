@@ -81,7 +81,7 @@ The server is in [`html-revisor/`](html-revisor/README.md). To use it on its own
 
 A second skill, `skills/make-a-project-overview/SKILL.md`, draws a picture of a whole project:
 one HTML page, `OVERVIEW.html` at the repo root, with diagrams of where the project is headed, its
-architecture, and the current work. Then you iterate on it the same way, leaving directives in the browser.
+architecture, and the current work. Then you iterate on it the same way, leaving directives in the browser. Here's an [example](https://jessitron.github.io/html-revisor/OVERVIEW.html).
 
 > Make a project overview
 
