@@ -39,7 +39,11 @@ full list of those elements is under "Directive format" in `../../html-revisor/R
 
 ## End
 
-Stop the server.
+Stop the server. Then run `node ../../html-revisor/cleanup.mjs <file>`. It takes out what the
+tool left in the page: directives and the element IDs (`data-hrv`, `data-hrv-next`), formatting
+kept. It prints each directive it removed as `<file>: <text>`; tell the user about those, since
+saying "good enough" left them unaddressed. Commit the result. The next iteration on the page
+hands out IDs afresh, so two iterations on one page don't collide.
 
 ## Report bugs
 
