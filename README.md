@@ -42,7 +42,7 @@ the history. If the file isn't in a repository, the agent asks before running `g
 
 Ask your agent:
 
-> Let's iterate on docs/proposal.md
+> Explain your plan to me in HTML, and then let's iterate on that document.
 
 Then trade turns:
 
