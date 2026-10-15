@@ -207,6 +207,9 @@
     tip.style.display = 'none';
   }
 
+  // A tip from stepping stays until the next click.
+  document.addEventListener('mousedown', hideTip, true);
+
   // Above the marker, left edges aligned; below it with no room above. Kept inside the window.
   function positionTip() {
     var marker = tipId && markers[tipId];
@@ -408,7 +411,8 @@
   }
 
   // Scroll the next (dir 1) or previous (dir -1) directive's element to the middle of the window
-  // and show its crop marks for a moment. Wraps around at the ends.
+  // and show its crop marks for a moment. Its marker's tip shows what it says, until the next click,
+  // so you can read through the directives without opening each one. Wraps around at the ends.
   function step(dir) {
     var els = directiveElements();
     if (!els.length) return;
@@ -426,6 +430,7 @@
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
     flashed = target;
     positionHover();
+    showTip(current);
     clearTimeout(flashTimer);
     flashTimer = setTimeout(function () {
       flashed = null;
@@ -483,11 +488,7 @@
   // that holds it now, and so do its directive, the box, and changes not yet sent.
   function applyScope(id, data) {
     var el = elementFor(id);
-    if (el) {
-      var tpl = document.createElement('template');
-      tpl.innerHTML = data.html;
-      el.replaceWith(tpl.content);
-    }
+    if (el) el.replaceWith(fragmentFor(el, data.html));
     for (var k in data.markdowns) markdowns[k] = data.markdowns[k];
     if (data.id && data.id !== id) moveId(id, data.id);
     for (var d in directives) {
@@ -500,6 +501,21 @@
     else if (box) box.querySelector('.hrv-what').textContent = describe(elementFor(boxId));
     updateDocket();
     schedulePosition();
+  }
+
+  // A template parses as HTML, where an SVG <text> is an unknown element that doesn't draw.
+  // Inside an SVG, parse in the parent's context so new elements land in its namespace.
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function fragmentFor(el, html) {
+    var parent = el.parentNode;
+    if (parent && parent.namespaceURI === SVG_NS) {
+      var range = document.createRange();
+      range.selectNode(el);
+      return range.createContextualFragment(html);
+    }
+    var tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    return tpl.content;
   }
 
   function moveId(from, to) {

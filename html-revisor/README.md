@@ -133,7 +133,7 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 - [ ] Both fields grow as you type more lines, up to about 240px, then scroll.
 - [ ] The file on disk updates within about half a second. The box's footer says `saving…`, then `saved`, then the hint returns.
 - [ ] The docket at the bottom right counts the directives (`N directives`) and changes as you add or delete one.
-- [ ] The docket's ↑ and ↓, and ⌥↑ and ⌥↓ outside a text field, scroll each directive's element to the middle of the window in document order, wrapping at the ends, and show its crop marks for a moment.
+- [ ] The docket's ↑ and ↓, and ⌥↑ and ⌥↓ outside a text field, scroll each directive's element to the middle of the window in document order, wrapping at the ends, show its crop marks for a moment, and show its marker's tip until the next click.
 - [ ] Clicking the docket's icon or count turns review mode off (`· review off`): markers hide, hovering shows no marks and no copy cursor, and clicks go to the page. Clicking again turns it back on.
 - [ ] Reloading the page shows the marker. The element itself is not restyled.
 - [ ] Clicking a marker opens its box for editing.
