@@ -63,6 +63,8 @@ Then tell the agent "Your turn"
 
 3. When you're happy, say "good enough." The agent stops.
 
+This is based on Arlo Belshee's iteration process. 
+
 ### HTML
 
 For `.html` files, the agent starts a local server and gives you a URL. Open it in a browser.
