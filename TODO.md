@@ -18,4 +18,4 @@
 
 - [x] Rename html-with-comments to html-revisor
 - [ ] get someone to proofread the README and tell me whether it makes sense
-- [ ] test installing the plugin somewhere that doesn't have it locally
+- [x] test installing the plugin somewhere that doesn't have it locally (Avdi tested it; it worked)
