@@ -15,7 +15,7 @@ their edits as normative and executing their inline commands.
 
 The loop commits at each turn so every change is legible in git history. It expects the file to
 be in a git repository. If it is not, ask the user whether to run `git init` in its directory, or
-to name a repository to work in.
+to name a repository to work in. If it is inconvenient to commit in the current repository, create a scratch one.
 
 For HTML, each **HTML:** mark names a section of `html.md` to do at that point. Markdown needs
 nothing more.
