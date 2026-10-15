@@ -37,8 +37,10 @@ To run the plugin from a clone while you work on it, see [DEVELOPMENT.md](DEVELO
 
 ## Use
 
-**The file must be in a git repository.** The agent commits at each turn, so every change shows in
-the history. If the file isn't in a repository, the agent asks before running `git init`.
+**The agent commits at each turn**, so every change shows in a git history. It picks where those
+commits go to fit how your project works: on your branch, squashed at the end, on a branch merged
+back with a merge commit, or in a scratch repository outside your project. It tells you which, and
+you can ask for another. The file doesn't need to be in a git repository.
 
 Ask your agent:
 
