@@ -54,5 +54,4 @@ Every git command in the loop takes both flags, for example
 commands, so write the path out in full each time. Add the document alone; never `add -A`.
 
 At the end, if the file is in a project repository, it shows there as one modified file. Offer
-to commit it with a message that summarizes what changed. Tell the user the shadow repository's
-path, in case they want the turn-by-turn history; the system's temp cleanup removes it later.
+to commit it with a message that summarizes what changed. The system's temp cleanup removes the shadow repository later.

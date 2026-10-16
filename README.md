@@ -31,7 +31,7 @@ The skill is `skills/iterate-on-a-document/SKILL.md`, in the
 Keep the repo together: the skill finds the HTML server at `../../html-revisor/` from its
 own directory.
 
-HTML needs Node 20 or later. Markdown needs nothing extra.
+This process requires git. HTML needs Node 20 or later. Markdown needs nothing extra.
 
 To run the plugin from a clone while you work on it, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
@@ -65,7 +65,7 @@ Then tell the agent "Your turn"
 
 3. When you're happy, say "good enough." The agent stops.
 
-This is based on Arlo Belshee's iteration process. 
+This is based on Arlo Belshee's iteration process.
 
 ### HTML
 
