@@ -3,6 +3,11 @@
 The loop in `SKILL.md` names six moments where HTML needs more. Paths here resolve from this
 skill's base directory. The tool is html-revisor; it needs Node 20 or later and nothing else.
 
+While you're writing an HTML document, here are some tips:
+
+- put a <section> tag around each section, with a heading and paragraphs etc inside. Then html-revisor lets people edit at the section level as well.
+- Draw diagrams in SVG. People can edit the labels, and they can add directives to each shape or the diagram as a whole.
+
 ## Start
 
 Run in the background: `node ../../html-revisor/server.mjs <file> --port 0`. It formats the file
