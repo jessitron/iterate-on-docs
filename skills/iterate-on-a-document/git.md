@@ -51,7 +51,7 @@ git --git-dir="$SHADOW" --work-tree=<file's directory> init
 
 Every git command in the loop takes both flags, for example
 `git --git-dir="$SHADOW" --work-tree=<dir> diff HEAD~1`. Shell variables may not survive between
-commands, so write the path out in full each time. Add the document alone; never `add -A`.
+commands, so write the full path in place of `$SHADOW` each time. Add the document alone; never `add -A`.
 
 At the end, if the file is in a project repository, it shows there as one modified file. Offer
 to commit it with a message that summarizes what changed. The system's temp cleanup removes the shadow repository later.
