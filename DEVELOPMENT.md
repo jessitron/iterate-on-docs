@@ -8,8 +8,8 @@ GitHub release. Paths below assume the clone is at `~/code/jessitron/iterate-on-
 The repo is its own marketplace (`.claude-plugin/marketplace.json`). Add it by path:
 
 ```
-/plugin marketplace add ~/code/jessitron/iterate-on-docs
-/plugin install iterate-on-docs@iterate-on-docs
+claude plugin marketplace add ~/code/jessitron/iterate-on-docs
+claude plugin install iterate-on-docs@iterate-on-docs
 ```
 
 The install works in every session without a flag, but it is a **snapshot**. Claude Code copies
