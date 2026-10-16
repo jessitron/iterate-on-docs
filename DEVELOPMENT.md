@@ -3,23 +3,6 @@
 How to run this plugin from your clone, so other projects use your working copy instead of the
 GitHub release. Paths below assume the clone is at `~/code/jessitron/iterate-on-docs`.
 
-## Option 1: load it in place, per session
-
-Start Claude Code in any project with:
-
-```
-claude --plugin-dir ~/code/jessitron/iterate-on-docs
-```
-
-Claude reads the skills and the HTML server straight from the clone. Edits show up the next time
-you start a session. Nothing is installed, so nothing goes stale.
-
-To make this the default, add an alias to your shell profile:
-
-```
-alias claude-docs='claude --plugin-dir ~/code/jessitron/iterate-on-docs'
-```
-
 ## Option 2: install from a local marketplace
 
 The repo is its own marketplace (`.claude-plugin/marketplace.json`). Add it by path:
