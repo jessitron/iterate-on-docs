@@ -150,9 +150,10 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body) { cursor: copy !imp
 /* A quiet button is text: Clear destroys, so it doesn't draw the eye. */
 :is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet { padding: 4px 6px; border-color: transparent; background: none; color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet:hover { color: var(--hrv-text); text-decoration: underline; }
-/* A field's action sits on its label's line, and shows only when it has something to do. */
+/* A field's action sits on its label's line, and shows only when it has something to do.
+   Hidden, it keeps its space, so the box doesn't change size when it appears. */
 :is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-field-action { padding: 0; font-size: 12px; text-transform: none; letter-spacing: 0; }
-:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-field-action[hidden] { display: none; }
+:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-field-action[hidden] { visibility: hidden; }
 
 /* The docket: bottom right of the window. Icon and count switch review mode; the arrows step through
    the directives. A save error or the stale-file warning sits on top, in the error color. */
