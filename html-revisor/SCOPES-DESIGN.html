@@ -61,6 +61,13 @@
             </td>
           </tr>
           <tr>
+            <td>How big a scope edits as markdown?</td>
+            <td>
+              Under 4 KB of HTML, not counting element IDs and directives. A bigger one, such as a page's body or a wrapper around a whole page, takes directives and has no Content field.
+            </td>
+            <td><code>test/scopes.test.mjs</code>, "Size"</td>
+          </tr>
+          <tr>
             <td>Inline elements: hover and directives?</td>
             <td>
               Per element. <code>a</code> and <code>img</code>: yes. <code>strong</code>: no, it belongs to its block. <code>span</code>: yes, edited as its content, its tag kept; not inside a <code>pre</code>, where spans are highlighting, and not one that fills its parent, which it would hide.

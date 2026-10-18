@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize, parse, serialize } from '../formatter.mjs';
-import { scopeOf, scopesWithin, scopeMarkdown, scopeFromMarkdown, roundTrips, canonicalHTML, annotate } from '../scopes.mjs';
+import { scopeOf, scopesWithin, scopeMarkdown, scopeFromMarkdown, roundTrips, canonicalHTML, annotate, editable, EDIT_LIMIT, scopeElements } from '../scopes.mjs';
 
 const body = (html) => parse(`<html><body>${html}</body></html>`).querySelector('body');
 const markdownOf = (html) => scopeMarkdown(body(html).firstElementChild);
@@ -290,4 +290,24 @@ test('directives inside a stand-in come back once, on their elements', () => {
 
 test('two directives on one element keep their order', () => {
   assert.match(htmlAfter('<ul><li><!-- @AI: one --><!-- @AI: two -->x</li></ul>', '- x!'), /<li><!-- @AI: one --> ?<!-- @AI: two -->x!<\/li>/);
+});
+
+// ---- Size ----
+
+test('a scope of 4 KB of HTML or more is still a scope, but does not edit as markdown', () => {
+  const p = `<p>${'word '.repeat(150)}</p>`; // about 760 characters
+  const doc = parse(`<html><body><section>${p.repeat(6)}</section></body></html>`);
+  const section = doc.querySelector('section');
+  assert.ok(scopeElements(doc).includes(section));
+  assert.equal(editable(section), false);
+  assert.equal(editable(section.querySelector('p')), true);
+});
+
+test('element IDs and directives do not count toward the limit', () => {
+  const text = 'x'.repeat(EDIT_LIMIT - 100);
+  const plain = body(`<p>${text}</p>`).firstElementChild;
+  const marked = body(`<p data-hrv="12345"><!-- @AI: ${'long directive '.repeat(20)} -->${text}</p>`).firstElementChild;
+  assert.equal(editable(plain), true);
+  assert.equal(editable(marked), true);
+  assert.equal(editable(body(`<p>${text}${'y'.repeat(200)}</p>`).firstElementChild), false);
 });

@@ -1,26 +1,33 @@
-// html-revisor client. Directives live in the file on disk; this script edits them through PUT.
+// html-revisor client. Directives live in the file on disk; this script edits them through PUT,
+// and tells the server when a box closes (Done) through POST.
 (function () {
   'use strict';
 
   var directives = {};      // id -> text, the full current set
   var markdowns = {};       // id -> markdown of each scope, as the server last saw it
+  var committed = {};       // id -> markdown of each scope at the file's last commit, for Revert
   var edits = {};           // id -> markdown typed for a scope in this tab, not yet answered
   var bases = {};           // id -> base: the element's content as the server last saw it
   var markers = {};         // id -> marker element
   var box = null;           // the open directive box, if any
   var boxId = null;         // id of the element the open box is for
+  var boxOpened = null;     // what the open box opened with: {session, directive, markdown}; markdown only for a scope
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
-  var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown', id}
+  var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown'|'done', id}
   var version = null;       // fingerprint of the file as this tab last saw it
   var changedOnDisk = false; // a save found the file changed by someone else
+  var inFlight = null;      // the change the PUT in flight carries
+  var savedDirectives = {}; // id -> directive text as the file on disk holds it, for telemetry
 
   try {
     var data = document.getElementById('hrv-directives');
     directives = JSON.parse(data.textContent) || {};
+    for (var d0 in directives) savedDirectives[d0] = directives[d0];
     version = data.getAttribute('data-version');
     bases = JSON.parse(document.getElementById('hrv-bases').textContent) || {};
     markdowns = JSON.parse(document.getElementById('hrv-markdown').textContent) || {};
+    committed = JSON.parse(document.getElementById('hrv-committed').textContent) || {};
   } catch (e) {
     directives = directives || {};
   }
@@ -425,7 +432,7 @@
       for (var j = els.length - 1; j >= 0 && !target; j--) if (!from || follows(els[j], from)) target = els[j];
       target = target || els[els.length - 1];
     }
-    closeBox();
+    closeBox('step');
     current = target.getAttribute('data-hrv');
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
     flashed = target;
@@ -442,7 +449,7 @@
   // The cursor rule is the one place this reaches the page: an attribute on the html element.
   function setReviewing(on) {
     reviewing = on;
-    if (!on) closeBox();
+    if (!on) closeBox('review off');
     if (on) document.documentElement.removeAttribute('data-hrv-review');
     else document.documentElement.setAttribute('data-hrv-review', 'off');
     layer.classList.toggle('hrv-reading', !on);
@@ -460,6 +467,66 @@
     step(e.key === 'ArrowDown' ? 1 : -1);
   });
 
+  // ---- telemetry ----
+
+  // When the server has telemetry on, the client records spans for its saves and posts them to
+  // the server, which sends them on with its own. No SDK: a span is a plain object, and the
+  // server makes an OTel span with the same IDs and times. Off, startSpan returns null and
+  // nothing is recorded.
+  var tracing = !!document.querySelector('#hrv-directives[data-telemetry]');
+  var finished = [];        // ended spans, not yet posted
+  var flushTimer = null;
+
+  function randomHex(bytes) {
+    var a = new Uint8Array(bytes);
+    crypto.getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
+  }
+
+  function clock() { return performance.timeOrigin + performance.now(); }
+
+  // A span without a parent starts a trace. kind 'client' marks a span that a server span continues.
+  function startSpan(name, parent, attributes, kind) {
+    if (!tracing) return null;
+    return {
+      name: name, kind: kind,
+      traceId: parent ? parent.traceId : randomHex(16), spanId: randomHex(8),
+      parentSpanId: parent ? parent.spanId : undefined,
+      start: clock(), attributes: attributes || {}, events: []
+    };
+  }
+
+  // A moment in a span. Honeycomb draws it as a dot on the span's bar.
+  function addEvent(span, name, attributes) {
+    if (span && !span.end) span.events.push({ name: name, time: clock(), attributes: attributes || {} });
+  }
+
+  // Honeycomb caps a string attribute at 64 KB; the length attribute beside it keeps the full count.
+  function capped(s) { return s.length > 50000 ? s.slice(0, 50000) : s; }
+
+  // Ending a span twice keeps the first end.
+  function endSpan(span, error) {
+    if (!span || span.end) return;
+    span.end = clock();
+    if (error) span.error = String(error);
+    finished.push(span);
+    if (!flushTimer) flushTimer = setTimeout(flushSpans, 2000);
+  }
+
+  function flushSpans() {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+    if (finished.length === 0) return;
+    var body = JSON.stringify(finished);
+    finished = [];
+    navigator.sendBeacon('/.hrv/spans', new Blob([body], { type: 'application/json' }));
+  }
+  // A tab going away may not fire pagehide; hidden is the last moment it reliably sees.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushSpans();
+  });
+  window.addEventListener('pagehide', flushSpans);
+
   // ---- saving ----
 
   function directiveCount() {
@@ -468,12 +535,44 @@
     return n;
   }
 
-  // Mark a change to send. A change already waiting sends the latest value, once.
-  function addUnsent(kind, id) {
+  // Mark a change to send. A change already waiting sends the latest value, once. Each change
+  // is a trace, from when it goes out until its answer is applied; the edits before that are times.
+  // session names the box it came from.
+  function addUnsent(kind, id, session) {
+    var now = clock();
     for (var i = 0; i < unsent.length; i++) {
-      if (unsent[i].kind === kind && unsent[i].id === id) return;
+      if (unsent[i].kind === kind && unsent[i].id === id) {
+        unsent[i].lastEdit = now;
+        return unsent[i].edits++;
+      }
     }
-    unsent.push({ kind: kind, id: id });
+    unsent.push({ kind: kind, id: id, session: session, edits: 1, firstEdit: now, lastEdit: now });
+  }
+
+  // The span for a change going out: how long it waited, and the scope's content before and after.
+  function startSave(change) {
+    var span = startSpan('save ' + change.kind, null, { 'hrv.change.kind': change.kind, 'hrv.scope.id': change.id });
+    if (!span) return null;
+    var a = span.attributes, el = elementFor(change.id);
+    a['hrv.box.session'] = change.session;
+    a['hrv.edits'] = change.edits;
+    a['hrv.wait.ms'] = span.start - change.firstEdit;
+    a['hrv.quiet.ms'] = span.start - change.lastEdit;
+    if (el) {
+      a['hrv.element'] = el.localName;
+      a['hrv.html.before'] = capped(el.outerHTML);
+      a['hrv.html.before.length'] = el.outerHTML.length;
+    }
+    var markdown = change.kind === 'markdown';
+    var before = (markdown ? markdowns[change.id] : savedDirectives[change.id]) || '';
+    var after = (markdown ? edits[change.id] : directives[change.id]) || '';
+    a['hrv.' + change.kind + '.before'] = capped(before);
+    a['hrv.' + change.kind + '.before.length'] = before.length;
+    a['hrv.' + change.kind + '.after'] = capped(after);
+    a['hrv.' + change.kind + '.after.length'] = after.length;
+    // The scope's directive once this save lands, so every save shows what was asked of the scope.
+    a['hrv.directive'] = capped(markdown ? savedDirectives[change.id] || '' : after);
+    return span;
   }
 
   function bodyFor(change) {
@@ -498,7 +597,10 @@
       }
     }
     if (box && !elementFor(boxId)) dropBox();
-    else if (box) box.querySelector('.hrv-what').textContent = describe(elementFor(boxId));
+    else if (box) {
+      box.querySelector('.hrv-what').textContent = describe(elementFor(boxId));
+      box.hrvSyncActions();   // a scope that moved to a new ID has no commit to revert to
+    }
     updateDocket();
     schedulePosition();
   }
@@ -537,13 +639,23 @@
     if (saving || unsent.length === 0) return;
     saving = true;
     var change = unsent.shift();
+    if (change.kind === 'done') return sendDone(change);
     var failed = false;
     var fromBox = !!box;   // a save made while a box is open reports in the box
+    inFlight = change;
+    change.span = startSave(change);
+    var put = startSpan('PUT', change.span, { 'hrv.queued': unsent.length }, 'client');
+    var apply = null;
+    var headers = { 'Content-Type': 'application/json' };
+    if (put) headers.traceparent = '00-' + put.traceId + '-' + put.spanId + '-01';
     fetch(location.pathname, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify(bodyFor(change))
     }).then(function (res) {
+      if (put) put.attributes['http.response.status_code'] = res.status;
+      endSpan(put);
+      apply = startSpan('apply', change.span);
       if (res.ok || res.status === 412) return res.json();
       return res.text().then(function (t) {
         throw new Error(t || ('HTTP ' + res.status));
@@ -551,31 +663,70 @@
     }).then(function (data) {
       if (!data.ok) {
         // A conflict: we weren't taking turns. Say so; the reload is up to the human.
-        failed = true;
+        failed = 'conflict: ' + data.error;
         boxStatus('not saved');
         showProblem('not saved: ' + data.error + '. Copy what you wrote, then reload to see the page as it is now');
         return;
       }
       for (var id in data.bases) bases[id] = data.bases[id];
+      if (change.kind === 'directive') savedDirectives[change.id] = directives[change.id] || '';
       if (change.kind === 'markdown') applyScope(change.id, data);
+      if (change.span && typeof data.html === 'string') {
+        change.span.attributes['hrv.html.after'] = capped(data.html);
+        change.span.attributes['hrv.html.after.length'] = data.html.length;
+      }
       if (data.before !== version) changedOnDisk = true;
       version = data.after;
       showProblem(changedOnDisk ? 'the page changed on disk; reload to see it' : null);
       // A newer edit, waiting or queued, keeps the box at "saving…".
       if (fromBox && box && unsent.length === 0 && !saveTimer) boxStatus('saved');
     }).catch(function (err) {
-      failed = true;
-      addUnsent(change.kind, change.id); // a later edit retries it
+      failed = 'save failed: ' + (err && err.message ? err.message : err);
+      endSpan(put, failed);
+      addUnsent(change.kind, change.id, change.session); // a later edit retries it
       boxStatus('');
-      showProblem('save failed: ' + (err && err.message ? err.message : err));
+      showProblem(failed);
     }).then(function () {
+      endSpan(apply);
+      endSpan(change.span, failed);
       saving = false;
+      inFlight = null;
       if (!failed) saveNow();
     });
   }
 
+  // Done: tell the server what the box opened with. It goes out after the box's changes, so the
+  // server compares it with what they left in the file, and announces what changed. Its span,
+  // started when the box closed, ends with whether the server announced.
+  function sendDone(change) {
+    var span = change.span;
+    var body = { id: change.id, directive: change.opened.directive };
+    if (typeof change.opened.markdown === 'string') body.markdown = change.opened.markdown;
+    var headers = { 'Content-Type': 'application/json' };
+    if (span) headers.traceparent = '00-' + span.traceId + '-' + span.spanId + '-01';
+    var failed = false;
+    fetch(location.pathname, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      if (span) span.attributes['http.response.status_code'] = res.status;
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (span) span.attributes['hrv.announced'] = !!data.announced;
+    }).catch(function (err) {
+      // A lost Done is an Announcement not made; the page and the file are fine.
+      failed = 'done failed: ' + (err && err.message ? err.message : err);
+    }).then(function () {
+      endSpan(span, failed);
+      saving = false;
+      saveNow();
+    });
+  }
+
   function scheduleSave(kind, id) {
-    addUnsent(kind, id);
+    addUnsent(kind, id, boxOpened && boxOpened.session);
     boxStatus('saving…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 400);
@@ -585,9 +736,9 @@
 
   var MAC = /Mac|iPhone|iPad/.test(navigator.platform);
   var HINT = (MAC ? '⌘↵' : 'Ctrl+Enter') + ' or esc to close';
-  // Delete's hotkey: Option-Command-Backspace (Ctrl+Alt+Backspace elsewhere). In a textarea,
+  // Clear's hotkey: Option-Command-Backspace (Ctrl+Alt+Backspace elsewhere). In a textarea,
   // ⌘⌫ and ⌥⌫ delete text, and the browser takes ⌘⇧⌫; nothing claims this one.
-  var DELETE_KEY = MAC ? '⌥⌘⌫' : 'Ctrl+Alt+Backspace';
+  var CLEAR_KEY = MAC ? '⌥⌘⌫' : 'Ctrl+Alt+Backspace';
   var statusTimer = null;
 
   // The box footer's words: the hint, or the save status while one is current.
@@ -622,13 +773,20 @@
     updateDocket();
   }
 
-  // Commit and close the open box.
-  function closeBox() {
+  // Commit and close the open box: Done. by says what closed it, for telemetry: it goes on the
+  // done span, and a close while a save is going is an event on that save's span too.
+  function closeBox(by) {
     if (!box) return;
+    var id = boxId;
     var ta = box.querySelector('textarea.hrv-directive');
     setDirective(boxId, ta.value);
+    var span = startSpan('done', null, {
+      'hrv.box.session': boxOpened.session, 'hrv.scope.id': id, 'hrv.close.by': by, 'hrv.queued': unsent.length
+    }, 'client');
+    unsent.push({ kind: 'done', id: id, opened: boxOpened, span: span });
     dropBox();
     saveNow();
+    if (inFlight) addEvent(inFlight.span, 'close box', { 'hrv.close.by': by, 'hrv.scope.id': id, 'hrv.pending': unsent.length });
   }
 
   // Close the box without committing: its element is gone, and its directive with it.
@@ -637,15 +795,30 @@
     box.remove();
     box = null;
     boxId = null;
+    boxOpened = null;
     positionCrop(selectedCrop, null);
     positionHover();
   }
 
-  function deleteDirective(ta, id) {
-    ta.value = '';
-    setDirective(id, '');
-    addUnsent('directive', id);
-    closeBox();
+  // Replace a field's text as if typed: it saves like typing, and the browser's undo takes it back.
+  function typeOver(textArea, text) {
+    textArea.focus();
+    textArea.select();
+    var typed = text ? document.execCommand('insertText', false, text) : document.execCommand('delete');
+    if (!typed) {
+      textArea.value = text;
+      textArea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  // Empty the directive and leave the box open, so work in the Content field goes on.
+  function clearDirective(ta) {
+    typeOver(ta, '');
+  }
+
+  // Put back the scope's markdown at the last commit.
+  function revert(textArea, id) {
+    typeOver(textArea, committed[id]);
   }
 
   function openBox(id) {
@@ -653,10 +826,12 @@
       box.querySelector('textarea.hrv-directive').focus();
       return;
     }
-    closeBox();
+    closeBox('open other');
     var el = elementFor(id);
     if (!el) return;
     boxId = id;
+    boxOpened = { session: randomHex(8), directive: directives[id] || '' };
+    if (isScope(id)) boxOpened.markdown = markdowns[id];
     box = document.createElement('div');
     box.className = 'hrv-box';
 
@@ -672,7 +847,10 @@
     // A scope gets a field for its markdown above the directive. The page shows each edit when
     // the server answers the save; blank markdown is not applied. A save can give the scope a
     // new ID, so the handlers read boxId, not id.
+    // Each field's action sits on its label's line and shows only when it has something to do:
+    // Revert when the content differs from the last commit, Clear when there is a directive.
     var textArea = null;
+    var revertButton = null;
     if (isScope(id)) {
       textArea = document.createElement('textarea');
       textArea.className = 'hrv-text';
@@ -680,13 +858,16 @@
       textArea.addEventListener('input', function () {
         fit(textArea);
         schedulePosition();
+        syncActions();
         if (textArea.value.replace(SPACE, '') === '') return;
         edits[boxId] = textArea.value;
         scheduleSave('markdown', boxId);
       });
-      box.appendChild(label('Content'));
+      revertButton = fieldAction('Revert', 'Put back the content this had at the last commit', function () {
+        revert(textArea, boxId);
+      });
+      box.appendChild(label('Content', revertButton));
       box.appendChild(textArea);
-      box.appendChild(label('Directive'));
     }
 
     var ta = document.createElement('textarea');
@@ -696,39 +877,44 @@
     ta.addEventListener('input', function () {
       fit(ta);
       schedulePosition();
+      syncActions();
       setDirective(boxId, ta.value);
       scheduleSave('directive', boxId);
     });
+    var clearButton = fieldAction('Clear', 'Clear the directive (' + CLEAR_KEY + ')', function () {
+      clearDirective(ta);
+    });
+    box.appendChild(label('Directive', clearButton));
     box.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault();
-        closeBox();
+        closeBox('key');
       } else if (e.key === 'Backspace' && e.altKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        deleteDirective(ta, boxId);
+        clearDirective(ta);
       }
     });
+
+    function syncActions() {
+      if (revertButton) revertButton.hidden = typeof committed[boxId] !== 'string' || textArea.value === committed[boxId];
+      clearButton.hidden = ta.value.trim() === '';
+    }
+    box.hrvSyncActions = syncActions;
+    syncActions();
 
     var hint = document.createElement('div');
     hint.className = 'hrv-hint';
     hint.textContent = HINT;
 
-    var del = document.createElement('div');
-    del.className = 'hrv-btn hrv-quiet';
-    del.textContent = 'Delete';
-    del.title = 'Delete the directive (' + DELETE_KEY + ')';
-    del.addEventListener('click', function () { deleteDirective(ta, boxId); });
-
     var done = document.createElement('div');
     done.className = 'hrv-btn hrv-done';
     done.textContent = 'Done';
     done.title = 'Close the box. Typing saves.';
-    done.addEventListener('click', closeBox);
+    done.addEventListener('click', function () { closeBox('done'); });
 
     var row = document.createElement('div');
     row.className = 'hrv-row';
     row.appendChild(hint);
-    row.appendChild(del);
     row.appendChild(done);
 
     box.appendChild(ta);
@@ -749,11 +935,21 @@
     ta.setSelectionRange(ta.value.length, ta.value.length);
   }
 
-  function label(text) {
+  function label(text, action) {
     var div = document.createElement('div');
     div.className = 'hrv-label';
     div.textContent = text;
+    if (action) div.appendChild(action);
     return div;
+  }
+
+  function fieldAction(text, title, onClick) {
+    var b = document.createElement('div');
+    b.className = 'hrv-btn hrv-quiet hrv-field-action';
+    b.textContent = text;
+    b.title = title;
+    b.addEventListener('click', onClick);
+    return b;
   }
 
   // ---- click handling ----
@@ -764,7 +960,7 @@
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var el = targetElement(e.target);
     if (!el) {
-      closeBox();
+      closeBox('click away');
       return;
     }
     e.preventDefault();
