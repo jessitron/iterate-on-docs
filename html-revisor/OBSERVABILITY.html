@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor: observability</title>
+    <style>
+  :root { --ink: #222; --muted: #666; --line: #ddd; --page: #fafafa; --browser: #8250df; --server: #0969da; --wait: #bbb; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #aaa; --line: #444; --page: #1d1e21; --browser: #ab7df8; --server: #4493f8; --wait: #555; } body { background: #141517; } }
+  body { margin: 0 auto; max-width: 900px; padding: 24px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 36px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .lede, .note { color: var(--muted); }
+  .note { font-size: 13px; }
+  code, pre { font: 13px ui-monospace, Menlo, monospace; }
+  pre { background: var(--page); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  svg { width: 100%; height: auto; display: block; background: var(--page); border: 1px solid var(--line); border-radius: 8px; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .muted { fill: var(--muted); }
+  svg .browser { fill: var(--browser); }
+  svg .server { fill: var(--server); }
+  svg .event { fill: var(--page); stroke: var(--ink); stroke-width: 2; }
+  svg .box { fill: none; stroke: var(--line); stroke-width: 2; }
+  svg .browser-box { stroke: var(--browser); }
+  svg .server-box { stroke: var(--server); }
+  svg .arrow { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+  svg .head { fill: var(--muted); }
+  .queries li { margin: 8px 0; }
+</style>
+  </head>
+  <body>
+    <h1>html-revisor: observability</h1>
+    <p class="lede">
+      What html-revisor tells Honeycomb about a save, from your keystroke to the file on disk and back, and the queries that show it.
+    </p>
+    <section>
+      <h2>Turn it on</h2>
+      <pre>HRV_TELEMETRY=1 OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=&lt;ingest key&gt; ./run</pre>
+      <p>
+        <code>HRV_TELEMETRY</code> is the switch. Without it the server sends nothing, whatever <code>OTEL_*</code> variables it inherits. With it, the standard variables say where spans go. Spans land in team modernity, environment local, dataset <code>html-revisor</code> (the service name). <code>.be</code> in this repo holds the key and the variables.
+      </p>
+      <p>
+        The server tells the page that telemetry is on, and only then does the browser record spans. A failed export prints <code>telemetry export failed</code> on the server's stderr.
+      </p>
+    </section>
+    <section>
+      <h2>One save, as a trace</h2>
+      <p>
+        A directive typed on this page and closed with Escape, which sends it at once instead of after 0.4 s of quiet. The browser's spans are purple; the server's are blue. Times from trace <code>d0888bfe…</code>.
+      </p>
+      <svg viewBox="0 0 900 215" role="img" aria-label="Waterfall of one save directive trace: save 13.4 ms, with wait and quiet times as attributes and a close box event at 0.5 ms; PUT 13.1 ms holding the server's PUT change 10.6 ms and its steps; then apply 0.3 ms">
+        <text x="10" y="30">save directive</text> <rect class="browser" x="170" y="18" width="580" height="16" rx="3"></rect> <circle class="event" cx="192" cy="26" r="5"></circle> <text x="186" y="12" class="muted">close box</text> <text x="765" y="30">13.4 ms</text> <text x="170" y="50" class="muted">hrv.wait.ms 106 · hrv.quiet.ms 97 · hrv.edits 22</text> <text x="30" y="80">PUT (client)</text> <rect class="browser" x="170" y="68" width="567" height="16" rx="2"></rect> <text x="765" y="80">13.1 ms</text> <text x="50" y="110">PUT change</text> <rect class="server" x="235" y="98" width="458" height="16" rx="2"></rect> <text x="765" y="110">10.6 ms</text> <text x="70" y="140" class="muted">read, parse, serialize,</text> <text x="70" y="156" class="muted">write, reparse, bases</text> <rect class="server" x="278" y="128" width="21" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="322" y="128" width="74" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="408" y="128" width="57" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="467" y="128" width="41" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="538" y="128" width="81" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="625" y="128" width="75" height="8" rx="1" opacity=".5"></rect> <text x="765" y="138" class="muted">0.1–1.9 ms each</text> <text x="30" y="190">apply</text> <rect class="browser" x="737" y="178" width="13" height="16" rx="1"></rect> <text x="765" y="190">0.3 ms</text>
+      </svg>
+      <p class="note">
+        The save span starts when the change goes out. The typing before it is in two attributes: <code>hrv.wait.ms</code> since the first keystroke, <code>hrv.quiet.ms</code> since the last. The round trip is about 13 ms on this 14 KB page. Most server steps take under 2 ms here. A step that stays under 1 ms on a big page too doesn't earn its span, and we mean to remove it; so far <code>check base</code> and <code>set directive</code> never have.
+      </p>
+    </section>
+    <section>
+      <h2>Spans</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Span</th>
+            <th>Where</th>
+            <th>From → to</th>
+            <th>Attributes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>save directive</code>, <code>save markdown</code></td>
+            <td>browser</td>
+            <td>from when we decide to save, until the page has been updated</td>
+            <td>
+              <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.element</code> (tag name), <code>hrv.edits</code> (keystrokes in this one save), <code>hrv.wait.ms</code> (first keystroke → sent, queue included), <code>hrv.quiet.ms</code> (last keystroke → sent), <code>hrv.html.before</code>, <code>hrv.html.after</code> (markdown saves), <code>hrv.markdown.before</code>, <code>hrv.markdown.after</code> or <code>hrv.directive.before</code>, <code>hrv.directive.after</code>; each text with a <code>.length</code>. <code>hrv.directive</code> on both kinds: the scope's directive once the save lands. <code>hrv.box.session</code>: one ID per box opened, shared by its saves and its <code>done</code>.
+            </td>
+          </tr>
+          <tr>
+            <td><code>PUT</code></td>
+            <td>browser</td>
+            <td>
+              PUT sent → answer received; its <code>traceparent</code> makes the server span its child. <code>client.js</code> makes it; no instrumentation library.
+            </td>
+            <td>
+              <code>hrv.queued</code> (changes behind it), <code>http.response.status_code</code>
+            </td>
+          </tr>
+          <tr>
+            <td><code>apply</code></td>
+            <td>browser</td>
+            <td>answer received → page updated</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><code>close box</code> (event)</td>
+            <td>browser</td>
+            <td>
+              a dot on the save going out when the box closes (Done, Escape, a click away, another box); none when no save is going
+            </td>
+            <td>
+              <code>hrv.close.by</code>, <code>hrv.scope.id</code>, <code>hrv.pending</code> (saves still waiting behind it)
+            </td>
+          </tr>
+          <tr>
+            <td><code>done</code></td>
+            <td>browser</td>
+            <td>
+              box closed → the server's answer; it waits behind the box's saves. Its <code>traceparent</code> makes <code>POST done</code> its child. A trace of its own.
+            </td>
+            <td>
+              <code>hrv.box.session</code>, <code>hrv.scope.id</code>, <code>hrv.close.by</code>, <code>hrv.queued</code> (saves ahead of it), <code>hrv.announced</code>, <code>http.response.status_code</code>
+            </td>
+          </tr>
+          <tr>
+            <td><code>POST done</code></td>
+            <td>server</td>
+            <td>request → response; a child span per step</td>
+            <td><code>hrv.page</code>, <code>hrv.scope.id</code>, <code>hrv.announced</code></td>
+          </tr>
+          <tr>
+            <td><code>PUT change</code></td>
+            <td>server</td>
+            <td>request → response; a child span per step</td>
+            <td>
+              <code>hrv.page</code>, <code>hrv.page.bytes</code>, <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.change.bytes</code>, <code>hrv.directive.count</code>, <code>hrv.answer.bytes</code>, <code>hrv.conflict</code>
+            </td>
+          </tr>
+          <tr>
+            <td><code>GET page</code></td>
+            <td>server</td>
+            <td>request → response; a child span per step</td>
+            <td>
+              <code>hrv.page</code>, <code>hrv.page.bytes</code>, <code>hrv.normalized</code>, <code>hrv.element.count</code>, <code>hrv.scope.count</code>, <code>hrv.answer.bytes</code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        Browser spans carry <code>hrv.side = browser</code>. A conflict or a failed save marks the browser's spans as errors. A text attribute stops at 50,000 characters, under Honeycomb's 64 KB limit; its <code>.length</code> is the full count.
+      </p>
+    </section>
+    <section>
+      <h2>Not recorded yet</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Now</th>
+            <th>Planned</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Revert</td>
+            <td>
+              No span or event. Revert types the committed markdown into the Content field, so it goes out as a <code>save markdown</code> that looks like typing. If a save for that scope is still waiting, the Revert joins it as one more of its <code>hrv.edits</code>.
+            </td>
+            <td>
+              <code>hrv.reverted = true</code> on the <code>save markdown</code> that carries a Revert. Its <code>hrv.markdown.before.length</code> is what Revert threw away, and <code>hrv.markdown.after.length</code> is the committed scope.
+            </td>
+          </tr>
+          <tr>
+            <td>Opening a box</td>
+            <td>
+              No span. A scope's size shows up only when you save it. Closing the box makes a <code>done</code> span, and everything from one box shares <code>hrv.box.session</code>.
+            </td>
+            <td>Undecided. For a scope's size without changing it, edit it and Revert.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Queries</h2>
+      <p>
+        All of them are on one board: <a href="https://ui.honeycomb.io/modernity/environments/local/board/EupzZSpazVC">html-revisor: saves</a>, over the last 24 hours, with filters for page and change kind. Each link below opens one in Honeycomb over the last two hours of dataset <code>html-revisor</code>.
+      </p>
+      <ul class="queries">
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22HEATMAP%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22P95%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22starts-with%22%2C%22value%22%3A%22save%20%22%7D%5D%2C%22breakdowns%22%3A%5B%22name%22%5D%7D">How long does a save take?</a> Heatmap of <code>save directive</code> and <code>save markdown</code>.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22P50%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22P95%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22parent.name%22%2C%22op%22%3A%22starts-with%22%2C%22value%22%3A%22save%20%22%7D%5D%2C%22breakdowns%22%3A%5B%22parent.name%22%2C%22name%22%5D%7D">Where does a save's time go?</a> <code>PUT</code> and <code>apply</code>, by kind of save.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22HEATMAP%22%2C%22column%22%3A%22hrv.wait.ms%22%7D%2C%7B%22op%22%3A%22P50%22%2C%22column%22%3A%22hrv.wait.ms%22%7D%2C%7B%22op%22%3A%22P50%22%2C%22column%22%3A%22hrv.quiet.ms%22%7D%2C%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22hrv.quiet.ms%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22starts-with%22%2C%22value%22%3A%22save%20%22%7D%5D%2C%22breakdowns%22%3A%5B%22name%22%5D%7D">How long before a save goes out?</a> <code>hrv.wait.ms</code> and <code>hrv.quiet.ms</code>, by kind of save.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22SUM%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22P95%22%2C%22column%22%3A%22duration_ms%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22parent.name%22%2C%22op%22%3A%22in%22%2C%22value%22%3A%5B%22PUT%20change%22%2C%22GET%20page%22%5D%7D%5D%2C%22breakdowns%22%3A%5B%22parent.name%22%2C%22name%22%5D%2C%22orders%22%3A%5B%7B%22op%22%3A%22SUM%22%2C%22column%22%3A%22duration_ms%22%2C%22order%22%3A%22descending%22%7D%5D%7D">Which server step costs the most?</a> Total and P95 time of each step of GET and PUT.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22%3D%22%2C%22value%22%3A%22close%20box%22%7D%2C%7B%22column%22%3A%22meta.annotation_type%22%2C%22op%22%3A%22%3D%22%2C%22value%22%3A%22span_event%22%7D%5D%2C%22breakdowns%22%3A%5B%22hrv.close.by%22%2C%22hrv.pending%22%5D%7D">Which closes land mid-save?</a> <code>close box</code> events, by what closed the box and how many saves waited behind.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22P95%22%2C%22column%22%3A%22duration_ms%22%7D%2C%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22hrv.page.bytes%22%7D%2C%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22in%22%2C%22value%22%3A%5B%22PUT%20change%22%2C%22GET%20page%22%5D%7D%5D%2C%22breakdowns%22%3A%5B%22name%22%2C%22hrv.page%22%2C%22hrv.change.kind%22%5D%7D">Do bigger pages save slower?</a> GET and PUT time by page and page size.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22status_code%22%2C%22op%22%3A%22%3D%22%2C%22value%22%3A2%7D%5D%2C%22breakdowns%22%3A%5B%22name%22%5D%7D">What went wrong?</a> Spans marked as errors (<code>status_code</code> 2): conflicts and failed saves.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22duration_ms%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22starts-with%22%2C%22value%22%3A%22save%20%22%7D%5D%2C%22breakdowns%22%3A%5B%22trace.trace_id%22%2C%22name%22%2C%22hrv.edits%22%5D%2C%22orders%22%3A%5B%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22duration_ms%22%2C%22order%22%3A%22descending%22%7D%5D%2C%22limit%22%3A20%7D">The slowest saves</a>, one row per trace. Click a trace ID to see its waterfall.
+        </li>
+      </ul>
+    </section>
+    <section>
+      <h2>How the browser's spans get there</h2>
+      <svg viewBox="0 0 900 190" role="img" aria-label="The browser's client.js sends each PUT with a traceparent header, and posts its finished spans to /.hrv/spans; the server makes them OTel spans and sends them with its own to Honeycomb over OTLP, with the ingest key">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head"></path></marker></defs> <rect class="box browser-box" x="20" y="40" width="200" height="90" rx="8"></rect> <text x="120" y="78" text-anchor="middle">browser</text> <text x="120" y="98" text-anchor="middle" class="muted">client.js: spans as</text> <text x="120" y="114" text-anchor="middle" class="muted">plain objects</text> <rect class="box server-box" x="370" y="40" width="200" height="90" rx="8"></rect> <text x="470" y="78" text-anchor="middle">server</text> <text x="470" y="98" text-anchor="middle" class="muted">each one an OTel span,</text> <text x="470" y="114" text-anchor="middle" class="muted">same IDs and times</text> <rect class="box" x="700" y="40" width="180" height="90" rx="8"></rect> <text x="790" y="78" text-anchor="middle">Honeycomb</text> <text x="790" y="98" text-anchor="middle" class="muted">dataset html-revisor</text> <path class="arrow" d="M220 62 L368 62" marker-end="url(#arrow)"></path> <text x="294" y="54" text-anchor="middle">PUT + traceparent</text> <path class="arrow" d="M220 108 L368 108" marker-end="url(#arrow)"></path> <text x="294" y="100" text-anchor="middle">POST /.hrv/spans</text> <text x="294" y="126" text-anchor="middle" class="muted">every 2 s, and on hide</text> <path class="arrow" d="M570 85 L698 85" marker-end="url(#arrow)"></path> <text x="634" y="77" text-anchor="middle">OTLP</text> <text x="634" y="103" text-anchor="middle" class="muted">with the ingest key</text> <text x="120" y="165" text-anchor="middle" class="muted">no SDK, no key</text> <text x="470" y="165" text-anchor="middle" class="muted">server spans join the same trace</text>
+      </svg>
+      <p>
+        The browser has no OpenTelemetry SDK. <code>client.js</code> records each span as a plain object (trace ID, span ID, parent, start and end, attributes, events) and posts a batch to <code>/.hrv/spans</code> every 2 s and when the tab hides. The server makes each one an OTel span with the browser's IDs and times, and sends it with its own spans. That route makes no span of its own.
+      </p>
+      <p>
+        Two reasons for no SDK. <code>client.js</code> is a plain script inlined into every page, with no build, and the web SDK would need a bundle. And a browser exporting to Honeycomb would need the ingest key in the page; through the server, the key stays on the server.
+      </p>
+    </section>
+    <section>
+      <h2>Checking it</h2>
+      <p>
+        <code>test/telemetry.test.mjs</code> checks the spans against a stand-in collector. Given <code>.be</code>'s variables, it also sends to Honeycomb (dataset <code>html-revisor-test</code>) and prints a run ID and trace ID. The ingest key can't read; an agent finds the trace with the honeycomb-modernity MCP.
+      </p>
+    </section>
+  </body>
+</html>

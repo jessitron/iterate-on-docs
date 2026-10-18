@@ -120,6 +120,30 @@ export function scopeElements(document) {
   return walk(document.querySelector('body'));
 }
 
+// ---- Size ---------------------------------------------------------------
+
+// A scope of 4 KB of HTML or more doesn't edit as markdown (Jess, 2026-10-17): nobody edits a
+// page's worth of text in a box, and rendering it is what made saves slow. It is still a scope:
+// it keeps its ID and takes directives. Its size leaves out element IDs and comments, so a
+// directive can't push it over.
+export const EDIT_LIMIT = 4096;
+export const editable = (el) => htmlSize(el, EDIT_LIMIT) < EDIT_LIMIT;
+
+// About how many characters of HTML el is, counting no further than limit.
+function htmlSize(el, limit) {
+  let size = 0;
+  const walk = (n) => {
+    if (size >= limit) return;
+    if (n.nodeType === 3) size += n.data.length;
+    if (n.nodeType !== 1) return;
+    size += 2 * n.localName.length + 5; // <x></x>
+    for (const a of n.attributes) if (!IGNORED_ATTRS.has(a.name)) size += a.name.length + a.value.length + 4; // x=""
+    for (const c of n.childNodes) walk(c);
+  };
+  walk(el);
+  return size;
+}
+
 // ---- Markdown -----------------------------------------------------------
 
 // Unlikely shapes (empty paragraphs, dl, stat tiles) may come out ugly here. Spend the effort

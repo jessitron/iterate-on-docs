@@ -7,24 +7,42 @@ cd "$here"
 meta="$(mktemp)"
 trap 'rm -f "$meta"' EXIT
 
-# bundle <package> <export statement>: writes vendor/<package>.mjs and its licenses file.
+# bundle <name> <package> <export statement> [prelude] [esbuild flags]: writes vendor/<name>.mjs
+# and its licenses file. The banner names <package>'s version; the prelude is code that goes
+# before the bundle.
 bundle() {
-  local pkg="$1" exports="$2" version
+  local name="$1" pkg="$2" exports="$3" prelude="${4:-}" version
+  shift 3; shift $(( $# > 0 ? 1 : 0 ))
   version="$(node -p "require('./node_modules/$pkg/package.json').version")"
-  echo "$exports" | npx esbuild --bundle --platform=node --format=esm \
-    --banner:js="// $pkg $version and its dependencies, bundled by scripts/vendor. Do not edit. Licenses: vendor/$pkg.LICENSES.txt" \
-    --outfile="vendor/$pkg.mjs" --metafile="$meta" --log-level=warning
+  echo "$exports" | npx esbuild --bundle --platform=node --format=esm "$@" \
+    --banner:js="// $pkg $version and its dependencies, bundled by scripts/vendor. Do not edit. Licenses: vendor/$name.LICENSES.txt${prelude:+
+$prelude}" \
+    --outfile="vendor/$name.mjs" --metafile="$meta" --log-level=warning
   {
-    echo "Licenses for the packages bundled into vendor/$pkg.mjs."
+    echo "Licenses for the packages bundled into vendor/$name.mjs."
     # Every package that contributed code to the bundle, from esbuild's metafile.
     for dep in $(node -e 'for (const f of Object.keys(JSON.parse(require("fs").readFileSync(process.argv[1])).inputs)) { const m = f.match(/^node_modules\/(@[^/]+\/)?[^/]+/); if (m) console.log(m[0]) }' "$meta" | sort -u); do
-      name="$(node -p "const p=require('./$dep/package.json'); p.name + ' ' + p.version + ' (' + p.license + ')'")"
-      printf '\n==== %s ====\n\n' "$name"
+      entry="$(node -p "const p=require('./$dep/package.json'); p.name + ' ' + p.version + ' (' + p.license + ')'")"
+      printf '\n==== %s ====\n\n' "$entry"
       cat "$dep"/LICENSE*
     done
-  } > "vendor/$pkg.LICENSES.txt"
-  echo "vendor/$pkg.mjs: $pkg $version"
+  } > "vendor/$name.LICENSES.txt"
+  echo "vendor/$name.mjs: $pkg $version"
 }
 
-bundle linkedom "export { parseHTML } from 'linkedom';"
-bundle markdown-it "export { default as MarkdownIt } from 'markdown-it';"
+bundle linkedom linkedom "export { parseHTML } from 'linkedom';"
+bundle markdown-it markdown-it "export { default as MarkdownIt } from 'markdown-it';"
+
+# Telemetry. The API is always loaded, and does nothing until an SDK registers with it;
+# telemetry.mjs loads the SDK only when telemetry is on. The SDK bundle carries its own copy of
+# the API, which registers through a global, so keep @opentelemetry/api one version for both.
+# The SDK is CommonJS that calls require() on Node built-ins, which an ES module lacks: the
+# prelude supplies it. Minified: nobody reads it, and it is the biggest bundle.
+bundle opentelemetry-api @opentelemetry/api "export { trace, context, propagation, SpanKind, SpanStatusCode } from '@opentelemetry/api';"
+bundle opentelemetry-sdk @opentelemetry/sdk-trace-base "
+export { BasicTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+export { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+export { resourceFromAttributes, detectResources, envDetector } from '@opentelemetry/resources';
+export { W3CTraceContextPropagator } from '@opentelemetry/core';
+export { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+" "import { createRequire as __hrvRequire } from 'node:module'; const require = __hrvRequire(import.meta.url);" --minify

@@ -129,7 +129,11 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body) { cursor: copy !imp
 /* The Text field holds the element's markdown, syntax and all: monospace too. */
 :is(#hrv-layer, .hrv-layer) .hrv-box textarea.hrv-text { font: var(--hrv-mono); height: 32px; min-height: 32px; }
 :is(#hrv-layer, .hrv-layer) .hrv-box textarea::placeholder { color: var(--hrv-muted); }
-:is(#hrv-layer, .hrv-layer) .hrv-label { display: block; margin: 6px 0 2px; color: var(--hrv-muted); }
+/* Each field's label: small muted capitals, with the field's action (Revert, Clear) at the right. */
+:is(#hrv-layer, .hrv-layer) .hrv-label {
+  display: flex; justify-content: space-between; align-items: center; margin: 6px 0 2px; color: var(--hrv-muted);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+}
 :is(#hrv-layer, .hrv-layer) .hrv-label:first-child { margin-top: 0; }
 :is(#hrv-layer, .hrv-layer) .hrv-box textarea:focus { outline: 1px solid var(--hrv-accent); outline-offset: -1px; border-color: var(--hrv-accent); }
 :is(#hrv-layer, .hrv-layer) .hrv-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -143,9 +147,12 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body) { cursor: copy !imp
 :is(#hrv-layer, .hrv-layer) .hrv-btn:hover { background: var(--hrv-button-hover); }
 :is(#hrv-layer, .hrv-layer) .hrv-done { background: var(--hrv-accent); border-color: var(--hrv-accent); color: var(--hrv-on-accent); }
 :is(#hrv-layer, .hrv-layer) .hrv-done:hover { border-color: var(--hrv-ring); }
-/* Delete is a text button: it destroys, so it doesn't draw the eye. */
+/* A quiet button is text: Clear destroys, so it doesn't draw the eye. */
 :is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet { padding: 4px 6px; border-color: transparent; background: none; color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-quiet:hover { color: var(--hrv-text); text-decoration: underline; }
+/* A field's action sits on its label's line, and shows only when it has something to do. */
+:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-field-action { padding: 0; font-size: 12px; text-transform: none; letter-spacing: 0; }
+:is(#hrv-layer, .hrv-layer) .hrv-btn.hrv-field-action[hidden] { display: none; }
 
 /* The docket: bottom right of the window. Icon and count switch review mode; the arrows step through
    the directives. A save error or the stale-file warning sits on top, in the error color. */

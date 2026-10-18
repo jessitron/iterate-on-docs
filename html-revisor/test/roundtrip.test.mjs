@@ -18,10 +18,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalize, parse } from '../formatter.mjs';
-import { scopeElements, scopeMarkdown, scopeFromMarkdown, canonicalHTML } from '../scopes.mjs';
+import { scopeElements as allScopes, scopeMarkdown, scopeFromMarkdown, canonicalHTML, editable } from '../scopes.mjs';
 import { allComments, directiveOwner, placeDirective } from '../directives.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// The scopes that edit as markdown. One too big has no Content field, so nothing to test.
+const scopeElements = (document) => allScopes(document).filter(editable);
 
 // Why a scope doesn't round-trip, or null if it does.
 function roundTripFailure(document, el) {
@@ -340,10 +343,12 @@ function reconcileFailure(prior, edited, el, r, kind) {
   }
 }
 
-// Every scope in the page, each edited once, the edit picked by seed(n) for the nth scope.
+// Every scope in the page, each edited once, the edit picked by seed(n) for the nth scope. n
+// counts the scopes too big to edit, so the limit doesn't change which edit the others get.
 function pageFailure(html, seed, kind) {
   const [prior, edited] = [directEverything(parse(html)), directEverything(parse(html))];
-  for (const [n, el] of scopeElements(prior).entries()) {
+  for (const [n, el] of allScopes(prior).entries()) {
+    if (!editable(el)) continue;
     const failure = reconcileFailure(prior, edited, el, random(seed(n)), kind);
     if (failure) return `seed ${seed(n)}: ${failure}`;
   }

@@ -2,7 +2,7 @@
 // starts the server as a child process on a random port, and talks to it over HTTP.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -14,11 +14,15 @@ import { normalize } from '../formatter.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverFile = path.join(here, '..', 'server.mjs');
 
+// The environment without any telemetry settings this shell might carry. With them, the
+// server prints a telemetry line first and sends every test's spans out.
+const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(OTEL_|HRV_TELEMETRY)/.test(k)));
+
 // Run fn with a live server whose root is a fresh copy of the fixtures.
 async function withServer(fn, args = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
-  const child = spawn(process.execPath, [serverFile, dir, '--port', '0', ...args]);
+  const child = spawn(process.execPath, [serverFile, dir, '--port', '0', ...args], { env });
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (d) => (stdout += d));
@@ -38,7 +42,8 @@ async function withServer(fn, args = []) {
       const json = document.querySelector('script#hrv-directives');
       const bases = JSON.parse(document.querySelector('script#hrv-bases').textContent);
       const markdowns = JSON.parse(document.querySelector('script#hrv-markdown').textContent);
-      return { res, html, document, bases, markdowns, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
+      const committed = JSON.parse(document.querySelector('script#hrv-committed').textContent);
+      return { res, html, document, bases, markdowns, committed, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
     },
     // PUT one change, as the tab sends it: {id, base, directive} or {id, base, markdown}.
     put: (name, change) =>
@@ -46,6 +51,13 @@ async function withServer(fn, args = []) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(change),
+      }),
+    // POST Done, as the tab sends it when the box closes: {id, directive, markdown} as the box opened.
+    done: (name, opened) =>
+      fetch(server.base + name, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(opened),
       }),
     // Load the page, then set one element's directive with the base the page gave.
     async direct(name, selectorOrId, directive) {
@@ -89,13 +101,12 @@ test('1. normalize is idempotent', () =>
   withServer(async (s) => {
     const before = s.read('messy.html');
     await s.get('messy.html');
-    await s.waitForLog('messy.html — ');
+    await s.waitForLog('messy.html \\(normalized\\)');
     const once = s.read('messy.html');
     assert.notEqual(once, before);
-    assert.equal(countOf(s.stdout, '(normalized)'), 1);
 
     await s.get('messy.html');
-    await s.waitForLog('messy.html — ', 2);
+    await new Promise((r) => setTimeout(r, 100));
     assert.equal(s.read('messy.html'), once);
     assert.equal(countOf(s.stdout, '(normalized)'), 1, 'second load must not normalize');
   }));
@@ -336,6 +347,40 @@ test('the served page carries the markdown of every scope but body', () =>
     assert.ok(!(idOf(document, 'body') in markdowns));
   }));
 
+// Make the server's root a repository and commit everything in it, as it stands.
+function commitAll(dir) {
+  const run = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, stdio: 'ignore' });
+  run('init', '-q');
+  run('add', '.');
+  run('commit', '-q', '-m', 'turn');
+}
+
+test('Revert: the served page carries each scope\'s markdown at the last commit, numbered like the page', () =>
+  withServer(async (s) => {
+    commitAll(s.dir);
+    const { document, bases, markdowns, committed } = await s.page('page.html');
+    assert.deepEqual(committed, markdowns, 'a commit without IDs numbers the same as the page');
+    const p = idOf(document, 'p');
+    const ul = idOf(document, 'ul');
+    await s.put('page.html', { id: p, base: bases[p], markdown: 'First paragraph, edited' });
+    await s.put('page.html', { id: ul, base: bases[ul], markdown: '- one' });
+    const after = await s.page('page.html');
+    assert.equal(after.markdowns[p], 'First paragraph, edited');
+    assert.equal(after.committed[p], 'First paragraph');
+    assert.equal(after.committed[ul], '- one\n- two', 'the deleted item comes back from its list');
+
+    commitAll(s.dir);
+    const next = await s.page('page.html');
+    assert.equal(next.committed[p], 'First paragraph, edited', 'a commit with IDs keeps them');
+    s.write('new.html', '<p>uncommitted</p>');
+    assert.deepEqual((await s.page('new.html')).committed, {}, 'a file not in the commit has nothing to revert to');
+  }));
+
+test('Revert: outside a git repository there is nothing to revert to', () =>
+  withServer(async (s) => {
+    assert.deepEqual((await s.page('page.html')).committed, {});
+  }));
+
 test('markdown edits: a PUT with markdown writes HTML and keeps the directive', () =>
   withServer(async (s) => {
     const { document, bases } = await s.page('page.html');
@@ -389,10 +434,75 @@ test('markdown edits refuse elements that are not scopes and blank markdown', ()
     assert.equal((await s.put('rule.html', { id: hr, base: ruled.bases[hr], markdown: 'not a rule' })).status, 400);
   }));
 
+test('a scope of 4 KB or more takes directives, not markdown; one a save grows past that loses its markdown', () =>
+  withServer(async (s) => {
+    const p = (n) => `<p>${'word '.repeat(n)}</p>`;
+    s.write('big.html', `<section class="big">${p(150).repeat(6)}</section><section class="near">${p(150).repeat(4)}${p(80)}</section>`);
+    const { document, bases, markdowns } = await s.page('big.html');
+    const big = idOf(document, 'section.big');
+    assert.ok(!(big in markdowns), 'no Content field');
+    assert.ok(idOf(document, 'section.big p') in markdowns, 'its paragraphs edit');
+    assert.equal((await s.put('big.html', { id: big, base: bases[big], markdown: 'all gone' })).status, 400);
+    assert.equal((await s.put('big.html', { id: big, base: bases[big], directive: 'shorter' })).status, 200);
+
+    const near = idOf(document, 'section.near');
+    const last = idOf(document, 'section.near p:last-child');
+    assert.ok(near in markdowns);
+    const res = await s.put('big.html', { id: last, base: bases[last], markdown: 'word '.repeat(400) });
+    assert.equal(res.status, 200);
+    const answer = await res.json();
+    assert.equal(answer.markdowns[near], null, 'the section grew past the limit');
+  }));
+
 test('a PUT body must be one change: id, base, and a directive or a markdown', () =>
   withServer(async (s) => {
     for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', markdown: 'b' }, { id: 1, base: 'x', markdown: 'b' }, { id: '1', base: 'x', text: 'b' }]) {
       assert.equal((await s.put('page.html', body)).status, 400, JSON.stringify(body));
+    }
+  }));
+
+// The JSON lines on stdout: the Announcements.
+const announcements = (stdout) => stdout.split('\n').filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
+
+test('Done announces what the box changed: a revision and a directive, under its heading', () =>
+  withServer(async (s) => {
+    const { document, bases, markdowns } = await s.page('page.html');
+    const p = idOf(document, 'p');
+    const opened = { id: p, directive: '', markdown: markdowns[p] };
+    const saved = await (await s.put('page.html', { id: p, base: bases[p], markdown: 'First *paragraph*' })).json();
+    await s.put('page.html', { id: p, base: saved.bases[p], directive: 'say more -- here' });
+    assert.deepEqual(await (await s.done('page.html', opened)).json(), { announced: true });
+    await s.waitForLog('\n\{', 1);
+    assert.deepEqual(announcements(s.stdout), [{
+      page: '/page.html',
+      id: p,
+      element: 'p',
+      heading: 'Title',
+      directive: { before: '', after: 'say more - - here' },
+      revision: { before: 'First paragraph', after: 'First *paragraph*' },
+    }]);
+    assert.doesNotMatch(s.stdout, /saved|pending/, 'saves print nothing');
+  }));
+
+test('Done with nothing changed announces nothing; a directive alone is no revision', () =>
+  withServer(async (s) => {
+    const { document, bases, markdowns } = await s.page('page.html');
+    const p = idOf(document, 'p');
+    const img = idOf(document, 'img');
+    assert.deepEqual(await (await s.done('page.html', { id: p, directive: '', markdown: markdowns[p] })).json(), { announced: false });
+    assert.deepEqual(await (await s.done('page.html', { id: 'nope', directive: '' })).json(), { announced: false });
+    await s.put('page.html', { id: img, base: bases[img], directive: 'bigger' });
+    await s.done('page.html', { id: img, directive: '' });
+    await s.waitForLog('\n\{', 1);
+    assert.deepEqual(announcements(s.stdout), [{
+      page: '/page.html', id: img, element: 'img', heading: 'Title', directive: { before: '', after: 'bigger' },
+    }]);
+  }));
+
+test('a Done body must be an id, the directive, and for a scope the markdown', () =>
+  withServer(async (s) => {
+    for (const body of [{}, { id: '1' }, { id: 1, directive: '' }, { id: '1', directive: '', markdown: 3 }]) {
+      assert.equal((await s.done('page.html', body)).status, 400, JSON.stringify(body));
     }
   }));
 
@@ -473,7 +583,7 @@ test('a page without html, head or body gets them, and the client lands in them'
 function startOnFile(name) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
-  const child = spawn(process.execPath, [serverFile, path.join(dir, name), '--port', '0']);
+  const child = spawn(process.execPath, [serverFile, path.join(dir, name), '--port', '0'], { env });
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (d) => (stdout += d));
