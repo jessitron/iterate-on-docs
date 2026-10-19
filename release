@@ -26,7 +26,13 @@ if [ -n "$(git status --porcelain)" ]; then
   echo "release: uncommitted changes; commit them first" >&2; git status --short >&2; exit 1
 fi
 
-(cd html-revisor && npm test --silent)
+log="$(mktemp)"
+trap 'rm -f "$log"' EXIT
+if ! (cd html-revisor && npm test --silent) > "$log" 2>&1; then
+  cat "$log" >&2
+  echo "release: html-revisor tests failed; nothing released" >&2; exit 1
+fi
+echo "release: html-revisor tests $(grep -E '^ℹ (pass|fail|skipped) ' "$log" | sed 's/^ℹ //' | paste -sd, - | sed 's/,/, /g')"
 
 version=$(node -e '
   const fs = require("fs");
