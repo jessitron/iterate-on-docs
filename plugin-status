@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# Report how far each stage of the plugin's pipeline lags the one before it, then offer to catch up.
+#
+#   html-revisor main → origin        (push)
+#   html-revisor main → html-revisor/ here   (deploy)
+#   main here → latest release tag    (release)
+#   main here and tag → origin        (push)
+#   latest release → installs in ~/.claude-work and ~/.claude-personal   (plugin update)
+#
+#   ./plugin-status              report, then ask
+#   ./plugin-status --all        deploy, release, push both, update installs
+#   ./plugin-status --installs   update installs to the latest release
+#   ./plugin-status --report     report only
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+revisor="$HOME/code/jessitron/html-revisor"
+config_dirs=("$HOME/.claude-work" "$HOME/.claude-personal")
+plugin=iterate-on-docs@iterate-on-docs
+
+mode=ask
+case "${1:-}" in
+  "") ;;
+  --all) mode=all ;;
+  --installs) mode=installs ;;
+  --report) mode=report ;;
+  *) echo "usage: ./plugin-status [--all|--installs|--report]" >&2; exit 2 ;;
+esac
+
+count() { git -C "$1" rev-list --count "$2" 2>/dev/null || echo "?"; }
+mark() { [ "$1" = 0 ] && echo "✓" || echo "✗"; }
+
+git -C "$revisor" fetch -q origin || echo "(couldn't fetch html-revisor; using last-known origin)"
+git -C "$here" fetch -q origin --tags || echo "(couldn't fetch iterate-on-docs; using last-known origin)"
+
+# html-revisor
+revisor_unpushed=$(count "$revisor" origin/main..main)
+deployed=$(sed -n 's/^Source: .* at `\([0-9a-f]*\)`.*/\1/p' "$here/html-revisor/VENDORED.md")
+revisor_undeployed=$(count "$revisor" "$deployed..main")
+
+# iterate-on-docs
+unpushed=$(count "$here" origin/main..main)
+release=$(git -C "$here" describe --tags --abbrev=0 --match 'v[0-9]*' main)
+unreleased=$(count "$here" "$release..main")
+if git -C "$here" ls-remote --exit-code -q --tags origin "refs/tags/$release" >/dev/null; then
+  tag_pushed=0
+else
+  tag_pushed=1
+fi
+
+echo
+echo "html-revisor ($revisor)"
+echo "  $(mark "$revisor_unpushed") $revisor_unpushed commits on main not pushed"
+echo "  $(mark "$revisor_undeployed") $revisor_undeployed commits on main not deployed (deployed: $deployed)"
+echo
+echo "iterate-on-docs ($here)"
+echo "  $(mark "$unpushed") $unpushed commits on main not pushed"
+echo "  $(mark "$unreleased") $unreleased commits on main since $release"
+if [ "$tag_pushed" = 0 ]; then
+  echo "  ✓ $release is on origin"
+else
+  echo "  ✗ $release is not on origin"
+fi
+echo
+echo "installs of $plugin (user scope)"
+for dir in "${config_dirs[@]}"; do
+  read -r version sha < <(node -e '
+    const [file, plugin] = process.argv.slice(1);
+    let entries = [];
+    try { entries = JSON.parse(require("fs").readFileSync(file, "utf8")).plugins[plugin] || []; } catch {}
+    const e = entries.find(e => e.scope === "user");
+    console.log(e ? `${e.version} ${e.gitCommitSha}` : "- -");
+  ' "$dir/plugins/installed_plugins.json" "$plugin")
+  if [ "$version" = - ]; then
+    echo "  ✗ $(basename "$dir"): not installed"
+    continue
+  fi
+  behind=$(count "$here" "$sha..$release")
+  echo "  $(mark "$behind") $(basename "$dir"): $version at ${sha:0:7}, $behind commits behind $release"
+done
+echo
+
+update_installs() {
+  if [ "$(git -C "$here" rev-parse HEAD)" != "$(git -C "$here" rev-parse "$release^{commit}")" ]; then
+    echo "note: the marketplace is this directory, so installs copy the working tree (HEAD),"
+    echo "      not $release. HEAD is $(count "$here" "$release..HEAD") commits past it."
+  fi
+  for dir in "${config_dirs[@]}"; do
+    echo "== $(basename "$dir")"
+    CLAUDE_CONFIG_DIR="$dir" claude plugin marketplace update iterate-on-docs
+    CLAUDE_CONFIG_DIR="$dir" claude plugin update "$plugin" --scope user
+  done
+  echo "Restart Claude Code sessions to pick up the new version."
+}
+
+update_all() {
+  if [ "$revisor_unpushed" != 0 ]; then
+    git -C "$revisor" push origin main
+  fi
+  if [ "$revisor_undeployed" != 0 ]; then
+    # A page open in html-revisor dirties its checkout, and deploy refuses a dirty one.
+    # Deploy from a clean detached checkout of main instead.
+    wt="$(mktemp -d)/deploy-wt"
+    git -C "$revisor" worktree add -q --detach "$wt" main
+    trap 'git -C "$revisor" worktree remove --force "$wt"' EXIT
+    "$wt/deploy" "$here"
+    git -C "$revisor" worktree remove --force "$wt"
+    trap - EXIT
+    unreleased=$(count "$here" "$release..main")
+  fi
+  if [ "$unreleased" != 0 ]; then
+    "$here/release" patch --push
+    release=$(git -C "$here" describe --tags --abbrev=0 --match 'v[0-9]*' main)
+  else
+    git -C "$here" push origin main "$release"
+  fi
+  update_installs
+}
+
+if [ "$mode" = ask ]; then
+  printf "Update [a]ll (deploy, release, push both, installs), [i]nstalls only, or [q]uit? "
+  read -r answer
+  case "$answer" in
+    a|all) mode=all ;;
+    i|installs) mode=installs ;;
+    *) mode=report ;;
+  esac
+fi
+
+case "$mode" in
+  all) update_all ;;
+  installs) update_installs ;;
+esac

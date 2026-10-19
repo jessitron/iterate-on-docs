@@ -64,6 +64,18 @@ release bumps it. From a clean `main`:
 
 It runs the HTML server's tests first.
 
+## Where is everything?
+
+```
+./plugin-status              # report, then offer to update
+./plugin-status --all        # push html-revisor, deploy, release, push, update installs
+./plugin-status --installs   # update installs in ~/.claude-work and ~/.claude-personal
+./plugin-status --report     # report only
+```
+
+It reports unpushed and undeployed commits in `~/code/jessitron/html-revisor`, unpushed and
+unreleased commits here, and how far each user-level install lags the latest release.
+
 ## Updating the HTML server
 
 `html-revisor/` is a copy. The code lives in `~/code/jessitron/html-revisor`, and its
