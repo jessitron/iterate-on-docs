@@ -75,7 +75,8 @@ for dir in "${config_dirs[@]}"; do
     continue
   fi
   behind=$(count "$here" "$sha..$release")
-  echo "  $(mark "$behind") $(basename "$dir"): $version at ${sha:0:7}, $behind commits behind $release"
+  past=$(count "$here" "$release..$sha")
+  echo "  $(mark "$behind") $(basename "$dir"): $version at ${sha:0:7}, $behind commits behind $release, $past past it"
 done
 echo
 
