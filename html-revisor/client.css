@@ -145,6 +145,9 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body) { cursor: copy !imp
   background: var(--hrv-button); color: var(--hrv-text); text-align: center; cursor: pointer;
 }
 :is(#hrv-layer, .hrv-layer) .hrv-btn:hover { background: var(--hrv-button-hover); }
+/* Tabbed to, a button wears the accent ring. An outline takes no space, so nothing moves;
+   a click shows no ring. DESIGN.html draws the ring with data-focus. */
+:is(#hrv-layer, .hrv-layer) .hrv-btn:is(:focus-visible, [data-focus]) { outline: 2px solid var(--hrv-accent); outline-offset: 2px; }
 :is(#hrv-layer, .hrv-layer) .hrv-done { background: var(--hrv-accent); border-color: var(--hrv-accent); color: var(--hrv-on-accent); }
 :is(#hrv-layer, .hrv-layer) .hrv-done:hover { border-color: var(--hrv-ring); }
 /* A quiet button is text: Clear destroys, so it doesn't draw the eye. */

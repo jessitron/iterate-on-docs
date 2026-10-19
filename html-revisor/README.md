@@ -166,6 +166,7 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 - [ ] Clear (or emptying the text, or `⌥⌘⌫` in the box) removes the directive and the marker. Clear shows only when there is a directive, in both boxes, and its tooltip names the hotkey. Clear leaves the box open with the Content field as you left it, and `⌘Z` brings the directive back.
 - [ ] In a committed page, Revert shows on the Content line only after you change a scope. Clicking it puts the committed markdown back and saves; `⌘Z` takes the revert back. Delete a list item, then Revert the list: the item returns.
 - [ ] `⌘↵`, `Esc`, Done, and clicking outside each commit and close the box. (On a page with a full-width wrapper element, clicking the margin opens a box on the wrapper instead; use Esc.)
+- [ ] In a scope's box with a changed scope and a directive, Tab goes Revert, Content, Clear, Directive, Done, and wraps back to Revert; Shift-Tab goes the other way. A hidden action takes no stop. A button you Tab to wears the accent ring, and nothing moves; a click shows no ring. Enter or Space presses it.
 - [ ] Opening a second box commits and closes the first.
 - [ ] Plain click on a link opens a directive box; ⌘-click on a link navigates.
 - [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.

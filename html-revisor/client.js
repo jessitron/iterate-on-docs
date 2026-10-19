@@ -834,6 +834,9 @@
     if (isScope(id)) boxOpened.markdown = markdowns[id];
     box = document.createElement('div');
     box.className = 'hrv-box';
+    // A screen reader announces the box as a dialog named for its element, and each field by its label.
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', describe(el));
 
     var head = document.createElement('div');
     head.className = 'hrv-head';
@@ -854,6 +857,7 @@
     if (isScope(id)) {
       textArea = document.createElement('textarea');
       textArea.className = 'hrv-text';
+      textArea.setAttribute('aria-label', 'Content');
       textArea.value = markdowns[id];
       textArea.addEventListener('input', function () {
         fit(textArea);
@@ -872,6 +876,7 @@
 
     var ta = document.createElement('textarea');
     ta.className = 'hrv-directive';
+    ta.setAttribute('aria-label', 'Directive');
     ta.value = directives[id] || '';
     ta.placeholder = 'Directive for this element';
     ta.addEventListener('input', function () {
@@ -892,6 +897,8 @@
       } else if (e.key === 'Backspace' && e.altKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         clearDirective(ta);
+      } else {
+        wrapTab(e);
       }
     });
 
@@ -906,7 +913,7 @@
     hint.className = 'hrv-hint';
     hint.textContent = HINT;
 
-    var done = document.createElement('div');
+    var done = button();
     done.className = 'hrv-btn hrv-done';
     done.textContent = 'Done';
     done.title = 'Close the box. Typing saves.';
@@ -944,12 +951,35 @@
   }
 
   function fieldAction(text, title, onClick) {
-    var b = document.createElement('div');
+    var b = button();
     b.className = 'hrv-btn hrv-quiet hrv-field-action';
     b.textContent = text;
     b.title = title;
     b.addEventListener('click', onClick);
     return b;
+  }
+
+  // A real button, so Tab stops on it and Enter and Space press it. type=button keeps it from
+  // submitting a form on the page.
+  function button() {
+    var b = document.createElement('button');
+    b.type = 'button';
+    return b;
+  }
+
+  // Tab and Shift-Tab go round the box's fields and buttons in order, Revert, Content, Clear,
+  // Directive, Done, and wrap at the ends. Esc is the way out. A hidden action takes no stop.
+  function wrapTab(e) {
+    if (e.key !== 'Tab' || e.altKey || e.metaKey || e.ctrlKey) return;
+    var stops = Array.prototype.filter.call(box.querySelectorAll('textarea, button'), function (s) {
+      return !s.hidden;
+    });
+    var first = stops[0], last = stops[stops.length - 1];
+    var at = document.activeElement;
+    if (e.shiftKey ? at === first || !box.contains(at) : at === last) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    }
   }
 
   // ---- click handling ----
