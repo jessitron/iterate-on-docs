@@ -1,13 +1,12 @@
 // Directives: requests about one element, in the file as <!-- author: text -->. Where one sits
-// says which element it is about. Tier II, pure functions over a DOM; server.mjs and scopes.mjs
-// both use the placement rule.
-import { VOID, RAW, ID, trimAscii } from './formatter.mjs';
+// says which element it is about. Tier II, pure functions over a DOM; the served page and
+// scopes.mjs both use the placement rule.
+import { VOID, RAW, trimAscii } from './canonical.mjs';
+import { ID } from './identity.mjs';
 
 // Directives go before these elements; for everything else a directive is the first child.
 // Elements whose content is parsed as plain text (title, iframe, ...) cannot hold a comment.
 export const TEXT_ONLY = 'title iframe xmp noembed noframes'.split(' ');
-// Read on each call: formatter.mjs and scopes.mjs import each other, so VOID may not exist yet
-// while this module loads.
 const directiveGoesBefore = (el) => VOID.has(el.localName) || RAW.has(el.localName) || TEXT_ONLY.includes(el.localName);
 
 // A directive is an HTML comment inside an element whose text starts with "<author>:".

@@ -7,7 +7,7 @@
 // where spans go and what they carry: OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS,
 // OTEL_SERVICE_NAME, OTEL_RESOURCE_ATTRIBUTES.
 import crypto from 'node:crypto';
-import { trace, context, propagation, SpanKind, SpanStatusCode } from './vendor/opentelemetry-api.mjs';
+import { trace, context, propagation, SpanKind, SpanStatusCode } from '../vendor/opentelemetry-api.mjs';
 
 export const tracer = trace.getTracer('html-revisor');
 export { trace };
@@ -31,7 +31,7 @@ export function requestSpan(req, res, fn) {
 // still waiting and stops, or null when telemetry is off.
 export async function startTelemetry(env = process.env) {
   if (!env.HRV_TELEMETRY) return null;
-  const sdk = await import('./vendor/opentelemetry-sdk.mjs');
+  const sdk = await import('../vendor/opentelemetry-sdk.mjs');
   // The exporter drops a failed batch without a word; say so on stderr, so a bad key shows.
   const exporter = new sdk.OTLPTraceExporter();
   const send = exporter.export.bind(exporter);

@@ -17,9 +17,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalize, parse } from '../formatter.mjs';
-import { scopeElements as allScopes, scopeMarkdown, scopeFromMarkdown, canonicalHTML, editable } from '../scopes.mjs';
-import { allComments, directiveOwner, placeDirective } from '../directives.mjs';
+import { normalize } from '../domain/format.mjs';
+import { parse } from '../domain/canonical.mjs';
+import { scopeElements as allScopes, scopeMarkdown, scopeFromMarkdown, canonicalHTML, editable } from '../domain/scopes.mjs';
+import { allComments, directiveOwner, placeDirective } from '../domain/directives.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 

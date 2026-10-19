@@ -6,8 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cleanup } from '../cleanup.mjs';
-import { normalize, parse, serialize } from '../formatter.mjs';
+import { cleanup } from '../domain/cleanup.mjs';
+import { normalize } from '../domain/format.mjs';
+import { parse, serialize } from '../domain/canonical.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cleanupFile = path.join(here, '..', 'cleanup.mjs');

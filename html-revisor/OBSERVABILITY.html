@@ -50,7 +50,30 @@
         A directive typed on this page and closed with Escape, which sends it at once instead of after 0.4 s of quiet. The browser's spans are purple; the server's are blue. Times from trace <code>d0888bfe…</code>.
       </p>
       <svg viewBox="0 0 900 215" role="img" aria-label="Waterfall of one save directive trace: save 13.4 ms, with wait and quiet times as attributes and a close box event at 0.5 ms; PUT 13.1 ms holding the server's PUT change 10.6 ms and its steps; then apply 0.3 ms">
-        <text x="10" y="30">save directive</text> <rect class="browser" x="170" y="18" width="580" height="16" rx="3"></rect> <circle class="event" cx="192" cy="26" r="5"></circle> <text x="186" y="12" class="muted">close box</text> <text x="765" y="30">13.4 ms</text> <text x="170" y="50" class="muted">hrv.wait.ms 106 · hrv.quiet.ms 97 · hrv.edits 22</text> <text x="30" y="80">PUT (client)</text> <rect class="browser" x="170" y="68" width="567" height="16" rx="2"></rect> <text x="765" y="80">13.1 ms</text> <text x="50" y="110">PUT change</text> <rect class="server" x="235" y="98" width="458" height="16" rx="2"></rect> <text x="765" y="110">10.6 ms</text> <text x="70" y="140" class="muted">read, parse, serialize,</text> <text x="70" y="156" class="muted">write, reparse, bases</text> <rect class="server" x="278" y="128" width="21" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="322" y="128" width="74" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="408" y="128" width="57" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="467" y="128" width="41" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="538" y="128" width="81" height="8" rx="1" opacity=".5"></rect> <rect class="server" x="625" y="128" width="75" height="8" rx="1" opacity=".5"></rect> <text x="765" y="138" class="muted">0.1–1.9 ms each</text> <text x="30" y="190">apply</text> <rect class="browser" x="737" y="178" width="13" height="16" rx="1"></rect> <text x="765" y="190">0.3 ms</text>
+        <text x="10" y="30">save directive</text>
+        <rect class="browser" x="170" y="18" width="580" height="16" rx="3"></rect>
+        <circle class="event" cx="192" cy="26" r="5"></circle>
+        <text x="186" y="12" class="muted">close box</text>
+        <text x="765" y="30">13.4 ms</text>
+        <text x="170" y="50" class="muted">hrv.wait.ms 106 · hrv.quiet.ms 97 · hrv.edits 22</text>
+        <text x="30" y="80">PUT (client)</text>
+        <rect class="browser" x="170" y="68" width="567" height="16" rx="2"></rect>
+        <text x="765" y="80">13.1 ms</text>
+        <text x="50" y="110">PUT change</text>
+        <rect class="server" x="235" y="98" width="458" height="16" rx="2"></rect>
+        <text x="765" y="110">10.6 ms</text>
+        <text x="70" y="140" class="muted">read, parse, serialize,</text>
+        <text x="70" y="156" class="muted">write, reparse, bases</text>
+        <rect class="server" x="278" y="128" width="21" height="8" rx="1" opacity=".5"></rect>
+        <rect class="server" x="322" y="128" width="74" height="8" rx="1" opacity=".5"></rect>
+        <rect class="server" x="408" y="128" width="57" height="8" rx="1" opacity=".5"></rect>
+        <rect class="server" x="467" y="128" width="41" height="8" rx="1" opacity=".5"></rect>
+        <rect class="server" x="538" y="128" width="81" height="8" rx="1" opacity=".5"></rect>
+        <rect class="server" x="625" y="128" width="75" height="8" rx="1" opacity=".5"></rect>
+        <text x="765" y="138" class="muted">0.1–1.9 ms each</text>
+        <text x="30" y="190">apply</text>
+        <rect class="browser" x="737" y="178" width="13" height="16" rx="1"></rect>
+        <text x="765" y="190">0.3 ms</text>
       </svg>
       <p class="note">
         The save span starts when the change goes out. The typing before it is in two attributes: <code>hrv.wait.ms</code> since the first keystroke, <code>hrv.quiet.ms</code> since the last. The round trip is about 13 ms on this 14 KB page. Most server steps take under 2 ms here. A step that stays under 1 ms on a big page too doesn't earn its span, and we mean to remove it; so far <code>check base</code> and <code>set directive</code> never have.
@@ -205,7 +228,32 @@
     <section>
       <h2>How the browser's spans get there</h2>
       <svg viewBox="0 0 900 190" role="img" aria-label="The browser's client.js sends each PUT with a traceparent header, and posts its finished spans to /.hrv/spans; the server makes them OTel spans and sends them with its own to Honeycomb over OTLP, with the ingest key">
-        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head"></path></marker></defs> <rect class="box browser-box" x="20" y="40" width="200" height="90" rx="8"></rect> <text x="120" y="78" text-anchor="middle">browser</text> <text x="120" y="98" text-anchor="middle" class="muted">client.js: spans as</text> <text x="120" y="114" text-anchor="middle" class="muted">plain objects</text> <rect class="box server-box" x="370" y="40" width="200" height="90" rx="8"></rect> <text x="470" y="78" text-anchor="middle">server</text> <text x="470" y="98" text-anchor="middle" class="muted">each one an OTel span,</text> <text x="470" y="114" text-anchor="middle" class="muted">same IDs and times</text> <rect class="box" x="700" y="40" width="180" height="90" rx="8"></rect> <text x="790" y="78" text-anchor="middle">Honeycomb</text> <text x="790" y="98" text-anchor="middle" class="muted">dataset html-revisor</text> <path class="arrow" d="M220 62 L368 62" marker-end="url(#arrow)"></path> <text x="294" y="54" text-anchor="middle">PUT + traceparent</text> <path class="arrow" d="M220 108 L368 108" marker-end="url(#arrow)"></path> <text x="294" y="100" text-anchor="middle">POST /.hrv/spans</text> <text x="294" y="126" text-anchor="middle" class="muted">every 2 s, and on hide</text> <path class="arrow" d="M570 85 L698 85" marker-end="url(#arrow)"></path> <text x="634" y="77" text-anchor="middle">OTLP</text> <text x="634" y="103" text-anchor="middle" class="muted">with the ingest key</text> <text x="120" y="165" text-anchor="middle" class="muted">no SDK, no key</text> <text x="470" y="165" text-anchor="middle" class="muted">server spans join the same trace</text>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" class="head"></path>
+          </marker>
+        </defs>
+        <rect class="box browser-box" x="20" y="40" width="200" height="90" rx="8"></rect>
+        <text x="120" y="78" text-anchor="middle">browser</text>
+        <text x="120" y="98" text-anchor="middle" class="muted">client.js: spans as</text>
+        <text x="120" y="114" text-anchor="middle" class="muted">plain objects</text>
+        <rect class="box server-box" x="370" y="40" width="200" height="90" rx="8"></rect>
+        <text x="470" y="78" text-anchor="middle">server</text>
+        <text x="470" y="98" text-anchor="middle" class="muted">each one an OTel span,</text>
+        <text x="470" y="114" text-anchor="middle" class="muted">same IDs and times</text>
+        <rect class="box" x="700" y="40" width="180" height="90" rx="8"></rect>
+        <text x="790" y="78" text-anchor="middle">Honeycomb</text>
+        <text x="790" y="98" text-anchor="middle" class="muted">dataset html-revisor</text>
+        <path class="arrow" d="M220 62 L368 62" marker-end="url(#arrow)"></path>
+        <text x="294" y="54" text-anchor="middle">PUT + traceparent</text>
+        <path class="arrow" d="M220 108 L368 108" marker-end="url(#arrow)"></path>
+        <text x="294" y="100" text-anchor="middle">POST /.hrv/spans</text>
+        <text x="294" y="126" text-anchor="middle" class="muted">every 2 s, and on hide</text>
+        <path class="arrow" d="M570 85 L698 85" marker-end="url(#arrow)"></path>
+        <text x="634" y="77" text-anchor="middle">OTLP</text>
+        <text x="634" y="103" text-anchor="middle" class="muted">with the ingest key</text>
+        <text x="120" y="165" text-anchor="middle" class="muted">no SDK, no key</text>
+        <text x="470" y="165" text-anchor="middle" class="muted">server spans join the same trace</text>
       </svg>
       <p>
         The browser has no OpenTelemetry SDK. <code>client.js</code> records each span as a plain object (trace ID, span ID, parent, start and end, attributes, events) and posts a batch to <code>/.hrv/spans</code> every 2 s and when the tab hides. The server makes each one an OTel span with the browser's IDs and times, and sends it with its own spans. That route makes no span of its own.

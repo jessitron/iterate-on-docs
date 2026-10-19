@@ -282,7 +282,30 @@
       <h2>A diagram</h2>
       <p>Click a label to edit its text. After the save, the drawing should still show it.</p>
       <svg viewBox="0 0 520 150" width="520">
-        <defs> <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#555"></path></marker> </defs> <g> <rect x="10" y="40" width="130" height="50" rx="8" fill="#ddf4ff" stroke="#0969da"></rect> <text x="75" y="70" text-anchor="middle" font-size="14">Browser</text> </g> <g> <rect x="195" y="40" width="130" height="50" rx="8" fill="#fff8c5" stroke="#9a6700"></rect> <text x="260" y="70" text-anchor="middle" font-size="14">Server</text> </g> <g> <rect x="380" y="40" width="130" height="50" rx="8" fill="#dafbe1" stroke="#1a7f37"></rect> <text x="445" y="70" text-anchor="middle" font-size="14">File on disk</text> </g> <line x1="140" y1="55" x2="195" y2="55" stroke="#555" marker-end="url(#arrow)"></line> <line x1="195" y1="75" x2="140" y2="75" stroke="#555" marker-end="url(#arrow)"></line> <line x1="325" y1="65" x2="380" y2="65" stroke="#555" marker-end="url(#arrow)"></line> <text x="167" y="30" text-anchor="middle" font-size="11" fill="#656d76">PUT a change</text> <text x="167" y="110" text-anchor="middle" font-size="11" fill="#656d76">new HTML back</text> <text x="352" y="30" text-anchor="middle" font-size="11" fill="#656d76">write</text> <text x="260" y="140" text-anchor="middle" font-size="12">One change per PUT, one PUT at a time.</text>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="#555"></path>
+          </marker>
+        </defs>
+        <g>
+          <rect x="10" y="40" width="130" height="50" rx="8" fill="#ddf4ff" stroke="#0969da"></rect>
+          <text x="75" y="70" text-anchor="middle" font-size="14">Browser</text>
+        </g>
+        <g>
+          <rect x="195" y="40" width="130" height="50" rx="8" fill="#fff8c5" stroke="#9a6700"></rect>
+          <text x="260" y="70" text-anchor="middle" font-size="14">Server</text>
+        </g>
+        <g>
+          <rect x="380" y="40" width="130" height="50" rx="8" fill="#dafbe1" stroke="#1a7f37"></rect>
+          <text x="445" y="70" text-anchor="middle" font-size="14">File on disk</text>
+        </g>
+        <line x1="140" y1="55" x2="195" y2="55" stroke="#555" marker-end="url(#arrow)"></line>
+        <line x1="195" y1="75" x2="140" y2="75" stroke="#555" marker-end="url(#arrow)"></line>
+        <line x1="325" y1="65" x2="380" y2="65" stroke="#555" marker-end="url(#arrow)"></line>
+        <text x="167" y="30" text-anchor="middle" font-size="11" fill="#656d76">PUT a change</text>
+        <text x="167" y="110" text-anchor="middle" font-size="11" fill="#656d76">new HTML back</text>
+        <text x="352" y="30" text-anchor="middle" font-size="11" fill="#656d76">write</text>
+        <text x="260" y="140" text-anchor="middle" font-size="12">One change per PUT, one PUT at a time.</text>
       </svg>
     </section>
     <section class="part">
@@ -451,9 +474,7 @@ October 2026</pre>
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
-          <pre>&lt;p&gt;
-  Fish &amp;amp; chips cost&amp;#160;$5 &amp;lt;each&amp;gt; — “quoted” and 5&amp;#160;×&amp;#160;3.
-&lt;/p&gt;</pre>
+          <pre>&lt;p&gt;Fish &amp;amp; chips cost&amp;#160;$5 &amp;lt;each&amp;gt; — “quoted” and 5&amp;#160;×&amp;#160;3.&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -618,9 +639,7 @@ October 2026</pre>
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
-          <pre>&lt;p&gt;
-  &lt;strong&gt;b&lt;/strong&gt; and &lt;strong&gt;strong&lt;/strong&gt;; &lt;em&gt;i&lt;/em&gt; and &lt;em&gt;em&lt;/em&gt;.
-&lt;/p&gt;</pre>
+          <pre>&lt;p&gt;&lt;strong&gt;b&lt;/strong&gt; and &lt;strong&gt;strong&lt;/strong&gt;; &lt;em&gt;i&lt;/em&gt; and &lt;em&gt;em&lt;/em&gt;.&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -651,9 +670,7 @@ October 2026</pre>
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
-          <pre>&lt;p&gt;
-  Linkedom skips the skeleton.&lt;sup&gt;&lt;a href="#fn1"&gt;1&lt;/a&gt;&lt;/sup&gt;
-&lt;/p&gt;</pre>
+          <pre>&lt;p&gt;Linkedom skips the skeleton.&lt;sup&gt;&lt;a href="#fn1"&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -1097,9 +1114,7 @@ Opening and saving must change nothing.</pre>
     &lt;/tr&gt;
     &lt;tr&gt;
       &lt;td&gt;Formatter&lt;/td&gt;
-      &lt;td&gt;
-        &lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;OVERVIEW&lt;/a&gt;
-      &lt;/td&gt;
+      &lt;td&gt;&lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;OVERVIEW&lt;/a&gt;&lt;/td&gt;
     &lt;/tr&gt;
     &lt;tr&gt;
       &lt;td&gt;Scopes&lt;/td&gt;
@@ -1240,7 +1255,8 @@ Opening and saving must change nothing.</pre>
         <div class="ex">
           <figure>
             <svg viewBox="0 0 120 40" width="120">
-              <rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df"></rect><text x="60" y="25" text-anchor="middle" font-size="12">diagram yo</text>
+              <rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df"></rect>
+              <text x="60" y="25" text-anchor="middle" font-size="12">diagram yo</text>
             </svg>
             <figcaption>The <em>path</em>, as of today.</figcaption>
           </figure>
@@ -1249,7 +1265,8 @@ Opening and saving must change nothing.</pre>
           <summary>HTML</summary>
           <pre>&lt;figure&gt;
   &lt;svg viewBox="0 0 120 40" width="120"&gt;
-    &lt;rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df" /&gt;&lt;text x="60" y="25" text-anchor="middle" font-size="12"&gt;diagram yo&lt;/text&gt;
+    &lt;rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df" /&gt;
+    &lt;text x="60" y="25" text-anchor="middle" font-size="12"&gt;diagram yo&lt;/text&gt;
   &lt;/svg&gt;
   &lt;figcaption&gt;The &lt;em&gt;path&lt;/em&gt;, as of today.&lt;/figcaption&gt;
 &lt;/figure&gt;</pre>
@@ -1773,7 +1790,10 @@ node formatter.mjs try-me.html
           <p>
             Here is the path.
             <svg viewBox="0 0 200 30" width="200">
-              <line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4"></line><circle cx="10" cy="15" r="6" fill="#1a7f37"></circle><circle cx="100" cy="15" r="6" fill="#0969da"></circle><circle cx="190" cy="15" r="6" fill="#0969da"></circle>
+              <line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4"></line>
+              <circle cx="10" cy="15" r="6" fill="#1a7f37"></circle>
+              <circle cx="100" cy="15" r="6" fill="#0969da"></circle>
+              <circle cx="190" cy="15" r="6" fill="#0969da"></circle>
             </svg>
             It has six stages.
           </p>
@@ -1783,7 +1803,10 @@ node formatter.mjs try-me.html
           <pre>&lt;p&gt;
   Here is the path.
   &lt;svg viewBox="0 0 200 30" width="200"&gt;
-    &lt;line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4" /&gt;&lt;circle cx="10" cy="15" r="6" fill="#1a7f37" /&gt;&lt;circle cx="100" cy="15" r="6" fill="#0969da" /&gt;&lt;circle cx="190" cy="15" r="6" fill="#0969da" /&gt;
+    &lt;line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4" /&gt;
+    &lt;circle cx="10" cy="15" r="6" fill="#1a7f37" /&gt;
+    &lt;circle cx="100" cy="15" r="6" fill="#0969da" /&gt;
+    &lt;circle cx="190" cy="15" r="6" fill="#0969da" /&gt;
   &lt;/svg&gt;
   It has six stages.
 &lt;/p&gt;</pre>
@@ -1850,9 +1873,7 @@ node formatter.mjs try-me.html
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
-          <pre>&lt;p&gt;
-  Show &lt;input type="checkbox" checked&gt; done stages, or &lt;button&gt;reset&lt;/button&gt;.
-&lt;/p&gt;</pre>
+          <pre>&lt;p&gt;Show &lt;input type="checkbox" checked&gt; done stages, or &lt;button&gt;reset&lt;/button&gt;.&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -1888,12 +1909,8 @@ node formatter.mjs try-me.html
         <details class="scope-report">
           <summary>HTML</summary>
           <pre>&lt;div class="stats"&gt;
-  &lt;div class="stat"&gt;
-    &lt;span class="big"&gt;6&lt;/span&gt;&lt;span&gt;stages&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="stat"&gt;
-    &lt;span class="big"&gt;1&lt;/span&gt;&lt;span&gt;in progress&lt;/span&gt;
-  &lt;/div&gt;
+  &lt;div class="stat"&gt;&lt;span class="big"&gt;6&lt;/span&gt;&lt;span&gt;stages&lt;/span&gt;&lt;/div&gt;
+  &lt;div class="stat"&gt;&lt;span class="big"&gt;1&lt;/span&gt;&lt;span&gt;in progress&lt;/span&gt;&lt;/div&gt;
 &lt;/div&gt;</pre>
         </details>
         <table class="scope-report">

@@ -45,7 +45,7 @@
   <body>
     <h1>How we test</h1>
     <p>
-      149 tests, all passing, in 18 seconds. They took 57 until scopes over 4 KB stopped editing as markdown. One test file still holds nearly all of the time.
+      154 tests, all passing, in 18 seconds. They took 57 until scopes over 4 KB stopped editing as markdown. One test file still holds nearly all of the time.
     </p>
     <section id="suite">
       <h2>The suite</h2>
@@ -84,6 +84,10 @@
         <div><code>normalize.test.mjs</code></div>
         <div class="bar" title="normalize.test.mjs: 21 tests, 0.10 s">
           <span style="width: .5%"></span>0.10 s
+        </div>
+        <div><code>architecture.test.mjs</code></div>
+        <div class="bar" title="architecture.test.mjs: 5 tests, 0.06 s">
+          <span style="width: .3%"></span>0.06 s
         </div>
       </div>
       <p class="note">
@@ -144,6 +148,13 @@
             <td class="n">5</td>
             <td>
               Spans for GET, PUT, and the box's saves. One test sends to Honeycomb; it skips without a key.
+            </td>
+          </tr>
+          <tr>
+            <td><code>architecture.test.mjs</code></td>
+            <td class="n">5</td>
+            <td>
+              The import graph, read from the source: no cycles, and the three tiers each in their own files, dependencies pointing down.
             </td>
           </tr>
         </tbody>

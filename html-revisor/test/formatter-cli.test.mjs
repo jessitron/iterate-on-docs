@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalize } from '../formatter.mjs';
+import { normalize } from '../domain/format.mjs';
 
 const formatterFile = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'formatter.mjs');
 const run = (...files) => spawnSync(process.execPath, [formatterFile, ...files], { encoding: 'utf8' });

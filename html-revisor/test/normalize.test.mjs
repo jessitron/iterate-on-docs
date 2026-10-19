@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalize, parse, serialize } from '../formatter.mjs';
+import { normalize } from '../domain/format.mjs';
+import { parse, serialize } from '../domain/canonical.mjs';
 
 // Layout alone, without element IDs, for the tests about layout. IDs have their own tests.
 const layout = (html) => serialize(parse(html));
@@ -115,6 +116,22 @@ test('comments sit on their own lines, data unchanged', () => {
 test('element containing a block is a container even when inline by name', () => {
   const out = layout(page('<a href="x"><div>in</div></a>'));
   assert.match(out, /^ {4}<a href="x">\n {6}<div>in<\/div>\n {4}<\/a>$/m);
+});
+
+test('each element of an svg takes its own line', () => {
+  const out = layout(page('<svg viewBox="0 0 9 9"><g><rect x="1"></rect><circle r="2"></circle></g></svg>'));
+  assert.match(out, /^ {4}<svg viewBox="0 0 9 9">\n {6}<g>\n {8}<rect x="1"><\/rect>\n {8}<circle r="2"><\/circle>\n {6}<\/g>\n {4}<\/svg>$/m);
+});
+
+test('an svg text stays whole on one line, however long, directive and tspan included', () => {
+  const long = 'word '.repeat(30).trim();
+  const out = layout(page(`<svg><text x="1"><!-- @AI: bigger -->${long} <tspan>a  b</tspan> </text></svg>`));
+  assert.match(out, new RegExp(`^ {6}<text x="1"><!-- @AI: bigger -->${long} <tspan>a b</tspan> </text>$`, 'm'));
+});
+
+test('foreignObject in an svg holds HTML, laid out as HTML', () => {
+  const out = layout(page('<svg><foreignObject><p>a <em>b</em> c</p></foreignObject></svg>'));
+  assert.match(out, /^ {8}<p>a <em>b<\/em> c<\/p>$/m);
 });
 
 test('fragment input still produces a stable document', () => {

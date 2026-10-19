@@ -1,7 +1,8 @@
 // Element IDs: the formatter writes data-hrv into the file, from a counter on <html>.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, parse } from '../formatter.mjs';
+import { normalize } from '../domain/format.mjs';
+import { parse } from '../domain/canonical.mjs';
 
 const idsOf = (html) => {
   const document = parse(html);
