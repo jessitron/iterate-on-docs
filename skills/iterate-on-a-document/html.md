@@ -17,7 +17,8 @@ the server exits 1 with `<file>: <problem>` on stderr; fix that and start it aga
 
 ## Hand off
 
-Give the user the page URL instead of the file path. Tell them to reload the page, then click a
+Give the user the page URL instead of the file path. If you changed just one section, link them
+to that section: `<page URL>#<its id>`. Give the section an `id` if it has none. Tell them to reload the page, then click a
 block, a link, an image, or part of an SVG to leave a directive on it or change its wording.
 Their directives and edits save into the file. They can also edit the file by hand.
 
