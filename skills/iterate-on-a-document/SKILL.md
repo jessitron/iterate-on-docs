@@ -23,7 +23,7 @@ nothing more.
 ## Procedure
 
 0. Choose a git setup from `git.md` and begin it. **HTML:** Start. Commit the file.
-1. Tell the user to take their turn. Give them the full path to the file. Tell them to make any
+1. Tell the user to take their turn. Give them the link to the file (every interaction, so they don't have to scroll up looking for it). Tell them to make any
    edits they like, and to add `@AI: <command>` directives anywhere in the document.
    **HTML:** Hand off.
 2. Wait. The user's turn ends when they respond.
