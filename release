@@ -5,7 +5,7 @@
 #   ./release [patch|minor|major|<x.y.z>] [--push]
 #
 # Without --push it stops after tagging and prints the push command.
-# Either way it ends by printing the commands that update the user-level installs.
+# Either way it ends by pointing at ./plugin-status to update the user-level installs.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -67,9 +67,4 @@ else
   echo "release: to publish, run: git push origin main v$version"
 fi
 
-echo
-echo "release: to update the plugin at user level, run:"
-for dir in "$HOME/.claude-work" "$HOME/.claude-personal"; do
-  echo "  CLAUDE_CONFIG_DIR=$dir claude plugin marketplace update iterate-on-docs"
-  echo "  CLAUDE_CONFIG_DIR=$dir claude plugin update iterate-on-docs@iterate-on-docs --scope user"
-done
+echo "release: to update the user-level installs, run: ./plugin-status --installs"
