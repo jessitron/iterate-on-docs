@@ -1,12 +1,16 @@
 // Canonical form: parse an HTML document, add a missing skeleton, rewrite into canonical
-// forms, and serialize in canonical layout. Tier II, pure functions over a DOM.
+// forms, and serialize in canonical layout; and an element's content in that layout apart from
+// the tool's marks (directives, element IDs), which is how two pieces of HTML compare. Tier II,
+// pure functions over a DOM.
 import { parseHTML } from '../vendor/linkedom.mjs';
+import { ID } from './id-attribute.mjs';
 
 // ---- Parse, skeleton, layout, serialize ---------------------------------
 
 export const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
 export const RAW = new Set('pre textarea script style template'.split(' ')); // inner content is kept as-is
-const BLOCK = new Set(
+// Each on its own line in the layout. Not the blocks you can pick: those are scopes.mjs's.
+const LAID_OUT_AS_BLOCK = new Set(
   `html head body main header footer nav section article aside div p h1 h2 h3 h4 h5 h6
    ul ol li dl dt dd table thead tbody tfoot tr th td blockquote pre figure figcaption hr
    form fieldset details summary meta link script style noscript template iframe video
@@ -28,7 +32,44 @@ export function canonicalize(document) {
     for (const el of document.querySelectorAll(from)) rename(el, to);
   }
   for (const table of document.querySelectorAll('table')) sectionRows(table);
+  for (const p of document.querySelectorAll('p')) mendBrokenParagraph(p);
   return document;
+}
+
+// A block inside a p, as in <p>a<ul>…</ul>b</p>, closes the p where it starts; the parser
+// leaves b bare and makes the stray </p> an empty p. The file says what its writer meant: the
+// text after each block goes in its own p, and the empty p goes. The sign is the run itself:
+// a p, then blocks that close a p with text between, then an empty p. Bare text with no such
+// run (C10) and an empty p alone (F1) stay as they are.
+const CLOSES_P = new Set(
+  `address article aside blockquote details dialog div dl fieldset figcaption figure footer form
+   h1 h2 h3 h4 h5 h6 header hgroup hr main menu nav ol pre search section table ul`.split(/\s+/),
+);
+
+function mendBrokenParagraph(stray) {
+  // The tool's own ID is no sign of the writer: a page formatted once has one on the stray p.
+  if ([...stray.attributes].some((a) => a.name !== ID) || stray.childNodes.length > 0) return;
+  const runs = [[]]; // inline runs after each block, last run first
+  let blocks = 0;
+  let node = stray.previousSibling;
+  for (; node; node = node.previousSibling) {
+    if (node.nodeType === 1 && node.localName === 'p') break;
+    if (node.nodeType === 1 && CLOSES_P.has(node.localName)) { blocks++; runs.unshift([]); continue; }
+    if (node.nodeType === 1 && LAID_OUT_AS_BLOCK.has(node.localName)) return;
+    if (node.nodeType !== 1 && node.nodeType !== 3 && node.nodeType !== 8) return;
+    runs[0].unshift(node);
+  }
+  if (!node || blocks === 0) return;
+  const holdsContent = (run) => run.some((n) => n.nodeType === 1 || (n.nodeType === 3 && trimAscii(n.data)));
+  // runs[0] sits between the opening p and the first block; a parser puts nothing there.
+  if (holdsContent(runs[0])) return;
+  for (const run of runs.slice(1)) {
+    if (!holdsContent(run)) continue;
+    const p = stray.ownerDocument.createElement('p');
+    run[0].before(p);
+    p.append(...run);
+  }
+  stray.remove();
 }
 
 function rename(el, name) {
@@ -39,23 +80,39 @@ function rename(el, name) {
 }
 
 // Rows sitting right in a table go in sections, as markdown's tables have them: a leading
-// row of th is the thead, the rest a tbody.
+// row of th is the thead, the rest a tbody. A tbody that leads the table with a row of th
+// gives that row to a new thead.
 function sectionRows(table) {
-  const rows = [...table.children].filter((c) => c.localName === 'tr');
-  if (rows.length === 0) return;
   const document = table.ownerDocument;
+  const rows = [...table.children].filter((c) => c.localName === 'tr');
   const hasHead = [...table.children].some((c) => c.localName === 'thead');
+  const allTh = (tr) => tr.children.length > 0 && [...tr.children].every((c) => c.localName === 'th');
   const [first] = rows;
-  if (!hasHead && first === table.firstElementChild && [...first.children].every((c) => c.localName === 'th')) {
+  if (!hasHead && first && first === table.firstElementChild && allTh(first)) {
     const thead = document.createElement('thead');
     first.replaceWith(thead);
     thead.appendChild(first);
     rows.shift();
   }
-  if (rows.length === 0) return;
-  const tbody = document.createElement('tbody');
-  rows[0].replaceWith(tbody);
-  tbody.append(...rows);
+  if (rows.length > 0) {
+    const tbody = document.createElement('tbody');
+    rows[0].replaceWith(tbody);
+    tbody.append(...rows);
+  }
+  headFromBody(table);
+}
+
+function headFromBody(table) {
+  if ([...table.children].some((c) => c.localName === 'thead')) return;
+  const tbody = [...table.children].find((c) => c.localName !== 'caption' && c.localName !== 'colgroup');
+  if (tbody?.localName !== 'tbody') return;
+  const first = tbody.firstElementChild;
+  if (first?.localName !== 'tr' || first.children.length === 0) return;
+  if (![...first.children].every((c) => c.localName === 'th')) return;
+  const thead = table.ownerDocument.createElement('thead');
+  tbody.before(thead);
+  thead.appendChild(first);
+  if (!tbody.firstElementChild) tbody.remove();
 }
 
 // Browsers supply a missing <html>, <head> or <body>; linkedom does not. It makes the first
@@ -108,7 +165,7 @@ export function serialize(document) {
 }
 
 const ASCII_SPACE = '[ \\t\\n\\r\\f]'; // the only whitespace HTML collapses; U+00A0 is not in it
-const collapse = (s) => s.replace(new RegExp(`${ASCII_SPACE}+`, 'g'), ' ');
+export const collapse = (s) => s.replace(new RegExp(`${ASCII_SPACE}+`, 'g'), ' ');
 export const trimAscii = (s) => s.replace(new RegExp(`^${ASCII_SPACE}+|${ASCII_SPACE}+$`, 'g'), '');
 const pad = (depth) => '  '.repeat(depth);
 
@@ -134,7 +191,7 @@ function childrenOf(parent) {
 
 // A block element by name, an element of an SVG drawing, or any element holding a block element.
 function isBlockish(el) {
-  return BLOCK.has(el.localName) || isDrawn(el) || [...el.childNodes].some((n) => n.nodeType === 1 && isBlockish(n));
+  return LAID_OUT_AS_BLOCK.has(el.localName) || isDrawn(el) || [...el.childNodes].some((n) => n.nodeType === 1 && isBlockish(n));
 }
 
 // Inside an <svg>, whitespace between elements doesn't render, so each element gets its own
@@ -225,4 +282,43 @@ function openTag(el) {
 // linkedom writes U+00A0 as &#160;; use the named entity instead.
 function rawInner(el) {
   return el.innerHTML.replace(/&#160;/g, '&nbsp;');
+}
+
+// ---- Content apart from the tool's marks --------------------------------
+
+// Attributes the tool adds. Markdown doesn't carry them; the prior HTML does.
+export const IGNORED_ATTRS = new Set([ID]);
+export const attrNames = (el) => [...el.attributes].map((a) => a.name).filter((a) => !IGNORED_ATTRS.has(a));
+export const hasAttrs = (el) => attrNames(el).length > 0;
+
+// The nodes in canonical layout, without directives or element IDs: two pieces of HTML are
+// the same content when these match. ids: keep element IDs, to check that they survive a save.
+export function canonicalHTML(document, nodes, { ids = false } = {}) {
+  const holder = document.createElement('div');
+  for (const n of nodes) holder.appendChild(bare(n, ids ? new Set() : IGNORED_ATTRS));
+  return formatElement(holder);
+}
+
+// A copy without directives or the attributes the tool adds.
+export function bare(node, attrs) {
+  const copy = node.cloneNode(true);
+  if (copy.nodeType === 1) stripForDisplay(copy, attrs);
+  return copy;
+}
+
+// The element's HTML minus directives and annotation, in the canonical layout the file has
+// without element IDs: an ID can push a short line past the width and split it, and
+// linkedom's outerHTML writes &#160; and <rect /> where the file says &nbsp; and <rect></rect>.
+export function rawHTML(el) {
+  const copy = el.cloneNode(true);
+  stripForDisplay(copy);
+  return formatElement(copy);
+}
+
+export function stripForDisplay(el, attrs = IGNORED_ATTRS) {
+  for (const n of [...el.childNodes]) {
+    if (n.nodeType === 8) n.remove();
+    else if (n.nodeType === 1) stripForDisplay(n, attrs);
+  }
+  if (el.removeAttribute) for (const a of attrs) el.removeAttribute(a);
 }

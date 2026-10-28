@@ -45,7 +45,7 @@
   <body>
     <h1>How we test</h1>
     <p>
-      154 tests, all passing, in 18 seconds. They took 57 until scopes over 4 KB stopped editing as markdown. One test file still holds nearly all of the time.
+      232 tests, all passing but one skipped, in 8 seconds. They took 57 until scopes over 4 KB stopped editing as markdown, and 20 until the round-trip tests split into four files that run side by side.
     </p>
     <section id="suite">
       <h2>The suite</h2>
@@ -53,45 +53,57 @@
         <code>npm test</code> is <code>node --test</code>. It runs each file under <code>test/</code> in its own process, several at once, so the suite takes as long as its slowest file. No dependencies: deploy runs these tests inside iterate-on-docs, where <code>npm install</code> can't run.
       </p>
       <div class="bars" role="img" aria-label="Wall time per test file, run alone">
-        <div><code>roundtrip.test.mjs</code></div>
-        <div class="bar" title="roundtrip.test.mjs: 22 tests, 17.7 s">
-          <span style="width: 88%"></span>17.7 s
+        <div><code>roundtrip-generated-edits.test.mjs</code></div>
+        <div class="bar" title="roundtrip-generated-edits.test.mjs: 5 tests, 8.1 s">
+          <span style="width: 40.5%"></span>8.1 s
+        </div>
+        <div><code>roundtrip-generated.test.mjs</code></div>
+        <div class="bar" title="roundtrip-generated.test.mjs: 3 tests, 4.0 s">
+          <span style="width: 20%"></span>4.0 s
+        </div>
+        <div><code>live-notice.test.mjs</code></div>
+        <div class="bar" title="live-notice.test.mjs: 7 tests, 3.8 s">
+          <span style="width: 19%"></span>3.8 s
+        </div>
+        <div><code>roundtrip-pages.test.mjs</code></div>
+        <div class="bar" title="roundtrip-pages.test.mjs: 13 tests, 3.7 s">
+          <span style="width: 18.5%"></span>3.7 s
+        </div>
+        <div><code>client-sync.test.mjs</code></div>
+        <div class="bar" title="client-sync.test.mjs: 12 tests, 3.1 s">
+          <span style="width: 15.5%"></span>3.1 s
+        </div>
+        <div><code>client.test.mjs</code></div>
+        <div class="bar" title="client.test.mjs: 14 tests, 2.4 s, from 12.4 s">
+          <span style="width: 12%"></span>2.4 s
         </div>
         <div><code>acceptance.test.mjs</code></div>
-        <div class="bar" title="acceptance.test.mjs: 34 tests, 3.7 s">
-          <span style="width: 18.4%"></span>3.7 s
+        <div class="bar" title="acceptance.test.mjs: 46 tests, 2.3 s, from 9.4 s">
+          <span style="width: 11.5%"></span>2.3 s
+        </div>
+        <div><code>roundtrip-mintlify.test.mjs</code></div>
+        <div class="bar" title="roundtrip-mintlify.test.mjs: 6 tests, 2.2 s">
+          <span style="width: 11%"></span>2.2 s
         </div>
         <div><code>telemetry.test.mjs</code></div>
-        <div class="bar" title="telemetry.test.mjs: 5 tests, 0.51 s">
-          <span style="width: 2.5%"></span>0.51 s
+        <div class="bar" title="telemetry.test.mjs: 7 tests, 0.68 s">
+          <span style="width: 3.4%"></span>0.68 s
         </div>
         <div><code>formatter-cli.test.mjs</code></div>
-        <div class="bar" title="formatter-cli.test.mjs: 6 tests, 0.42 s">
-          <span style="width: 2.1%"></span>0.42 s
+        <div class="bar" title="formatter-cli.test.mjs: 6 tests, 0.51 s">
+          <span style="width: 2.5%"></span>0.51 s
         </div>
         <div><code>cleanup.test.mjs</code></div>
-        <div class="bar" title="cleanup.test.mjs: 10 tests, 0.42 s">
-          <span style="width: 2.1%"></span>0.42 s
+        <div class="bar" title="cleanup.test.mjs: 10 tests, 0.47 s">
+          <span style="width: 2.4%"></span>0.47 s
         </div>
-        <div><code>scopes.test.mjs</code></div>
-        <div class="bar" title="scopes.test.mjs: 45 tests, 0.13 s">
-          <span style="width: .6%"></span>0.13 s
-        </div>
-        <div><code>ids.test.mjs</code></div>
-        <div class="bar" title="ids.test.mjs: 6 tests, 0.10 s">
-          <span style="width: .5%"></span>0.10 s
-        </div>
-        <div><code>normalize.test.mjs</code></div>
-        <div class="bar" title="normalize.test.mjs: 21 tests, 0.10 s">
-          <span style="width: .5%"></span>0.10 s
-        </div>
-        <div><code>architecture.test.mjs</code></div>
-        <div class="bar" title="architecture.test.mjs: 5 tests, 0.06 s">
-          <span style="width: .3%"></span>0.06 s
+        <div>the other nine files</div>
+        <div class="bar" title="scopes, annotation, spill, threads, normalize, ids, architecture, and the three -lib files: 0.09 to 0.17 s each">
+          <span style="width: .8%"></span>0.17 s or less each
         </div>
       </div>
       <p class="note">
-        Each file run alone on a 14-core Mac, Node 25.6. The whole suite together: 18 s wall. Acceptance's 3.7 s is 34 tests at about 100 ms each, most of it starting a server process per test.
+        Each file run alone on a 14-core Mac, Node 25.6, startup included. The whole suite together: 8.7 s wall, measured 2026-10-27, from 20.5 s before the round-trip split; the sync tests added 0.2 s to it. <code>roundtrip-generated-edits.test.mjs</code> is the long bar: the suite waits on it. Client was the long bar at 12.4 s, almost all of it waiting: a 3 s server close held by a keep-alive socket, the 400 ms save debounce and the 2 s green ring at full length, and a 100 ms sleep for each tab to connect. Its server now closes its sockets, its tab's clock runs ten times fast, and a tab waits for the server's connect event. Acceptance was the long bar at 9.4 s, about 100 ms a test in starting a server process; its tests now run the server in-process, from <code>createServer</code>, and the live notice tests, which spend 3.6 s waiting to hear that nothing comes, run beside them in their own file. The two share <code>acceptance-lib.mjs</code>. The client's two files share their tab, <code>client-lib.mjs</code>, and run side by side. node --test runs every <code>.mjs</code> under <code>test/</code>, so each <code>-lib</code> file counts as one test.
       </p>
       <table>
         <thead>
@@ -104,28 +116,74 @@
         <tbody>
           <tr>
             <td><code>scopes.test.mjs</code></td>
-            <td class="n">45</td>
+            <td class="n">44</td>
             <td>
               Examples: one shape of HTML, its markdown, and back. The cases SCOPES-DESIGN draws, and the 4 KB limit.
             </td>
           </tr>
           <tr>
             <td><code>acceptance.test.mjs</code></td>
-            <td class="n">34</td>
+            <td class="n">46</td>
             <td>
-              The server: GET, PUT, directives placed in the file, IDs stable across a save, escaping, stale saves, Announcements.
+              The server: GET, PUT, directives placed in the file, IDs stable across a save, escaping, stale saves, Announcements, replies. The server runs in the test's process; the tests of the CLI itself spawn <code>server.mjs</code>.
             </td>
           </tr>
           <tr>
-            <td><code>roundtrip.test.mjs</code></td>
-            <td class="n">22</td>
+            <td><code>live-notice.test.mjs</code></td>
+            <td class="n">7</td>
+            <td>The event stream that tells an open tab its page changed.</td>
+          </tr>
+          <tr>
+            <td><code>client.test.mjs</code></td>
+            <td class="n">14</td>
             <td>
-              Properties, checked on every scope under 4 KB of many pages. <a href="#roundtrip">Below.</a>
+              <code>client.js</code> in a tab made of linkedom, against a real server: what the box, the markers, and the docket say, and what reaches the file. The tab's timers run at a tenth of their length.
             </td>
+          </tr>
+          <tr>
+            <td><code>client-sync.test.mjs</code></td>
+            <td class="n">12</td>
+            <td>
+              The client's sync engine in the same tab: a save's answer in the page, 412s, the file changing under the tab, the server down, Clear and Revert, two tabs. Each test names the line of README's manual checklist it stands for.
+            </td>
+          </tr>
+          <tr>
+            <td><code>threads.test.mjs</code></td>
+            <td class="n">19</td>
+            <td>
+              Directives and replies as comments in the file: where a reply goes, and that it reads back.
+            </td>
+          </tr>
+          <tr>
+            <td><code>annotation.test.mjs</code></td>
+            <td class="n">6</td>
+            <td>The reports <code>scopes.mjs --annotate</code> writes under each example.</td>
+          </tr>
+          <tr>
+            <td><code>roundtrip-pages.test.mjs</code></td>
+            <td class="n">13</td>
+            <td>
+              Round-trip and reconcile on every scope under 4 KB of this repo's frozen pages and the fixtures. <a href="#roundtrip">Below.</a>
+            </td>
+          </tr>
+          <tr>
+            <td><code>roundtrip-mintlify.test.mjs</code></td>
+            <td class="n">6</td>
+            <td>The same, on the mintlify page.</td>
+          </tr>
+          <tr>
+            <td><code>roundtrip-generated-edits.test.mjs</code></td>
+            <td class="n">5</td>
+            <td>Reconcile, as property tests on generated pages.</td>
+          </tr>
+          <tr>
+            <td><code>roundtrip-generated.test.mjs</code></td>
+            <td class="n">3</td>
+            <td>Round-trip and tidy markdown, as property tests on generated pages.</td>
           </tr>
           <tr>
             <td><code>normalize.test.mjs</code></td>
-            <td class="n">21</td>
+            <td class="n">28</td>
             <td>The formatter's layout, and that it's idempotent on each fixture.</td>
           </tr>
           <tr>
@@ -145,7 +203,7 @@
           </tr>
           <tr>
             <td><code>telemetry.test.mjs</code></td>
-            <td class="n">5</td>
+            <td class="n">7</td>
             <td>
               Spans for GET, PUT, and the box's saves. One test sends to Honeycomb; it skips without a key.
             </td>
@@ -248,7 +306,7 @@
       <h2>Recommendations</h2>
       <ol class="recs">
         <li>
-          <strong>Split <code>roundtrip.test.mjs</code> into files.</strong> Property tests on generated pages in one file, tests on specific files in another, with shared generators and checks in <code>test/roundtrip-lib.mjs</code>. Split further if one file still runs long. <code>node --test</code> runs files side by side, so the suite waits on the longest. Same tests, same seeds. The round-trip file is 17.7 s and its longest test is 2.0 s, so a split could bring the suite to a few seconds. Yak: "Split roundtrip.test.mjs into files so node --test runs them side by side".
+          <strong>Speed up <code>roundtrip-generated-edits.test.mjs</code>.</strong> It is the long bar at 8.1 s alone, and the suite waits on it. The next file is 4.0 s, so splitting it in two brings the suite near 4 s.
         </li>
         <li>
           <strong>Run the suite once per ship.</strong> Deploy and release test the same commit back to back. Release could skip its run when the vendored commit hasn't changed since the deploy that tested it. That change lives in iterate-on-docs.
@@ -259,7 +317,7 @@
       </p>
     </section>
     <section id="roundtrip">
-      <h2>What the round-trip file checks</h2>
+      <h2>What the round-trip files check</h2>
       <p>
         Two properties. Each runs over every scope under 4 KB of every page it's given: no examples, no picking.
       </p>
@@ -284,7 +342,7 @@
         </div>
       </div>
       <p>
-        The same checks run two ways: as property tests on generated pages, and on specific files. Each test loops over its pages one after another.
+        The same checks run two ways: as property tests on generated pages, and on specific files. Each test loops over its pages one after another; the four files run side by side. The generators and checks they share are in <code>test/roundtrip-lib.mjs</code>.
       </p>
       <h3>Property tests: generated pages</h3>
       <table>
@@ -306,7 +364,7 @@
         </tbody>
       </table>
       <p class="note">
-        Tidy markdown runs on these pages too: 0.9 s more. Five tests, one per kind of edit, each running all 150 seeds.
+        Tidy markdown runs on these pages too: 0.9 s more. Five tests, one per kind of edit, each running all 150 seeds. Round-trip and tidy markdown are in <code>roundtrip-generated.test.mjs</code>, reconcile in <code>roundtrip-generated-edits.test.mjs</code>.
       </p>
       <h3>Specific files</h3>
       <table>
@@ -342,7 +400,7 @@
         </tbody>
       </table>
       <p class="note">
-        A reconcile test on specific files runs one kind of edit over every page. Split by page, or by kind of edit, to spread it.
+        A reconcile test on specific files runs one kind of edit over every page in its file. The mintlify page is in <code>roundtrip-mintlify.test.mjs</code>, the others in <code>roundtrip-pages.test.mjs</code>.
       </p>
     </section>
     <section id="before" class="before">

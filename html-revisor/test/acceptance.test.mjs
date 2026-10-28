@@ -1,5 +1,7 @@
 // Acceptance tests from the spec. Each test copies the fixtures to a temp dir,
-// starts the server as a child process on a random port, and talks to it over HTTP.
+// starts the server on a random port, and talks to it over HTTP. The server runs in this
+// process; the tests of the CLI itself (--author, a file argument) spawn server.mjs.
+// The harness is in acceptance-lib.mjs; the live notice tests are in live-notice.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
@@ -7,95 +9,9 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseHTML } from '../vendor/linkedom.mjs';
 import { normalize } from '../domain/format.mjs';
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const serverFile = path.join(here, '..', 'server.mjs');
-
-// The environment without any telemetry settings this shell might carry. With them, the
-// server prints a telemetry line first and sends every test's spans out.
-const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(OTEL_|HRV_TELEMETRY)/.test(k)));
-
-// Run fn with a live server whose root is a fresh copy of the fixtures.
-async function withServer(fn, args = []) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
-  fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
-  const child = spawn(process.execPath, [serverFile, dir, '--port', '0', ...args], { env });
-  let stdout = '';
-  let stderr = '';
-  child.stdout.on('data', (d) => (stdout += d));
-  child.stderr.on('data', (d) => (stderr += d));
-  const server = {
-    dir,
-    get stdout() { return stdout; },
-    get stderr() { return stderr; },
-    read: (name) => fs.readFileSync(path.join(dir, name), 'utf8'),
-    write: (name, text) => fs.writeFileSync(path.join(dir, name), text),
-    get: (p) => fetch(server.base + p),
-    // GET a page and return the parsed served document, its directives and bases, and its version.
-    async page(name) {
-      const res = await server.get(name);
-      const html = await res.text();
-      const { document } = parseHTML(html);
-      const json = document.querySelector('script#hrv-directives');
-      const bases = JSON.parse(document.querySelector('script#hrv-bases').textContent);
-      const markdowns = JSON.parse(document.querySelector('script#hrv-markdown').textContent);
-      const committed = JSON.parse(document.querySelector('script#hrv-committed').textContent);
-      return { res, html, document, bases, markdowns, committed, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
-    },
-    // PUT one change, as the tab sends it: {id, base, directive} or {id, base, markdown}.
-    put: (name, change) =>
-      fetch(server.base + name, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(change),
-      }),
-    // POST Done, as the tab sends it when the box closes: {id, directive, markdown} as the box opened.
-    done: (name, opened) =>
-      fetch(server.base + name, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(opened),
-      }),
-    // Load the page, then set one element's directive with the base the page gave.
-    async direct(name, selectorOrId, directive) {
-      const { document, bases } = await server.page(name);
-      const id = /^\d+$/.test(selectorOrId) ? selectorOrId : idOf(document, selectorOrId);
-      return server.put(name, { id, base: bases[id], directive });
-    },
-    // Wait until the log has a line matching re (stdout arrives slightly after the response).
-    async waitForLog(re, count = 1) {
-      for (let i = 0; i < 200; i++) {
-        if ((stdout.match(new RegExp(re, 'g')) ?? []).length >= count) return;
-        await new Promise((r) => setTimeout(r, 10));
-      }
-      assert.fail(`log never matched ${re}; got:\n${stdout}`);
-    },
-  };
-  try {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`no startup line; stderr: ${stderr}`)), 5000);
-      child.stdout.on('data', () => {
-        const m = stdout.match(/html-revisor: (http:\/\/localhost:\d+\/) serving/);
-        if (m) {
-          clearTimeout(timer);
-          server.base = m[1];
-          resolve();
-        }
-      });
-      child.on('exit', (code) => reject(new Error(`server exited ${code}; stderr: ${stderr}`)));
-    });
-    await fn(server);
-  } finally {
-    child.kill();
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-const idOf = (document, selector) => document.querySelector(selector).getAttribute('data-hrv');
-const countOf = (text, needle) => text.split(needle).length - 1;
+import { here, serverFile, env, withServer, idOf, countOf, announcements, directAndAnnounce } from './acceptance-lib.mjs';
 
 test('1. normalize is idempotent', () =>
   withServer(async (s) => {
@@ -208,9 +124,9 @@ test('7. escaping: -- and > cannot end the comment', () =>
     const elementsOnDisk = parseHTML(s.read('page.html')).document.querySelectorAll('*').length;
     await s.direct('page.html', idOf(before.document, 'p'), '-- really -->');
     const file = s.read('page.html');
-    assert.ok(file.includes('<!-- @AI: - - really - -&gt; -->'), file);
+    assert.ok(file.includes('<!-- @AI: - - really - -> -->'), file);
     assert.equal(parseHTML(file).document.querySelectorAll('*').length, elementsOnDisk);
-    assert.deepEqual(Object.values((await s.page('page.html')).directives), ['- - really - -&gt;']);
+    assert.deepEqual(Object.values((await s.page('page.html')).directives), ['- - really - ->']);
   }));
 
 test('8. non-directive comments are preserved', () =>
@@ -247,7 +163,7 @@ test('9b. injection: json script escapes <, client assets are last', () =>
     const jsonScript = html.match(/<script [^>]*id="hrv-directives"[^>]*>(.*?)<\/script>/s)[1];
     assert.ok(!jsonScript.includes('<'));
     assert.ok(jsonScript.includes('\\u003c'));
-    assert.equal(Object.values(directives)[0], '</script&gt;<b&gt;hi</b&gt;'); // > is escaped on write, not unescaped on read
+    assert.equal(Object.values(directives)[0], '</script><b>hi</b>'); // reads back as typed
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'));
     assert.ok(html.lastIndexOf('<script>') > html.indexOf('hrv-bases'));
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/);
@@ -454,15 +370,74 @@ test('a scope of 4 KB or more takes directives, not markdown; one a save grows p
     assert.equal(answer.markdowns[near], null, 'the section grew past the limit');
   }));
 
-test('a PUT body must be one change: id, base, and a directive or a markdown', () =>
+test('threads: the page carries each settled thread; a directive after a reply is a new turn', () =>
   withServer(async (s) => {
-    for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', markdown: 'b' }, { id: 1, base: 'x', markdown: 'b' }, { id: '1', base: 'x', text: 'b' }]) {
+    s.write('thread.html', '<p><!-- @AI: add a diagram --><!-- @Human: Added one. Want another? -->Where it is headed</p><p>other</p>');
+    const { document, html, directives, threads, bases } = await s.page('thread.html');
+    const p = idOf(document, 'p');
+    assert.deepEqual(threads, { [p]: [{ prefix: '@AI', text: 'add a diagram' }, { prefix: '@Human', text: 'Added one. Want another?' }] });
+    assert.deepEqual(directives, {});
+    assert.doesNotMatch(html, /<!--\s*@Human:/);
+    assert.equal((await s.put('thread.html', { id: p, base: bases[p], directive: 'Yes' })).status, 200);
+    assert.match(s.read('thread.html'), /<!-- @AI: add a diagram -->\s*<!-- @Human: Added one. Want another\? -->\s*<!-- @AI: Yes -->/);
+    const again = await s.page('thread.html');
+    assert.deepEqual(again.directives, { [p]: 'Yes' });
+    assert.equal(again.threads[p].length, 2);
+  }));
+
+test('Resolve removes the thread, directives and replies, and nothing else', () =>
+  withServer(async (s) => {
+    s.write('thread.html', '<p><!-- @AI: one --><!-- @Human: two --><!-- @AI: three -->text</p><p><!-- @AI: keep -->other</p>');
+    const { document, bases } = await s.page('thread.html');
+    const p = idOf(document, 'p');
+    const answer = await (await s.put('thread.html', { id: p, base: bases[p], resolve: true })).json();
+    assert.equal(answer.ok, true);
+    assert.equal(answer.count, 1);
+    assert.doesNotMatch(s.read('thread.html'), /one|two|three/);
+    assert.match(s.read('thread.html'), /<!-- @AI: keep -->/);
+  }));
+
+// Resolve closes the box: the tab sends the resolve, then Done with what the box opened with.
+test('Done after a Resolve announces it once, with the turns that went; a Clear announces none', () =>
+  withServer(async (s) => {
+    s.write('thread.html', '<h1>Title</h1><p><!-- @AI: one --><!-- @Human: two -->text</p><p><!-- @AI: three --><!-- @Human: four -->other</p>');
+    const { document, bases } = await s.page('thread.html');
+    const [p, q] = [...document.querySelectorAll('p')].map((e) => e.getAttribute('data-hrv'));
+    await s.put('thread.html', { id: p, base: bases[p], resolve: true });
+    assert.deepEqual(await (await s.done('thread.html', { id: p, directive: '' })).json(), { announced: true });
+    // q: an unsent turn, then Resolve. The directive went too, and resolved tells it from a Clear.
+    const typed = await (await s.put('thread.html', { id: q, base: bases[q], directive: 'five' })).json();
+    await s.put('thread.html', { id: q, base: typed.bases[q], resolve: true });
+    await s.done('thread.html', { id: q, directive: 'five' });
+    await s.waitForLog('\n\{', 2);
+    assert.deepEqual(announcements(s.stdout), [
+      { page: '/thread.html', id: p, element: 'p', heading: 'Title', resolved: [{ prefix: '@AI', text: 'one' }, { prefix: '@Human', text: 'two' }] },
+      {
+        page: '/thread.html', id: q, element: 'p', heading: 'Title', directive: { before: 'five', after: '' },
+        resolved: [{ prefix: '@AI', text: 'three' }, { prefix: '@Human', text: 'four' }, { prefix: '@AI', text: 'five' }],
+      },
+    ]);
+    assert.deepEqual(await (await s.done('thread.html', { id: p, directive: '' })).json(), { announced: false }, 'a Resolve announces once');
+  }));
+
+test('a Clear announces the directive gone, with no resolved', () =>
+  withServer(async (s) => {
+    const { document, bases } = await s.page('page.html');
+    const p = idOf(document, 'p');
+    const typed = await (await s.put('page.html', { id: p, base: bases[p], directive: 'say more' })).json();
+    await s.put('page.html', { id: p, base: typed.bases[p], directive: '' });
+    await s.done('page.html', { id: p, directive: 'say more' });
+    await s.waitForLog('\n\{', 1);
+    assert.deepEqual(announcements(s.stdout), [{ page: '/page.html', id: p, element: 'p', heading: 'Title', directive: { before: 'say more', after: '' } }]);
+  }));
+
+test('a PUT body must be one change: id, base, and a directive, a markdown, or resolve', () =>
+  withServer(async (s) => {
+    for (const body of [{ directives: {} }, { id: '1', base: 'x' }, { id: '1', base: 'x', directive: 'a', markdown: 'b' }, { id: 1, base: 'x', markdown: 'b' }, { id: '1', base: 'x', text: 'b' }, { id: '1', base: 'x', resolve: 'yes' }, { id: '1', base: 'x', directive: '', resolve: true }]) {
       assert.equal((await s.put('page.html', body)).status, 400, JSON.stringify(body));
     }
   }));
 
-// The JSON lines on stdout: the Announcements.
-const announcements = (stdout) => stdout.split('\n').filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
 
 test('Done announces what the box changed: a revision and a directive, under its heading', () =>
   withServer(async (s) => {
@@ -473,6 +448,8 @@ test('Done announces what the box changed: a revision and a directive, under its
     await s.put('page.html', { id: p, base: saved.bases[p], directive: 'say more -- here' });
     assert.deepEqual(await (await s.done('page.html', opened)).json(), { announced: true });
     await s.waitForLog('\n\{', 1);
+    const thread = announcements(s.stdout)[0]?.thread;
+    assert.match(thread, /^[0-9a-f]{12}$/, 'the base a reply sends back');
     assert.deepEqual(announcements(s.stdout), [{
       page: '/page.html',
       id: p,
@@ -480,6 +457,7 @@ test('Done announces what the box changed: a revision and a directive, under its
       heading: 'Title',
       directive: { before: '', after: 'say more - - here' },
       revision: { before: 'First paragraph', after: 'First *paragraph*' },
+      thread,
     }]);
     assert.doesNotMatch(s.stdout, /saved|pending/, 'saves print nothing');
   }));
@@ -494,10 +472,146 @@ test('Done with nothing changed announces nothing; a directive alone is no revis
     await s.put('page.html', { id: img, base: bases[img], directive: 'bigger' });
     await s.done('page.html', { id: img, directive: '' });
     await s.waitForLog('\n\{', 1);
+    const thread = announcements(s.stdout)[0]?.thread;
     assert.deepEqual(announcements(s.stdout), [{
-      page: '/page.html', id: img, element: 'img', heading: 'Title', directive: { before: '', after: 'bigger' },
+      page: '/page.html', id: img, element: 'img', heading: 'Title', directive: { before: '', after: 'bigger' }, thread,
     }]);
   }));
+
+
+test('a reply lands after the last turn, with the base the Announcement carried', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    assert.match(announced.thread, /^[0-9a-f]{12}$/);
+    const res = await s.put('page.html', { id, thread: announced.thread, reply: 'Added one -- below.' });
+    assert.equal(res.status, 200);
+    const answer = await res.json();
+    assert.equal(answer.ok, true);
+    assert.equal(answer.count, 0, 'the thread ends in a reply: no open directive');
+    assert.notEqual(answer.after, answer.before);
+    assert.match(s.read('page.html'), /<!-- @AI: add a diagram -->\s*<!-- @Human: Added one - - below. -->/);
+    const { threads, directives } = await s.page('page.html');
+    assert.deepEqual(threads[id], [{ prefix: '@AI', text: 'add a diagram' }, { prefix: '@Human', text: 'Added one - - below.' }]);
+    assert.deepEqual(directives, {});
+    const second = await s.put('page.html', { id, thread: answer.thread, reply: 'And a caption.' });
+    assert.equal(second.status, 200, 'the answer\'s base takes a second reply');
+    assert.match(s.read('page.html'), /<!-- @Human: Added one - - below. -->\s*<!-- @Human: And a caption. -->/);
+  }));
+
+test('a reply to a thread that changed since is stale: 412 with the turn to read, and nothing written', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const { bases } = await s.page('page.html');
+    await s.put('page.html', { id, base: bases[id], directive: 'add a diagram\nand a caption' });
+    const before = s.read('page.html');
+    const res = await s.put('page.html', { id, thread: announced.thread, reply: 'Added one.' });
+    assert.equal(res.status, 412);
+    const answer = await res.json();
+    assert.deepEqual({ ...answer, thread: typeof answer.thread }, { ok: false, error: 'its thread changed since', directive: 'add a diagram\nand a caption', thread: 'string' });
+    assert.equal(s.read('page.html'), before);
+    assert.equal((await s.put('page.html', { id, thread: answer.thread, reply: 'Added both.' })).status, 200);
+    assert.match(s.read('page.html'), /and a caption -->\s*<!-- @Human: Added both. -->/);
+  }));
+
+test('a directive save that saw fewer replies than the thread has is 412, so a turn typed before a reply lands once', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const { bases } = await s.page('page.html');
+    assert.equal((await s.put('page.html', { id, base: bases[id], directive: 'add a diagram', replies: 0 })).status, 200);
+    await s.put('page.html', { id, thread: announced.thread, reply: 'Added one.' });
+    const before = s.read('page.html');
+    const res = await s.put('page.html', { id, base: bases[id], directive: 'add a diagram with arrows', replies: 0 });
+    assert.equal(res.status, 412);
+    assert.deepEqual(await res.json(), { ok: false, error: 'a reply came in on that thread', replies: 1 });
+    assert.equal(s.read('page.html'), before);
+    assert.equal((await s.put('page.html', { id, base: bases[id], directive: 'with arrows', replies: 1 })).status, 200);
+    assert.match(s.read('page.html'), /add a diagram -->\s*<!-- @Human: Added one. -->\s*<!-- @AI: with arrows -->/);
+    for (const replies of [-1, 1.5, '1']) {
+      assert.equal((await s.put('page.html', { id, base: bases[id], directive: 'x', replies })).status, 400, String(replies));
+    }
+    assert.equal((await s.put('page.html', { id, base: bases[id], resolve: true, replies: 1 })).status, 400, 'replies goes with a directive');
+  }));
+
+test('a reply to an element with no thread, or one that is gone, is refused', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const { bases } = await s.page('page.html');
+    await s.put('page.html', { id, base: bases[id], resolve: true });
+    const before = s.read('page.html');
+    const resolved = await s.put('page.html', { id, thread: announced.thread, reply: 'Done.' });
+    assert.equal(resolved.status, 412);
+    assert.deepEqual(await resolved.json(), { ok: false, error: 'that element has no directive to reply to' });
+    const gone = await s.put('page.html', { id: '999', thread: announced.thread, reply: 'Done.' });
+    assert.deepEqual(await gone.json(), { ok: false, error: 'that element is gone from the file' });
+    assert.equal(s.read('page.html'), before);
+  }));
+
+test('a reply body is an id, a thread base, and text', () =>
+  withServer(async (s) => {
+    for (const body of [{ id: '1', reply: 'a' }, { id: '1', thread: 'x', reply: ' ' }, { id: 1, thread: 'x', reply: 'a' }, { id: '1', thread: 'x', reply: 'a', base: 'y' }, { id: '1', thread: 'x', reply: 'a', directive: 'b' }]) {
+      assert.equal((await s.put('page.html', body)).status, 400, JSON.stringify(body));
+    }
+  }));
+
+test('replies and saves that arrive together all land: the server writes one at a time', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const { document, bases } = await s.page('page.html');
+    const items = [...document.querySelectorAll('li')].map((li) => li.getAttribute('data-hrv'));
+    const h1 = idOf(document, 'h1');
+    let thread = announced.thread;
+    const replies = (async () => {
+      for (const n of [1, 2, 3, 4, 5]) {
+        const answer = await (await s.put('page.html', { id, thread, reply: `reply ${n}` })).json();
+        assert.equal(answer.ok, true, `reply ${n}`);
+        thread = answer.thread;
+      }
+    })();
+    const saves = [h1, ...items].map((e, n) => s.put('page.html', { id: e, base: bases[e], directive: `save ${n}` }));
+    const answers = await Promise.all(saves);
+    await replies;
+    assert.deepEqual(answers.map((r) => r.status), [200, 200, 200]);
+    const file = s.read('page.html');
+    for (const n of [1, 2, 3, 4, 5]) assert.match(file, new RegExp(`@Human: reply ${n} -->`));
+    for (const n of [0, 1, 2]) assert.match(file, new RegExp(`@AI: save ${n} -->`));
+  }));
+
+// The reply CLI, run as the agent runs it. Resolves to its exit status and output.
+function runReply(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(here, '..', 'reply.mjs'), ...args], { env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    child.on('exit', (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+test('reply CLI: the agent replies through the running server, and hears when it is stale', () =>
+  withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const page = s.base + 'page.html';
+    const landed = await runReply([page, id, announced.thread, "Added one. It's below."]);
+    assert.equal(landed.status, 0, landed.stderr);
+    assert.equal(JSON.parse(landed.stdout).ok, true);
+    assert.equal(landed.stdout.split('\n').length, 2, 'one line of JSON');
+    assert.match(s.read('page.html'), /<!-- @Human: Added one. It's below. -->/);
+    const stale = await runReply([page, id, announced.thread, 'Again.']);
+    assert.equal(stale.status, 1);
+    assert.deepEqual(JSON.parse(stale.stdout), { ok: false, error: 'its thread changed since', directive: '', thread: JSON.parse(landed.stdout).thread });
+  }));
+
+test('reply CLI: usage, and a server that is not there', async () => {
+  for (const args of [[], ['http://localhost:1/x.html', '1', 'abc'], ['x.html', '1', 'abc', 'text'], ['http://localhost:1/x.html', '1', 'abc', 'text', 'more']]) {
+    const { status, stderr } = await runReply(args);
+    assert.equal(status, 2, JSON.stringify(args));
+    assert.match(stderr, /^usage: node reply.mjs <page URL> <id> <thread> <text>/);
+  }
+  const away = await runReply(['http://localhost:1/x.html', '1', 'abc', 'text']);
+  assert.equal(away.status, 1);
+  assert.match(away.stderr, /no server answers at http:\/\/localhost:1: is it running\?/);
+});
 
 test('a Done body must be an id, the directive, and for a scope the markdown', () =>
   withServer(async (s) => {

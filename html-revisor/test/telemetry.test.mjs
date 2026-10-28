@@ -92,7 +92,7 @@ async function getAndPut(base, traceparent) {
     body: JSON.stringify({ id, base: bases[id], directive: 'make it shorter' }),
   });
   assert.equal(res.status, 200);
-  return id;
+  return { id, base: (await res.json()).bases[id] };
 }
 
 const traceId = () => crypto.randomBytes(16).toString('hex');
@@ -114,7 +114,15 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
     let id;
     await withServer(env, async ({ base, stdout }) => {
       assert.match(stdout(), /telemetry on, to http:\/\/127\.0\.0\.1/);
-      id = await getAndPut(base, `00-${trace}-${parent}-01`);
+      const put = await getAndPut(base, `00-${trace}-${parent}-01`);
+      id = put.id;
+      // The same directive with a trailing space: trimmed, the file comes out the same.
+      const again = await fetch(base + 'page.html', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, base: put.base, directive: 'make it shorter ' }),
+      });
+      assert.equal(again.status, 200);
     });
     assert.ok(collector.bodies.every((b) => b.url === '/v1/traces'));
     const spans = collector.spans();
@@ -134,8 +142,11 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
       assert.ok(getSteps.includes(step), `GET has no ${step} step; it has ${getSteps}`);
     }
 
-    const [put] = named('PUT change');
+    const [put, same] = named('PUT change').sort((a, b) => (BigInt(a.startTimeUnixNano) < BigInt(b.startTimeUnixNano) ? -1 : 1));
     assert.ok(put, 'no PUT change span');
+    assert.equal(put.attributes['hrv.wrote'], true);
+    assert.equal(same.attributes['hrv.wrote'], false, 'a save that changes nothing says so');
+    assert.ok(!spans.some((s) => s.parentSpanId === same.spanId && s.name === 'write file'), 'a save that changes nothing writes nothing');
     assert.equal(put.attributes['hrv.change.kind'], 'directive');
     assert.equal(put.attributes['hrv.scope.id'], id);
     assert.equal(put.attributes['hrv.directive.count'], 1);
@@ -143,7 +154,29 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
     for (const step of ['read file', 'parse', 'check base', 'set directive', 'serialize', 'write file', 'reparse', 'bases']) {
       assert.ok(putSteps.includes(step), `PUT has no ${step} step; it has ${putSteps}`);
     }
+
+    // Steps run one after another, so each starts after the one before; whole milliseconds would tie.
+    const starts = spans.filter((s) => s.parentSpanId === put.spanId).map((s) => BigInt(s.startTimeUnixNano)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    for (let i = 1; i < starts.length; i++) assert.ok(starts[i] > starts[i - 1], `two PUT steps start at ${starts[i]} ns`);
+    assert.ok(starts.some((t) => t % 1_000_000n !== 0n), 'PUT step starts fall on whole milliseconds');
+    assert.ok(BigInt(put.startTimeUnixNano) <= starts[0] && BigInt(put.endTimeUnixNano) >= starts.at(-1), 'the steps lie inside the PUT');
   }));
+
+test('the span clock has a fraction of a millisecond and follows the wall clock', async () => {
+  const { makeClock, spanTime } = await import('../interface/telemetry.mjs');
+  const a = spanTime(), b = spanTime();
+  assert.ok(b > a, 'two readings in a row differ');
+  assert.ok(Math.abs(a - Date.now()) < 3, 'the clock reads epoch milliseconds');
+
+  // A sleep stops the monotonic clock and not the wall clock: the anchor moves.
+  let wall = 1_000_000, mono = 10.25;
+  const clock = makeClock({ wall: () => wall, mono: () => mono, origin: wall - mono });
+  assert.equal(clock(), 1_000_000);
+  mono = 10.75, wall = 1_000_000;
+  assert.equal(clock(), 1_000_000.5, 'within the slack, the monotonic clock rules');
+  wall += 3_600_000, mono += 5;
+  assert.equal(clock(), wall, 'after a sleep, the clock reads the wall clock');
+});
 
 // The browser's spans for one directive save, as client.js posts them, around a real PUT that
 // carries the client PUT span as its traceparent.
@@ -199,7 +232,7 @@ test('with HRV_TELEMETRY, Done nests under the browser done span and says whethe
     const env = cleanEnv({ HRV_TELEMETRY: '1', OTEL_EXPORTER_OTLP_ENDPOINT: collector.endpoint });
     const trace = traceId(), done = 'c'.repeat(16);
     await withServer(env, async ({ base }) => {
-      const id = await getAndPut(base, `00-${traceId()}-${'1'.repeat(16)}-01`);
+      const { id } = await getAndPut(base, `00-${traceId()}-${'1'.repeat(16)}-01`);
       const t0 = Date.now();
       const res = await fetch(base + 'page.html', {
         method: 'POST',

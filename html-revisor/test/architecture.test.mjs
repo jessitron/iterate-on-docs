@@ -4,6 +4,8 @@
 //   Tier I   orchestration: the entry points, at the top level (the Contract names their paths)
 //   Tier II  domain: domain/, pure functions
 //   Tier III interface: interface/, the gateways to the world, and vendor/, the libraries
+// The domain imports no gateway. A domain module that needs one partway through declares a port,
+// a parameter of the shape it needs, and orchestration passes the adapter in: no import.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

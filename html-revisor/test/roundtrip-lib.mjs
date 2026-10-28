@@ -12,23 +12,31 @@
 // Two sources of scopes: frozen copies of this repo's pages, and pages generated from a seed in the shapes
 // agents write, with text full of characters markdown reads as syntax. No property-testing
 // library: deploy runs these tests where npm install can't. A failure prints its seed.
+//
+// This file holds the generators and checks. The tests sit in several roundtrip-*.test.mjs
+// files, because node --test runs files side by side and the suite waits on the longest:
+// roundtrip-generated (round-trip and tidy markdown on generated pages),
+// roundtrip-generated-edits (reconcile on generated pages), roundtrip-pages (this repo's
+// pages and the fixtures), roundtrip-mintlify (the mintlify page).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalize } from '../domain/format.mjs';
-import { parse } from '../domain/canonical.mjs';
-import { scopeElements as allScopes, scopeMarkdown, scopeFromMarkdown, canonicalHTML, editable } from '../domain/scopes.mjs';
-import { allComments, directiveOwner, placeDirective } from '../domain/directives.mjs';
+import { parse, canonicalHTML } from '../domain/canonical.mjs';
+import { scopeElements as allScopes, editable } from '../domain/scopes.mjs';
+import { scopeMarkdown } from '../domain/to-markdown.mjs';
+import { scopeFromMarkdown } from '../domain/markdown-edits.mjs';
+import { allComments, directiveOwner, placeDirective, attachComments } from '../domain/directives.mjs';
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // The scopes that edit as markdown. One too big has no Content field, so nothing to test.
-const scopeElements = (document) => allScopes(document).filter(editable);
+export const scopeElements = (document) => allScopes(document).filter(editable);
 
 // Why a scope doesn't round-trip, or null if it does.
-function roundTripFailure(document, el) {
+export function roundTripFailure(document, el) {
   const markdown = scopeMarkdown(el);
   const saved = scopeFromMarkdown(el, markdown);
   const before = `${canonicalHTML(document, [el], { ids: true })}\n${directivesIn([el])}`;
@@ -41,23 +49,36 @@ function roundTripFailure(document, el) {
 
 // test/pages holds frozen copies of this repo's own pages. The live ones change under every
 // iteration, and a test shouldn't fail because Jess edited a page.
-const pages = ['test/pages', 'test/fixtures'].flatMap((dir) =>
+export const pages = ['test/pages', 'test/fixtures'].flatMap((dir) =>
   fs.readdirSync(path.join(root, dir)).filter((f) => f.endsWith('.html')).map((f) => path.join(root, dir, f)));
 
-for (const file of pages) {
-  test(`every scope in ${path.relative(root, file)} round-trips`, () => {
-    const document = directEverything(parse(normalize(fs.readFileSync(file, 'utf8'))));
-    for (const el of scopeElements(document)) {
-      const failure = roundTripFailure(document, el);
-      assert.equal(failure, null, failure);
-    }
-  });
+// The tests on specific files: each one round-trips, and each edit keeps its IDs. name says
+// which files, in the edit tests' names.
+export function fileTests(files, name) {
+  for (const file of files) {
+    test(`every scope in ${path.relative(root, file)} round-trips`, () => {
+      const document = directEverything(parse(normalize(fs.readFileSync(file, 'utf8'))));
+      for (const el of scopeElements(document)) {
+        const failure = roundTripFailure(document, el);
+        assert.equal(failure, null, failure);
+      }
+    });
+  }
+
+  for (const kind of Object.keys(EDITS)) {
+    test(`edited, every scope in ${name} keeps its IDs: ${kind}`, () => {
+      for (const file of files) {
+        const failure = pageFailure(normalize(fs.readFileSync(file, 'utf8')), (n) => n + 1, kind);
+        assert.equal(failure, null, `${path.relative(root, file)}, ${failure}`);
+      }
+    });
+  }
 }
 
 // ---- Generated pages ----------------------------------------------------
 
 // mulberry32: small, seeded, good enough to pick shapes.
-function random(seed) {
+export function random(seed) {
   let a = seed >>> 0;
   const next = () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -87,7 +108,7 @@ const HREFS = ['#x', 'page.html', 'https://example.com/a?b=1&amp;c=2', 'a b.html
 const ICON = '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"></circle></svg>';
 
 // tidy: the shapes agents write most, which should come out as markdown with no HTML in it.
-function generator(r, tidy) {
+export function generator(r, tidy) {
   const words = tidy ? PLAIN : WORDS;
   const text = (lo = 1, hi = 4) => r.times(lo, hi, () => r.pick(words)).join(' ');
   const inline = (depth = 0) => {
@@ -176,20 +197,7 @@ function generator(r, tidy) {
   return () => r.times(1, 5, () => block()).join('');
 }
 
-const SEEDS = Number(process.env.ROUND_TRIP_SEEDS ?? 150);
-
-for (const tidy of [false, true]) {
-  test(`generated ${tidy ? 'tidy ' : ''}pages: every scope round-trips (${SEEDS} seeds)`, () => {
-    for (let seed = 1; seed <= SEEDS; seed++) {
-      const body = generator(random(seed), tidy)();
-      const document = directEverything(parse(normalize(`<html><body>${body}</body></html>`)));
-      for (const el of scopeElements(document)) {
-        const failure = roundTripFailure(document, el);
-        assert.equal(failure, null, `seed ${seed}${tidy ? ' (tidy)' : ''}: ${failure}`);
-      }
-    }
-  });
-}
+export const SEEDS = Number(process.env.ROUND_TRIP_SEEDS ?? 150);
 
 // ---- Edits --------------------------------------------------------------
 
@@ -237,7 +245,7 @@ function fresh(el) {
   return copy;
 }
 
-const EDITS = {
+export const EDITS = {
   word(r, el) {
     const texts = textsIn(el);
     if (texts.length === 0) return null;
@@ -314,7 +322,7 @@ function directivesIn(nodes) {
 }
 
 // A directive on every element with an ID, naming it.
-function directEverything(document) {
+export function directEverything(document) {
   for (const el of document.querySelectorAll('[data-hrv]')) placeDirective(el, `d${el.getAttribute('data-hrv')}`, '@AI');
   return document;
 }
@@ -328,8 +336,11 @@ function reconcileFailure(prior, edited, el, r, kind) {
   const copy = live.cloneNode(true);
   live.replaceWith(copy);
   try {
+    const owners = new Map(allComments(copy).map((c) => [c, directiveOwner(c)]));
     const what = EDITS[kind](r, copy);
     if (what === null) return null;
+    // A directive the edit left reading as another element's goes back to its own.
+    for (const c of allComments(copy)) if (directiveOwner(c) !== owners.get(c)) attachComments(owners.get(c), [c]);
     const markdown = scopeMarkdown(copy);
     const saved = scopeFromMarkdown(el, markdown);
     const [want, got] = [`${idsIn([copy])}\n${directivesIn([copy])}`, `${idsIn(saved)}\n${directivesIn(saved)}`];
@@ -346,7 +357,7 @@ function reconcileFailure(prior, edited, el, r, kind) {
 
 // Every scope in the page, each edited once, the edit picked by seed(n) for the nth scope. n
 // counts the scopes too big to edit, so the limit doesn't change which edit the others get.
-function pageFailure(html, seed, kind) {
+export function pageFailure(html, seed, kind) {
   const [prior, edited] = [directEverything(parse(html)), directEverything(parse(html))];
   for (const [n, el] of allScopes(prior).entries()) {
     if (!editable(el)) continue;
@@ -355,39 +366,3 @@ function pageFailure(html, seed, kind) {
   }
   return null;
 }
-
-for (const kind of Object.keys(EDITS)) {
-  test(`edited, every scope in this repo's pages keeps its IDs: ${kind}`, () => {
-    for (const file of pages) {
-      const failure = pageFailure(normalize(fs.readFileSync(file, 'utf8')), (n) => n + 1, kind);
-      assert.equal(failure, null, `${path.relative(root, file)}, ${failure}`);
-    }
-  });
-
-  test(`edited, every scope in generated pages keeps its IDs: ${kind} (${SEEDS} seeds)`, () => {
-    for (let seed = 1; seed <= SEEDS; seed++) {
-      const tidy = seed % 2 === 0;
-      const html = normalize(`<html><body>${generator(random(seed), tidy)()}</body></html>`);
-      const failure = pageFailure(html, (n) => seed * 1000 + n, kind);
-      assert.equal(failure, null, `page seed ${seed}${tidy ? ' (tidy)' : ''}, ${failure}`);
-    }
-  });
-}
-
-// A section or a card has no markdown syntax: its tags stand on their own lines around markdown.
-const WRAPPER_LINE = /^<\/?[a-z][a-z0-9]*(\s[^<>]*)?>$/gm;
-
-test(`generated tidy pages come out as markdown, HTML only for the tags of sections and cards (${SEEDS} seeds)`, () => {
-  for (let seed = 1; seed <= SEEDS; seed++) {
-    const document = parse(normalize(`<html><body>${generator(random(seed), true)()}</body></html>`));
-    for (const el of scopeElements(document)) {
-      const markdown = scopeMarkdown(el);
-      const html = markdown
-        .replace(WRAPPER_LINE, '')
-        .replace(/\]\(<[^<>]*>/g, '](') // a destination with a space: ![x](<a b.png>)
-        .replace(/`[^`\n]*`/g, '') // a code span: `<tag>`
-        .match(/<\/?[a-z][a-z0-9]*[\s>]/);
-      assert.equal(html, null, `seed ${seed}: <${el.localName}> came out with HTML:\n${canonicalHTML(document, [el])}\n--- markdown\n${markdown}`);
-    }
-  }
-});

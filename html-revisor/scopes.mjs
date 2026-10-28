@@ -4,10 +4,12 @@
 //   node scopes.mjs --annotate <file>   writes, under each .ex example, its HTML and a table
 //                                       of its scopes and their markdown (in place)
 //
-// Tier I, orchestration: the CLI. The scope rules are domain/scopes.mjs.
+// Tier I, orchestration: the CLI. The scope rules are domain/scopes.mjs, the reports
+// domain/scope-report.mjs; annotating is domain/annotation.mjs.
 import { pathToFileURL } from 'node:url';
 import { parse, serialize } from './domain/canonical.mjs';
-import { scopeOf, report, annotate } from './domain/scopes.mjs';
+import { scopeOf, report } from './domain/scope-report.mjs';
+import { annotate } from './domain/annotation.mjs';
 import { readText, writeText } from './interface/files.mjs';
 
 export async function main(args, { stdout = process.stdout, stderr = process.stderr } = {}) {

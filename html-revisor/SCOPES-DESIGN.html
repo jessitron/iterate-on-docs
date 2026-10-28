@@ -103,7 +103,7 @@
           <tr>
             <td>Text beside blocks</td>
             <td>
-              Paragraphs in the enclosing scope's markdown: text, list, text edits as one. Text saved unchanged stays bare.
+              Paragraphs in the enclosing scope's markdown: text, list, text edits as one. Text saved unchanged stays bare. Where a block broke a <code>p</code>, the formatter puts the text after it in a <code>p</code> and drops the empty one the stray <code>&lt;/p&gt;</code> left.
             </td>
             <td><a href="#c9">C9</a>, <a href="#c10">C10</a>, <a href="#f3">F3</a></td>
           </tr>
@@ -117,7 +117,7 @@
           <tr>
             <td>What markdown can't say</td>
             <td>
-              Stays as inline HTML (<code>kbd</code>, <code>span class</code>, <code>a target</code>). Inside a bigger scope, a block with attributes is HTML too, inner markup and all, since markdown isn't read inside an HTML block.
+              Stays as inline HTML (<code>kbd</code>, <code>span class</code>). Inside a bigger scope, a block with attributes is HTML too, inner markup and all, since markdown isn't read inside an HTML block.
             </td>
             <td>
               <a href="#b1">B1</a>, <a href="#b2">B2</a>, <a href="#b3">B3</a>, <a href="#c4">C4</a>, <a href="#c8">C8</a>
@@ -129,9 +129,16 @@
             <td><a href="#d2">D2</a></td>
           </tr>
           <tr>
+            <td>Links</td>
+            <td>
+              <code>[text](href "title")</code>, whatever other attributes the link has. Saving pairs each link with an original: the same href and text, then the same href, then the same text, each a pass over all the links. Markdown wins for href, title, and text; the original gives back the rest, <code>class</code> and <code>target</code> among them. A link or image written as HTML keeps what it says.
+            </td>
+            <td><a href="#b2">B2</a>, <code>test/scopes.test.mjs</code></td>
+          </tr>
+          <tr>
             <td>What isn't text</td>
             <td>
-              A stand-in: <code>⟦svg⟧</code>, <code>⟦script⟧</code>, restored in order from the prior HTML. A literal ⟦ is <code>\⟦</code>. Hidden elements get stand-ins too, so a save keeps them, and inside HTML the markdown writes, a style's blank lines can't end the HTML block. There, a literal ⟦ is <code>&amp;#x27E6;</code>, and a stand-in takes the next of its kind.
+              A stand-in: <code>⟦svg⟧</code>, <code>⟦script⟧</code>, restored from the prior HTML (see <a href="#identity">identity</a>). A literal ⟦ is <code>\⟦</code>. Hidden elements get stand-ins too, so a save keeps them, and inside HTML the markdown writes, a style's blank lines can't end the HTML block. There, a literal ⟦ is <code>&amp;#x27E6;</code>, and a stand-in takes the next of its kind.
             </td>
             <td><a href="#d1">D1</a>, <a href="#d5">D5</a>, <a href="#d7">D7</a></td>
           </tr>
@@ -152,14 +159,14 @@
           <tr>
             <td>Where markdown converts</td>
             <td>
-              On the server, where <code>scopes.mjs</code> and linkedom run; the client stays small. No live preview.
+              On the server, where <code>to-markdown.mjs</code>, <code>from-markdown.mjs</code>, and linkedom run; the client stays small. No live preview.
             </td>
             <td></td>
           </tr>
           <tr>
             <td>Parser and writer</td>
             <td>
-              markdown-it parses. The writer is our own, in <code>scopes.mjs</code>, because it carries the rules in this table; a general HTML-to-markdown library would need each one overridden.
+              markdown-it parses. The writer is our own, in <code>to-markdown.mjs</code>, because it carries the rules in this table; a general HTML-to-markdown library would need each one overridden.
             </td>
             <td></td>
           </tr>
@@ -214,6 +221,13 @@
               Reconciled against the prior HTML. Siblings pair the way a diff does: the ones that came back the same, then, between those, the most alike with the same tag. An edited element keeps its ID, a moved one keeps its own, and a new one gets a fresh ID from the formatter. A pair's children pair the same way.
             </td>
             <td><a href="#c1">C1</a></td>
+          </tr>
+          <tr>
+            <td>Stand-ins after a markdown save</td>
+            <td>
+              Each token takes the original of its kind whose enclosing elements, tag and text, are most like its own, nearest first; a tie goes to the next in order. A block you removed takes its stand-ins with it, and a block you moved keeps its own. The token carries no ID.
+            </td>
+            <td><a href="#d8">D8</a></td>
           </tr>
           <tr>
             <td>Directives across a markdown save</td>
@@ -474,7 +488,7 @@ October 2026</pre>
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
-          <pre>&lt;p&gt;Fish &amp;amp; chips cost&amp;#160;$5 &amp;lt;each&amp;gt; — “quoted” and 5&amp;#160;×&amp;#160;3.&lt;/p&gt;</pre>
+          <pre>&lt;p&gt;Fish &amp;amp; chips cost&amp;nbsp;$5 &amp;lt;each&amp;gt; — “quoted” and 5&amp;nbsp;×&amp;nbsp;3.&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -560,14 +574,14 @@ October 2026</pre>
               <td>&lt;p&gt;</td>
               <td>markdown with HTML</td>
               <td>
-                <pre>See &lt;a href="#scopes" title="this section" target="_blank" class="ref"&gt;the section&lt;/a&gt; and a &lt;span style="color: #bc4c00"&gt;warning-colored&lt;/span&gt; word.</pre>
+                <pre>See [the section](#scopes "this section") and a &lt;span style="color: #bc4c00"&gt;warning-colored&lt;/span&gt; word.</pre>
               </td>
             </tr>
             <tr>
               <td> &lt;a.ref&gt;</td>
-              <td>markdown with HTML</td>
+              <td>all markdown</td>
               <td>
-                <pre>&lt;a href="#scopes" title="this section" target="_blank" class="ref"&gt;the section&lt;/a&gt;</pre>
+                <pre>[the section](#scopes "this section")</pre>
               </td>
             </tr>
             <tr>
@@ -1082,11 +1096,13 @@ Opening and saving must change nothing.</pre>
         <div class="ex">
           <table>
             <caption>Stages</caption>
-            <tbody>
+            <thead>
               <tr>
                 <th>stage</th>
                 <th>status</th>
               </tr>
+            </thead>
+            <tbody>
               <tr>
                 <td>Formatter</td>
                 <td><strong>in progress</strong>, see <a href="#scopes">OVERVIEW</a></td>
@@ -1107,11 +1123,13 @@ Opening and saving must change nothing.</pre>
           <summary>HTML</summary>
           <pre>&lt;table&gt;
   &lt;caption&gt;Stages&lt;/caption&gt;
-  &lt;tbody&gt;
+  &lt;thead&gt;
     &lt;tr&gt;
       &lt;th&gt;stage&lt;/th&gt;
       &lt;th&gt;status&lt;/th&gt;
     &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
     &lt;tr&gt;
       &lt;td&gt;Formatter&lt;/td&gt;
       &lt;td&gt;&lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;OVERVIEW&lt;/a&gt;&lt;/td&gt;
@@ -1143,11 +1161,13 @@ Opening and saving must change nothing.</pre>
               <td>
                 <pre>&lt;table&gt;
   &lt;caption&gt;Stages&lt;/caption&gt;
-  &lt;tbody&gt;
+  &lt;thead&gt;
     &lt;tr&gt;
       &lt;th&gt;stage&lt;/th&gt;
       &lt;th&gt;status&lt;/th&gt;
     &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
     &lt;tr&gt;
       &lt;td&gt;Formatter&lt;/td&gt;
       &lt;td&gt;&lt;strong&gt;in progress&lt;/strong&gt;, see &lt;a href="#scopes"&gt;OVERVIEW&lt;/a&gt;&lt;/td&gt;
@@ -1265,7 +1285,7 @@ Opening and saving must change nothing.</pre>
           <summary>HTML</summary>
           <pre>&lt;figure&gt;
   &lt;svg viewBox="0 0 120 40" width="120"&gt;
-    &lt;rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df" /&gt;
+    &lt;rect x="1" y="1" width="118" height="38" rx="6" fill="none" stroke="#8250df"&gt;&lt;/rect&gt;
     &lt;text x="60" y="25" text-anchor="middle" font-size="12"&gt;diagram yo&lt;/text&gt;
   &lt;/svg&gt;
   &lt;figcaption&gt;The &lt;em&gt;path&lt;/em&gt;, as of today.&lt;/figcaption&gt;
@@ -1514,7 +1534,7 @@ echo $?
           <pre>&lt;p&gt;
   Click the
   &lt;svg viewBox="0 0 16 16" width="14" height="14"&gt;
-    &lt;circle cx="8" cy="8" r="6" fill="#d6336c" /&gt;
+    &lt;circle cx="8" cy="8" r="6" fill="#d6336c"&gt;&lt;/circle&gt;
   &lt;/svg&gt;
   marker to open the directive box.
 &lt;/p&gt;</pre>
@@ -1803,10 +1823,10 @@ node formatter.mjs try-me.html
           <pre>&lt;p&gt;
   Here is the path.
   &lt;svg viewBox="0 0 200 30" width="200"&gt;
-    &lt;line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4" /&gt;
-    &lt;circle cx="10" cy="15" r="6" fill="#1a7f37" /&gt;
-    &lt;circle cx="100" cy="15" r="6" fill="#0969da" /&gt;
-    &lt;circle cx="190" cy="15" r="6" fill="#0969da" /&gt;
+    &lt;line x1="10" y1="15" x2="190" y2="15" stroke="#ccc" stroke-width="4"&gt;&lt;/line&gt;
+    &lt;circle cx="10" cy="15" r="6" fill="#1a7f37"&gt;&lt;/circle&gt;
+    &lt;circle cx="100" cy="15" r="6" fill="#0969da"&gt;&lt;/circle&gt;
+    &lt;circle cx="190" cy="15" r="6" fill="#0969da"&gt;&lt;/circle&gt;
   &lt;/svg&gt;
   It has six stages.
 &lt;/p&gt;</pre>
@@ -1889,6 +1909,76 @@ node formatter.mjs try-me.html
               <td>markdown with ⟦tokens⟧</td>
               <td>
                 <pre>Show ⟦input⟧ done stages, or ⟦button⟧.</pre>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d8" class="case">
+        <h4>D8. Two blocks alike, each with stand-ins</h4>
+        <p class="ask">
+          Delete the first card, or swap the two: each ⟦textarea⟧ is the same token. Which textarea does each one get back?
+        </p>
+        <div class="ex">
+          <div class="card">
+            <h3>Alpha</h3>
+            <textarea class="text">Alpha text</textarea>
+          </div>
+          <div class="card">
+            <h3>Beta</h3>
+            <textarea class="text">Beta text</textarea>
+          </div>
+        </div>
+        <details class="scope-report">
+          <summary>HTML</summary>
+          <pre>&lt;div class="card"&gt;
+  &lt;h3&gt;Alpha&lt;/h3&gt;
+  &lt;textarea class="text"&gt;Alpha text&lt;/textarea&gt;
+&lt;/div&gt;
+&lt;div class="card"&gt;
+  &lt;h3&gt;Beta&lt;/h3&gt;
+  &lt;textarea class="text"&gt;Beta text&lt;/textarea&gt;
+&lt;/div&gt;</pre>
+        </details>
+        <table class="scope-report">
+          <thead>
+            <tr>
+              <th>element</th>
+              <th>what markdown can say</th>
+              <th>what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>&lt;div.card&gt;</td>
+              <td>markdown with ⟦tokens⟧</td>
+              <td>
+                <pre>### Alpha
+
+⟦textarea⟧</pre>
+              </td>
+            </tr>
+            <tr>
+              <td> &lt;h3&gt;</td>
+              <td>all markdown</td>
+              <td>
+                <pre>Alpha</pre>
+              </td>
+            </tr>
+            <tr>
+              <td>&lt;div.card&gt;</td>
+              <td>markdown with ⟦tokens⟧</td>
+              <td>
+                <pre>### Beta
+
+⟦textarea⟧</pre>
+              </td>
+            </tr>
+            <tr>
+              <td> &lt;h3&gt;</td>
+              <td>all markdown</td>
+              <td>
+                <pre>Beta</pre>
               </td>
             </tr>
           </tbody>
@@ -2131,7 +2221,7 @@ Everything the tool adds to a page.</pre>
         <details class="scope-report">
           <summary>HTML</summary>
           <pre>&lt;p&gt;&lt;/p&gt;
-&lt;p&gt;&amp;#160;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
 &lt;p&gt;Between two empties.&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
@@ -2247,15 +2337,14 @@ After a rule.</pre>
       <div id="f3" class="case">
         <h4>F3. A list inside a paragraph</h4>
         <p class="ask">
-          Written as <code>&lt;p&gt;Before the list&lt;ul&gt;…&lt;/ul&gt;after the list&lt;/p&gt;</code>. The formatter does what a browser does: it closes the <code>p</code> at the <code>ul</code>, leaves the trailing text bare (C10), and turns the stray <code>&lt;/p&gt;</code> into an empty <code>p</code> (F1). Leave it, or should the formatter wrap the bare text?
+          Written as <code>&lt;p&gt;Before the list&lt;ul&gt;…&lt;/ul&gt;after the list&lt;/p&gt;</code>. A browser closes the <code>p</code> at the <code>ul</code>, leaves the trailing text bare (C10), and turns the stray <code>&lt;/p&gt;</code> into an empty <code>p</code> (F1). The formatter goes on to say what the writer meant: the trailing text goes in its own <code>p</code>, and the empty <code>p</code> goes.
         </p>
         <div class="ex">
           <p>Before the list</p>
           <ul>
             <li>inside</li>
           </ul>
-          after the list
-          <p></p>
+          <p>after the list</p>
         </div>
         <details class="scope-report">
           <summary>HTML</summary>
@@ -2263,7 +2352,7 @@ After a rule.</pre>
 &lt;ul&gt;
   &lt;li&gt;inside&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;/p&gt;</pre>
+&lt;p&gt;after the list&lt;/p&gt;</pre>
         </details>
         <table class="scope-report">
           <thead>
@@ -2297,8 +2386,10 @@ After a rule.</pre>
             </tr>
             <tr>
               <td>&lt;p&gt;</td>
-              <td>nothing to edit</td>
-              <td></td>
+              <td>all markdown</td>
+              <td>
+                <pre>after the list</pre>
+              </td>
             </tr>
           </tbody>
         </table>

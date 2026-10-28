@@ -82,6 +82,33 @@ export function sendJson(res, status, body) {
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 
+// What a GET asks for, from its Accept header: the page, its state as JSON, or its events.
+// A browser's EventSource sends text/event-stream; the tab's fetch of the state, application/json.
+export function wants(req) {
+  const accept = req.headers.accept ?? '';
+  if (accept.startsWith('text/event-stream')) return 'events';
+  if (accept.startsWith('application/json')) return 'json';
+  return 'page';
+}
+
+// Server-sent events: keep the answer open and write each event as it comes. A comment goes
+// first, so the browser's EventSource opens at once. A comment every 30 seconds keeps an idle
+// connection from timing out. Returns send(event, data) and end(); onClose runs when the tab
+// goes away or end() is called.
+export function openEventStream(res, onClose) {
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+  res.write(': html-revisor\n\n');
+  const ping = setInterval(() => res.write(': ping\n\n'), 30000);
+  res.on('close', () => {
+    clearInterval(ping);
+    onClose();
+  });
+  return {
+    send: (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+    end: () => res.end(),
+  };
+}
+
 export function sendNoContent(res) {
   res.writeHead(204);
   res.end();
@@ -98,6 +125,18 @@ export function sendError(res, err) {
   if (res.headersSent) return res.end();
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end(status === 404 ? 'not found' : String(err.message ?? err));
+}
+
+// The other end: PUT a JSON body to a running server. Resolves to the status and the body as
+// text; a server that isn't there is an Error that says so.
+export async function putJson(url, body) {
+  let res;
+  try {
+    res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch (err) {
+    throw new Error(`no server answers at ${new URL(url).origin}: is it running? (${err.cause?.code ?? err.message})`);
+  }
+  return { status: res.status, text: await res.text() };
 }
 
 const escapeHtml = (s) =>

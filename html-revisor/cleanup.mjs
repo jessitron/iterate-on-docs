@@ -1,7 +1,8 @@
 // html-revisor cleanup: take out what the tool left in a page, for when iterating is done.
 //
 //   node cleanup.mjs [--author @AI] <file>...   rewrites each file in place.
-//   Removes directives (<!-- @AI: ... -->) and element IDs (data-hrv, data-hrv-next). Leaves
+//   Removes directives (<!-- @AI: ... -->), replies (<!-- @Human: ... -->), and element IDs
+//   (data-hrv, data-hrv-next). Leaves
 //   the formatting as the formatter wrote it: people read the rendered page, not the source.
 //   Prints each directive it removed as "<file>: <text>". Exit 0 when every file is clean,
 //   1 when a file can't be read or written, 2 for a usage error.

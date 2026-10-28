@@ -78,6 +78,9 @@
       <p class="note">
         The save span starts when the change goes out. The typing before it is in two attributes: <code>hrv.wait.ms</code> since the first keystroke, <code>hrv.quiet.ms</code> since the last. The round trip is about 13 ms on this 14 KB page. Most server steps take under 2 ms here. A step that stays under 1 ms on a big page too doesn't earn its span, and we mean to remove it; so far <code>check base</code> and <code>set directive</code> never have.
       </p>
+      <p class="note">
+        A <code>PUT change</code> with no <code>write file</code> step saved what the file already holds, and <code>hrv.wrote</code> is false on it. Typing makes these: the server trims a directive, so a trailing space changes nothing, and in markdown a trailing space at the end of a paragraph is gone in the canonical file. A refused save (412, 400) stops before that step too.
+      </p>
     </section>
     <section>
       <h2>Spans</h2>
@@ -146,7 +149,7 @@
             <td>server</td>
             <td>request → response; a child span per step</td>
             <td>
-              <code>hrv.page</code>, <code>hrv.page.bytes</code>, <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.change.bytes</code>, <code>hrv.directive.count</code>, <code>hrv.answer.bytes</code>, <code>hrv.conflict</code>
+              <code>hrv.page</code>, <code>hrv.page.bytes</code>, <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.change.bytes</code>, <code>hrv.directive.count</code>, <code>hrv.answer.bytes</code>, <code>hrv.conflict</code>, <code>hrv.wrote</code>
             </td>
           </tr>
           <tr>
@@ -160,7 +163,7 @@
         </tbody>
       </table>
       <p class="note">
-        Browser spans carry <code>hrv.side = browser</code>. A conflict or a failed save marks the browser's spans as errors. A text attribute stops at 50,000 characters, under Honeycomb's 64 KB limit; its <code>.length</code> is the full count.
+        Browser spans carry <code>hrv.side = browser</code>. A conflict or a failed save marks the browser's spans as errors. A text attribute stops at 50,000 characters, under Honeycomb's 64 KB limit; its <code>.length</code> is the full count. Server spans take their times from <code>performance.now()</code> on an anchor to the wall clock, so steps in one request start in order, to the microsecond.
       </p>
     </section>
     <section>

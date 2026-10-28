@@ -70,6 +70,45 @@ test('table rows go in sections: a leading row of th is the thead', () => {
   assert.equal(layout(sectioned), layout(layout(sectioned)));
 });
 
+test('a tbody that leads with a row of th gives that row to a new thead', () => {
+  const out = layout('<body><table><tbody><tr><th>stage</th><th>status</th></tr><tr><td>1</td><td>ok</td></tr></tbody></table></body>');
+  assert.match(out, /<table>\s*<thead>\s*<tr>\s*<th>stage<\/th>\s*<th>status<\/th>\s*<\/tr>\s*<\/thead>\s*<tbody>\s*<tr>\s*<td>1<\/td>/);
+  const headOnly = layout('<body><table><tbody><tr><th>a</th></tr></tbody></table></body>');
+  assert.match(headOnly, /<table>\s*<thead>\s*<tr>\s*<th>a<\/th>\s*<\/tr>\s*<\/thead>\s*<\/table>/);
+  const withHead = '<body><table><thead><tr><th>h</th></tr></thead><tbody><tr><th>a</th></tr><tr><td>1</td></tr></tbody></table></body>';
+  assert.match(layout(withHead), /<\/thead>\s*<tbody>\s*<tr>\s*<th>a<\/th>/);
+  const mixed = layout('<body><table><tbody><tr><th>k</th><td>v</td></tr></tbody></table></body>');
+  assert.ok(!mixed.includes('<thead>'));
+});
+
+test('a list that breaks a paragraph: the text after it goes in a p, and the empty p goes', () => {
+  const out = layout(page('<p>Before the list<ul><li>inside</li></ul>after <em>the</em> list</p><p>next</p>'));
+  assert.match(out, /<p>Before the list<\/p>\s*<ul>\s*<li>inside<\/li>\s*<\/ul>\s*<p>after <em>the<\/em> list<\/p>\s*<p>next<\/p>/);
+  assert.ok(!out.includes('<p></p>'), out);
+  const two = layout(page('<p>a<ul><li>1</li></ul>b<ol><li>2</li></ol>c</p>'));
+  assert.match(two, /<p>a<\/p>\s*<ul>[\s\S]*<\/ul>\s*<p>b<\/p>\s*<ol>[\s\S]*<\/ol>\s*<p>c<\/p>\s*<\/body>/);
+  const nothingAfter = layout(page('<p>a<ul><li>1</li></ul></p>'));
+  assert.match(nothingAfter, /<\/ul>\s*<\/body>/);
+  const withIds = layout(page('<p data-hrv="1">a</p><ul data-hrv="2"><li data-hrv="3">1</li></ul>b<p data-hrv="4"></p>'));
+  assert.match(withIds, /<\/ul>\s*<p>b<\/p>\s*<\/body>/);
+  const kept = layout(page('<p>a</p><ul><li>1</li></ul>b<p class="x"></p>'));
+  assert.match(kept, /<\/ul>\s*b\s*<p class="x"><\/p>/);
+});
+
+test('text beside a list with no broken paragraph stays bare, and so does an empty p', () => {
+  const mixed = layout(page('<div>before<ul><li>1</li></ul>after</div><p></p><p>x</p>'));
+  assert.match(mixed, /<\/ul>\s*after\s*<\/div>\s*<p><\/p>/);
+});
+
+// With no stray </p>, an unclosed p before a block parses to the DOM of a p closed on purpose
+// before it, so the text after the block stays bare either way (C10).
+test('a block after an unclosed p leaves the text after it bare, as after a closed p', () => {
+  const unclosed = layout(page('<p>a<ul><li>1</li></ul>b'));
+  const closed = layout(page('<p>a</p><ul><li>1</li></ul>b'));
+  assert.equal(unclosed, closed);
+  assert.match(unclosed, /<\/ul>\s*b\s*<\/body>/);
+});
+
 test('only ASCII whitespace collapses; nbsp survives', () => {
   const out = layout('<body><p>a \n\t  b&nbsp;&nbsp;c &nbsp;</p></body>');
   assert.match(out, /<p>a b&nbsp;&nbsp;c &nbsp;<\/p>/);

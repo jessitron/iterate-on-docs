@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html data-hrv-next="501" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor — architecture and code quality assessment</title>
+    <style>
+  :root { --ink: #1d2330; --muted: #646b78; --line: #e2ddd2; --bg: #ffffff; --card: #f8f6f1; --paper: #f3efe6;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, serif;
+    --lift: 0 1px 2px rgba(60, 45, 20, .06), 0 6px 24px rgba(60, 45, 20, .07);
+    --good: #1a7f37; --warn: #bc4c00; --accent: #0969da; --happy: #0e7c86; --dir: #8250df;
+    --t1: #fdf1e7; --t2: #e8f3fb; --t3: #eef6ee; --browser: #f4eefc; --hot: #fbe3d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e6edf3; --muted: #9198a1; --line: #2e3540; --bg: #141920; --card: #1b222c; --paper: #0b0e13;
+      --lift: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 24px rgba(0, 0, 0, .35);
+      --good: #3fb950; --warn: #f0883e; --accent: #4493f8; --happy: #39c5cf; --dir: #ab7df8;
+      --t1: #2a2016; --t2: #13212e; --t3: #15241a; --browser: #221a2e; --hot: #3a2416; }
+  }
+  html { background: var(--paper); }
+  body { font: 16px/1.55 system-ui, sans-serif; color: var(--ink); background: var(--paper); max-width: 1000px; margin: 0 auto; padding: 3.5rem 1.25rem 4rem; }
+  h1 { font: 600 3rem/1.05 var(--serif); letter-spacing: -.02em; margin: 0; }
+  h1 + .sub { font: 1.25rem/1.45 var(--serif); opacity: .8; max-width: 44rem; margin: 1rem 0 2.5rem; }
+  body > section { background: var(--bg); border-radius: 16px; box-shadow: var(--lift); padding: 1.75rem 2.25rem 2rem; margin: 0 0 1.75rem; }
+  h2 { font: 600 1.75rem/1.2 var(--serif); letter-spacing: -.01em; margin: 0 0 1.25rem; }
+  h2::after { content: ""; display: block; width: 3rem; height: 3px; border-radius: 2px; background: var(--happy); margin-top: .6rem; }
+  h3 { margin: 1.25rem 0 .35rem; font-size: 1.05rem; }
+  code { font: .9em ui-monospace, monospace; }
+  .sub { color: var(--muted); }
+  svg { width: 100%; height: auto; display: block; margin: 1rem 0; }
+  svg text { fill: var(--ink); font: 13px system-ui, sans-serif; }
+  svg .small { font-size: 11px; }
+  svg .muted { fill: var(--muted); }
+  svg .mono { font-family: ui-monospace, monospace; }
+  svg .bold { font-weight: 600; }
+  svg .box { fill: var(--card); stroke: var(--line); }
+  svg .t1 { fill: var(--t1); stroke: var(--line); }
+  svg .t2 { fill: var(--t2); stroke: var(--line); }
+  svg .t3 { fill: var(--t3); stroke: var(--line); }
+  svg .browser { fill: var(--browser); stroke: var(--line); }
+  svg .hot { fill: var(--hot); stroke: var(--warn); stroke-width: 1.5; }
+  svg .bar { fill: var(--accent); opacity: .55; }
+  svg .hotbar { fill: var(--warn); opacity: .7; }
+  svg .arrow { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+  svg .warnarrow { stroke: var(--warn); fill: none; stroke-width: 2; }
+  svg .goodarrow { stroke: var(--good); fill: none; stroke-width: 2; }
+  svg .warntext { fill: var(--warn); }
+  svg .goodtext { fill: var(--good); }
+  svg .rule { fill: var(--hot); stroke: var(--warn); }
+  svg .io { fill: var(--t3); stroke: var(--line); }
+  svg .dash { stroke-dasharray: 5 4; }
+  table { border-collapse: collapse; width: 100%; margin: .75rem 0; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: .9rem; }
+  .pill { display: inline-block; padding: 0 .5rem; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .high { background: var(--hot); color: var(--warn); }
+  .med { background: var(--t2); color: var(--accent); }
+  .low { background: var(--t3); color: var(--good); }
+  .rec { border-left: 4px solid var(--happy); padding: .25rem 0 .25rem 1rem; margin: 1.5rem 0; }
+  .rec > h3 { margin-top: 0; }
+  ul.tight li { margin: .2rem 0; }
+</style>
+  </head>
+  <body data-hrv="1">
+    <h1 data-hrv="2">Architecture and code quality</h1>
+    <p data-hrv="3" class="sub">
+      An assessment of html-revisor as of 2026-10-25: 4,300 lines of our own code, 239 tests in 8 seconds. What holds up, where the weight sits, and five recommendations.
+    </p>
+    <section data-hrv="4" id="verdict">
+      <h2 data-hrv="5">Verdict</h2>
+      <p data-hrv="6">
+        The bones are good. The tier rules are executable, the domain is pure, the file is the only source of truth, and the concurrency model fits on an index card. The trouble is weight distribution: three files carry most of the change, and each holds more than one idea.
+      </p>
+      <table data-hrv="7">
+        <thead>
+          <tr>
+            <th data-hrv="8">Holds up</th>
+            <th data-hrv="9">Strains</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="10">
+              <ul data-hrv="11" class="tight">
+                <li data-hrv="12">
+                  <code>test/architecture.test.mjs</code> enforces tiers, purity, and no cycles. Rare, and worth more than any diagram.
+                </li>
+                <li data-hrv="13">
+                  One writer, one turn per file (<code>oneAtATime</code>), optimistic checks by base. Simple and correct.
+                </li>
+                <li data-hrv="14">
+                  Round-trip tests on real pages and seeded generated edits catch fidelity bugs no example would.
+                </li>
+                <li data-hrv="15">
+                  Comments say why. Names come from the domain: directive, scope, base, thread, spill.
+                </li>
+                <li data-hrv="16">Telemetry on every step, with Honeycomb queries documented.</li>
+              </ul>
+            </td>
+            <td data-hrv="17">
+              <ul data-hrv="18" class="tight">
+                <li data-hrv="19">
+                  The save rules live in <code>server.mjs</code>, Tier I, the most-changed file.
+                </li>
+                <li data-hrv="20">
+                  <code>domain/scopes.mjs</code> is four modules in one, and <code>identity.mjs</code> reaches into it.
+                </li>
+                <li data-hrv="21">
+                  <code>client.js</code> is a whole app in one file, with no tiers; its sync state is 20 loose variables beside DOM code.
+                </li>
+                <li data-hrv="22">The wire protocol has three written copies and no single owner.</li>
+                <li data-hrv="23">
+                  No context map: the agent writing the file around the server is a boundary nobody drew.
+                </li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section data-hrv="24" id="map">
+      <h2 data-hrv="25">Where the weight sits</h2>
+      <p data-hrv="26" class="sub">
+        Each box is a module; the bar is its size against the largest domain module. Orange boxes are the hotspots.
+      </p>
+      <svg data-hrv="27" viewBox="0 0 1000 560" role="img" aria-label="Module map by tier, with sizes">
+        <defs data-hrv="28">
+          <marker data-hrv="29" id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="30" d="M0,0 L10,5 L0,10 z" fill="#bc4c00"></path>
+          </marker>
+          <marker data-hrv="31" id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="32" d="M0,0 L10,5 L0,10 z" fill="#646b78"></path>
+          </marker>
+        </defs>
+        <text data-hrv="33" x="10" y="22" class="bold">Tier I · orchestration</text>
+        <rect data-hrv="34" x="10" y="32" width="230" height="64" rx="6" class="hot"></rect>
+        <text data-hrv="35" x="22" y="54" class="mono bold">server.mjs</text>
+        <text data-hrv="36" x="22" y="72" class="small muted">475 lines · 44 commits since Sept</text>
+        <rect data-hrv="37" x="22" y="80" width="206" height="6" class="hotbar"></rect>
+        <rect data-hrv="38" x="256" y="32" width="120" height="64" rx="6" class="t1"></rect>
+        <text data-hrv="39" x="268" y="56" class="mono">formatter.mjs</text>
+        <text data-hrv="40" x="268" y="74" class="small muted">36</text>
+        <rect data-hrv="41" x="390" y="32" width="120" height="64" rx="6" class="t1"></rect>
+        <text data-hrv="42" x="402" y="56" class="mono">cleanup.mjs</text>
+        <text data-hrv="43" x="402" y="74" class="small muted">47</text>
+        <rect data-hrv="44" x="524" y="32" width="120" height="64" rx="6" class="t1"></rect>
+        <text data-hrv="45" x="536" y="56" class="mono">scopes.mjs</text>
+        <text data-hrv="46" x="536" y="74" class="small muted">36 · CLI</text>
+        <rect data-hrv="47" x="658" y="32" width="100" height="64" rx="6" class="t1"></rect>
+        <text data-hrv="48" x="670" y="56" class="mono">reply.mjs</text>
+        <text data-hrv="49" x="670" y="74" class="small muted">39</text>
+        <path data-hrv="50" d="M240 50 C 248 40, 250 40, 256 50" class="arrow dash" marker-end="url(#ahm)"></path>
+        <text data-hrv="51" x="784" y="22" class="bold">Browser</text>
+        <rect data-hrv="52" x="784" y="32" width="206" height="160" rx="6" class="hot"></rect>
+        <text data-hrv="53" x="796" y="56" class="mono bold">client.js</text>
+        <text data-hrv="54" x="796" y="74" class="small muted">1,474 lines · one IIFE</text>
+        <rect data-hrv="55" x="796" y="82" width="182" height="6" class="hotbar"></rect>
+        <text data-hrv="56" x="796" y="110" class="small">20 shared variables:</text>
+        <text data-hrv="57" x="796" y="126" class="small muted">file mirror · box · save queue</text>
+        <text data-hrv="58" x="796" y="142" class="small muted">tested through a linkedom tab</text>
+        <text data-hrv="59" x="796" y="158" class="small muted">with a fast clock</text>
+        <rect data-hrv="60" x="784" y="204" width="206" height="40" rx="6" class="browser"></rect>
+        <text data-hrv="61" x="796" y="228" class="mono">client.css</text>
+        <text data-hrv="62" x="10" y="132" class="bold">Tier II · domain</text>
+        <rect data-hrv="63" x="10" y="142" width="104" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="64" x="20" y="162" class="mono small">likeness</text>
+        <text data-hrv="65" x="20" y="178" class="small muted">22</text>
+        <rect data-hrv="66" x="20" y="186" width="3" height="5" class="bar"></rect>
+        <rect data-hrv="67" x="124" y="142" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="68" x="134" y="162" class="mono small">canonical</text>
+        <text data-hrv="69" x="134" y="178" class="small muted">282</text>
+        <rect data-hrv="70" x="134" y="186" width="35" height="5" class="bar"></rect>
+        <rect data-hrv="71" x="254" y="142" width="200" height="58" rx="6" class="hot"></rect>
+        <text data-hrv="72" x="264" y="162" class="mono small bold">scopes</text>
+        <text data-hrv="73" x="264" y="178" class="small muted">806 · kinds, md out, md in, report</text>
+        <rect data-hrv="74" x="264" y="186" width="100" height="5" class="hotbar"></rect>
+        <rect data-hrv="75" x="464" y="142" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="76" x="474" y="162" class="mono small">identity</text>
+        <text data-hrv="77" x="474" y="178" class="small muted">137</text>
+        <rect data-hrv="78" x="474" y="186" width="17" height="5" class="bar"></rect>
+        <rect data-hrv="79" x="594" y="142" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="80" x="604" y="162" class="mono small">directives</text>
+        <text data-hrv="81" x="604" y="178" class="small muted">182</text>
+        <rect data-hrv="82" x="604" y="186" width="23" height="5" class="bar"></rect>
+        <rect data-hrv="83" x="10" y="212" width="104" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="84" x="20" y="232" class="mono small">bases</text>
+        <text data-hrv="85" x="20" y="248" class="small muted">39</text>
+        <rect data-hrv="86" x="124" y="212" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="87" x="134" y="232" class="mono small">format</text>
+        <text data-hrv="88" x="134" y="248" class="small muted">26</text>
+        <rect data-hrv="89" x="254" y="212" width="200" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="90" x="264" y="232" class="mono small">markdown-edits</text>
+        <text data-hrv="91" x="264" y="248" class="small muted">116</text>
+        <rect data-hrv="92" x="264" y="256" width="14" height="5" class="bar"></rect>
+        <rect data-hrv="93" x="464" y="212" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="94" x="474" y="232" class="mono small">annotation</text>
+        <text data-hrv="95" x="474" y="248" class="small muted">78</text>
+        <rect data-hrv="96" x="594" y="212" width="120" height="58" rx="6" class="t2"></rect>
+        <text data-hrv="97" x="604" y="232" class="mono small">announcements</text>
+        <text data-hrv="98" x="604" y="248" class="small muted">45</text>
+        <rect data-hrv="99" x="10" y="282" width="234" height="40" rx="6" class="t2"></rect>
+        <text data-hrv="100" x="20" y="306" class="mono small">served-page 52 · cleanup 19 · id-attribute 7</text>
+        <path data-hrv="101" d="M524 142 C 500 120, 440 120, 420 142" class="warnarrow" marker-end="url(#ah)"></path>
+        <text data-hrv="102" x="340" y="122" class="small warntext">identity → scopes for canonicalHTML, isBlock, hasAttrs</text>
+        <text data-hrv="103" x="10" y="364" class="bold">Tier III · interface and vendor</text>
+        <rect data-hrv="104" x="10" y="374" width="120" height="50" rx="6" class="t3"></rect>
+        <text data-hrv="105" x="20" y="396" class="mono small">files</text>
+        <text data-hrv="106" x="20" y="412" class="small muted">53</text>
+        <rect data-hrv="107" x="140" y="374" width="120" height="50" rx="6" class="t3"></rect>
+        <text data-hrv="108" x="150" y="396" class="mono small">http</text>
+        <text data-hrv="109" x="150" y="412" class="small muted">155</text>
+        <rect data-hrv="110" x="270" y="374" width="120" height="50" rx="6" class="t3"></rect>
+        <text data-hrv="111" x="280" y="396" class="mono small">telemetry</text>
+        <text data-hrv="112" x="280" y="412" class="small muted">152</text>
+        <rect data-hrv="113" x="400" y="374" width="100" height="50" rx="6" class="t3"></rect>
+        <text data-hrv="114" x="410" y="396" class="mono small">stdout</text>
+        <text data-hrv="115" x="410" y="412" class="small muted">7</text>
+        <rect data-hrv="116" x="520" y="374" width="194" height="50" rx="6" class="box dash"></rect>
+        <text data-hrv="117" x="530" y="396" class="mono small">vendor/</text>
+        <text data-hrv="118" x="530" y="412" class="small muted">linkedom · markdown-it · OTel</text>
+        <text data-hrv="119" x="10" y="470" class="bold">Tests</text>
+        <rect data-hrv="120" x="10" y="480" width="704" height="56" rx="6" class="box"></rect>
+        <text data-hrv="121" x="22" y="502" class="small">3,500 lines · 239 tests · 8.2 s wall · architecture, acceptance over real HTTP, client via linkedom tab,</text>
+        <text data-hrv="122" x="22" y="520" class="small">round-trip on frozen pages and seeded generated edits</text>
+        <text data-hrv="123" x="784" y="300" class="small muted">Dependencies point down.</text>
+        <text data-hrv="124" x="784" y="318" class="small muted">The test enforces it.</text>
+        <text data-hrv="125" x="784" y="350" class="small warntext">Orange arrow: allowed,</text>
+        <text data-hrv="126" x="784" y="368" class="small warntext">but a sign the module</text>
+        <text data-hrv="127" x="784" y="386" class="small warntext">below holds the wrong thing.</text>
+        <text data-hrv="128" x="784" y="420" class="small muted">Dashed: Tier I imports</text>
+        <text data-hrv="129" x="784" y="438" class="small muted">Tier I (formatFiles).</text>
+      </svg>
+    </section>
+    <section data-hrv="130" id="context-map">
+      <h2 data-hrv="131">Context map</h2>
+      <p data-hrv="132" class="sub">
+        Four contexts share one file: the HTML page under review, the one you're reading now. The language at each boundary is different, and one boundary has no rules.
+      </p>
+      <svg data-hrv="133" viewBox="0 0 1000 380" role="img" aria-label="Context map: tab, revision server, page file, agent">
+        <defs data-hrv="134">
+          <marker data-hrv="135" id="am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="136" d="M0,0 L10,5 L0,10 z" fill="#646b78"></path>
+          </marker>
+          <marker data-hrv="137" id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="138" d="M0,0 L10,5 L0,10 z" fill="#bc4c00"></path>
+          </marker>
+        </defs>
+        <rect data-hrv="139" x="20" y="40" width="230" height="130" rx="10" class="browser"></rect>
+        <text data-hrv="140" x="36" y="66" class="bold">Tab</text>
+        <text data-hrv="141" x="36" y="86" class="small muted">client.js, in Jess's browser</text>
+        <text data-hrv="142" x="36" y="110" class="small">box · marker · docket · Done</text>
+        <text data-hrv="143" x="36" y="128" class="small">edits · unsent · spill</text>
+        <text data-hrv="144" x="36" y="146" class="small">mirror of directives, bases</text>
+        <rect data-hrv="145" x="385" y="40" width="230" height="130" rx="10" class="t2"></rect>
+        <text data-hrv="146" x="401" y="66" class="bold">Revision</text>
+        <text data-hrv="147" x="401" y="86" class="small muted">server.mjs + domain/</text>
+        <text data-hrv="148" x="401" y="110" class="small">directive · scope · base · thread</text>
+        <text data-hrv="149" x="401" y="128" class="small">reconcile · settle · holder</text>
+        <text data-hrv="150" x="401" y="146" class="small">Announcement</text>
+        <rect data-hrv="151" x="750" y="40" width="230" height="130" rx="10" class="t1"></rect>
+        <text data-hrv="152" x="766" y="66" class="bold">Agent</text>
+        <text data-hrv="153" x="766" y="86" class="small muted">iterate-on-docs skill</text>
+        <text data-hrv="154" x="766" y="110" class="small">turn · reply · commit</text>
+        <text data-hrv="155" x="766" y="128" class="small">reads Announcements</text>
+        <text data-hrv="156" x="766" y="146" class="small">writes HTML by hand</text>
+        <rect data-hrv="157" x="385" y="250" width="230" height="90" rx="10" class="t3"></rect>
+        <text data-hrv="158" x="401" y="276" class="bold">Page file</text>
+        <text data-hrv="159" x="401" y="296" class="small muted">canonical HTML on disk</text>
+        <text data-hrv="160" x="401" y="316" class="small">&lt;!-- @AI: … --&gt; · data-hrv</text>
+        <path data-hrv="161" d="M250 90 L385 90" class="arrow" marker-end="url(#am)"></path>
+        <path data-hrv="162" d="M385 120 L250 120" class="arrow" marker-end="url(#am)"></path>
+        <text data-hrv="163" x="262" y="82" class="small">PUT · POST Done</text>
+        <text data-hrv="164" x="262" y="140" class="small">SSE change · JSON state</text>
+        <text data-hrv="165" x="262" y="160" class="small muted">customer–supplier, one team</text>
+        <path data-hrv="166" d="M615 90 L750 90" class="arrow" marker-end="url(#am)"></path>
+        <path data-hrv="167" d="M750 120 L615 120" class="arrow" marker-end="url(#am)"></path>
+        <text data-hrv="168" x="627" y="82" class="small">Announcement</text>
+        <text data-hrv="169" x="627" y="140" class="small">reply.mjs PUT</text>
+        <text data-hrv="170" x="627" y="160" class="small muted">published language: Contract</text>
+        <path data-hrv="171" d="M500 170 L500 250" class="arrow" marker-end="url(#am)"></path>
+        <text data-hrv="172" x="508" y="215" class="small">sole writer, one turn at a time</text>
+        <path data-hrv="173" d="M865 170 C 865 260, 700 300, 615 300" class="warnarrow dash" marker-end="url(#aw)"></path>
+        <text data-hrv="174" x="700" y="250" class="small warntext">writes around the server</text>
+        <text data-hrv="175" x="700" y="266" class="small warntext">no turn, no base; seen as "disk"</text>
+      </svg>
+      <p data-hrv="176">
+        The orange edge is the open yak <em>Rethink who edits the live file</em>. The other three boundaries each have a protocol; this one has a file watcher and hope. The map belongs in OVERVIEW once we agree on it.
+      </p>
+    </section>
+    <section data-hrv="177" id="recommendations">
+      <h2 data-hrv="178">Recommendations</h2>
+      <table data-hrv="179">
+        <thead>
+          <tr>
+            <th data-hrv="180">#</th>
+            <th data-hrv="181">Change</th>
+            <th data-hrv="182">Payoff</th>
+            <th data-hrv="183">Effort</th>
+            <th data-hrv="184">Mountain</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="185">1</td>
+            <td data-hrv="186">
+              <a data-hrv="187" href="#r1">Move the save rules into the domain</a>
+            </td>
+            <td data-hrv="188"><span class="pill high">high</span></td>
+            <td data-hrv="189">medium</td>
+            <td data-hrv="190">fidelity</td>
+          </tr>
+          <tr>
+            <td data-hrv="191">2</td>
+            <td data-hrv="192">
+              <a data-hrv="193" href="#r2">Split <code>scopes.mjs</code> by idea</a>
+            </td>
+            <td data-hrv="194"><span class="pill high">high</span></td>
+            <td data-hrv="195">low</td>
+            <td data-hrv="196">fidelity</td>
+          </tr>
+          <tr>
+            <td data-hrv="197">3</td>
+            <td data-hrv="198">
+              <a data-hrv="199" href="#r3">The client is an app: give it tiers and a protocol</a>
+            </td>
+            <td data-hrv="200"><span class="pill high">high</span></td>
+            <td data-hrv="201">high</td>
+            <td data-hrv="202">fidelity, ergonomics</td>
+          </tr>
+          <tr>
+            <td data-hrv="203">4</td>
+            <td data-hrv="204"><a data-hrv="205" href="#r4">One owner for the wire protocol</a></td>
+            <td data-hrv="206"><span class="pill med">medium</span></td>
+            <td data-hrv="207">low</td>
+            <td data-hrv="208">upkeep</td>
+          </tr>
+          <tr>
+            <td data-hrv="209">5</td>
+            <td data-hrv="210"><a data-hrv="211" href="#r5">Small cleanups</a></td>
+            <td data-hrv="212"><span class="pill low">low</span></td>
+            <td data-hrv="213">low</td>
+            <td data-hrv="214">upkeep</td>
+          </tr>
+        </tbody>
+      </table>
+      <div data-hrv="215" class="rec" id="r1">
+        <h3 data-hrv="216">1 · Move the save rules into the domain</h3>
+        <p data-hrv="217">
+          <code>applyChange</code> in <code>server.mjs</code> is 80 lines, and most of them are domain rules: a base that doesn't match is a conflict, a spill that moved is a conflict, a reply since is a conflict, a grown scope loses its markdown. Tier I decides all of that today. That is why <code>server.mjs</code> changed in 44 commits since September, more than any other file.
+        </p>
+        <svg data-hrv="218" viewBox="0 0 1000 300" role="img" aria-label="Save flow now and proposed">
+          <defs data-hrv="219">
+            <marker data-hrv="220" id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path data-hrv="221" d="M0,0 L10,5 L0,10 z" fill="#646b78"></path>
+            </marker>
+          </defs>
+          <text data-hrv="222" x="10" y="20" class="bold">Now: PUT change, all in server.mjs</text>
+          <rect data-hrv="223" x="10" y="32" width="80" height="44" rx="5" class="io"></rect>
+          <text data-hrv="224" x="20" y="58" class="small">read</text>
+          <rect data-hrv="225" x="98" y="32" width="96" height="44" rx="5" class="box"></rect>
+          <text data-hrv="226" x="106" y="52" class="small">parse +</text>
+          <text data-hrv="227" x="106" y="68" class="small">assignIds</text>
+          <rect data-hrv="228" x="202" y="32" width="80" height="44" rx="5" class="rule"></rect>
+          <text data-hrv="229" x="210" y="52" class="small">base</text>
+          <text data-hrv="230" x="210" y="68" class="small">matches?</text>
+          <rect data-hrv="231" x="290" y="32" width="80" height="44" rx="5" class="rule"></rect>
+          <text data-hrv="232" x="298" y="52" class="small">spill</text>
+          <text data-hrv="233" x="298" y="68" class="small">in place?</text>
+          <rect data-hrv="234" x="378" y="32" width="80" height="44" rx="5" class="rule"></rect>
+          <text data-hrv="235" x="386" y="52" class="small">replied</text>
+          <text data-hrv="236" x="386" y="68" class="small">since?</text>
+          <rect data-hrv="237" x="466" y="32" width="110" height="44" rx="5" class="rule"></rect>
+          <text data-hrv="238" x="474" y="52" class="small">directive | resolve</text>
+          <text data-hrv="239" x="474" y="68" class="small">| markdown+settle</text>
+          <rect data-hrv="240" x="584" y="32" width="80" height="44" rx="5" class="box"></rect>
+          <text data-hrv="241" x="592" y="58" class="small">serialize</text>
+          <rect data-hrv="242" x="672" y="32" width="80" height="44" rx="5" class="io"></rect>
+          <text data-hrv="243" x="680" y="52" class="small">write +</text>
+          <text data-hrv="244" x="680" y="68" class="small">notify</text>
+          <rect data-hrv="245" x="760" y="32" width="80" height="44" rx="5" class="box"></rect>
+          <text data-hrv="246" x="768" y="58" class="small">reparse</text>
+          <rect data-hrv="247" x="848" y="32" width="140" height="44" rx="5" class="rule"></rect>
+          <text data-hrv="248" x="856" y="52" class="small">bases, markdowns,</text>
+          <text data-hrv="249" x="856" y="68" class="small">null for grown</text>
+          <text data-hrv="250" x="10" y="100" class="small warntext">orange: domain rules living in Tier I</text>
+          <text data-hrv="251" x="300" y="100" class="small muted">33 inSpan calls and 19 attribute sets woven through; parse+assignIds written three times</text>
+          <text data-hrv="252" x="10" y="150" class="bold">Proposed: domain/revision.mjs decides, server.mjs does I/O</text>
+          <rect data-hrv="253" x="10" y="164" width="200" height="110" rx="8" class="t1"></rect>
+          <text data-hrv="254" x="22" y="186" class="mono small bold">server.mjs</text>
+          <text data-hrv="255" x="22" y="206" class="small">inTurn: read file</text>
+          <text data-hrv="256" x="22" y="224" class="small">write if changed, notify tabs</text>
+          <text data-hrv="257" x="22" y="242" class="small">send the answer</text>
+          <text data-hrv="258" x="22" y="260" class="small muted">one span per I/O step</text>
+          <path data-hrv="259" d="M210 200 L300 200" class="arrow" marker-end="url(#a1)"></path>
+          <text data-hrv="260" x="220" y="192" class="small mono">revise(text, change)</text>
+          <path data-hrv="261" d="M300 240 L210 240" class="arrow" marker-end="url(#a1)"></path>
+          <text data-hrv="262" x="220" y="258" class="small mono">outcome</text>
+          <rect data-hrv="263" x="300" y="164" width="400" height="110" rx="8" class="t2"></rect>
+          <text data-hrv="264" x="312" y="186" class="mono small bold">domain/revision.mjs</text>
+          <text data-hrv="265" x="312" y="206" class="small">readRevision(text): parse, assignIds</text>
+          <text data-hrv="266" x="312" y="224" class="small">check(change): conflict, with why and current state</text>
+          <text data-hrv="267" x="312" y="242" class="small">apply(change): written text, ended turns, answer</text>
+          <text data-hrv="268" x="312" y="260" class="small muted">step(name, fn) passed in, so spans stay fine-grained</text>
+          <rect data-hrv="269" x="730" y="164" width="258" height="110" rx="8" class="box"></rect>
+          <text data-hrv="270" x="742" y="186" class="small bold">Outcome</text>
+          <text data-hrv="271" x="742" y="206" class="small mono">{conflict: why, …now}</text>
+          <text data-hrv="272" x="742" y="224" class="small mono">{written, ended, answer}</text>
+          <text data-hrv="273" x="742" y="248" class="small muted">testable without HTTP</text>
+          <text data-hrv="274" x="742" y="264" class="small muted">reply takes the same shape</text>
+        </svg>
+        <ul data-hrv="275" class="tight">
+          <li data-hrv="276">
+            Tests of conflict rules move from acceptance (HTTP, temp files) to plain function calls. Faster, and closer to the rule.
+          </li>
+          <li data-hrv="277">
+            Telemetry: the step port is in place. <code>tabStateOf</code> in <code>domain/served-page.mjs</code> takes <code>step(name, fn)</code>, and <code>server.mjs</code> passes the adapter from <code>interface/telemetry.mjs</code>; CLAUDE.md and README document the pattern. <code>revision.mjs</code> takes the same port, and the spans OBSERVABILITY.html queries stay.
+          </li>
+          <li data-hrv="278">
+            Makes <em>Rethink who edits the live file</em> cheaper: whatever the answer, it needs the rules in one place.
+          </li>
+        </ul>
+      </div>
+      <div data-hrv="279" class="rec" id="r2">
+        <h3 data-hrv="280">2 · Split <code>scopes.mjs</code> by idea</h3>
+        <p data-hrv="281">
+          806 lines, four ideas, and most open fidelity yaks land here: link pairing, tables, inline fallback, button text, blank lines. <code>identity.mjs</code> imports <code>canonicalHTML</code>, <code>isBlock</code>, and <code>hasAttrs</code> from it. That import is not circular: <code>scopes.mjs</code> imports only <code>canonical</code>, <code>likeness</code>, and markdown-it, and the architecture test checks for cycles. But it puts the module that "knows nothing of IDs" under the one that assigns them, for helpers that are about canonical form, not scopes. Two modules each define a <code>BLOCK</code> set, and the sets differ: canonical's means "laid out on its own line", scopes' means "a block you can pick".
+        </p>
+        <svg data-hrv="282" viewBox="0 0 1000 250" role="img" aria-label="scopes.mjs split">
+          <defs data-hrv="283">
+            <marker data-hrv="284" id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path data-hrv="285" d="M0,0 L10,5 L0,10 z" fill="#1a7f37"></path>
+            </marker>
+          </defs>
+          <text data-hrv="286" x="10" y="20" class="bold">scopes.mjs today, by line</text>
+          <rect data-hrv="287" x="10" y="32" width="110" height="180" rx="4" class="t2"></rect>
+          <text data-hrv="288" x="18" y="52" class="small bold">kinds, pick,</text>
+          <text data-hrv="289" x="18" y="68" class="small bold">size</text>
+          <text data-hrv="290" x="18" y="86" class="small muted">1–110</text>
+          <rect data-hrv="291" x="10" y="100" width="110" height="0" class="box"></rect>
+          <rect data-hrv="292" x="130" y="32" width="150" height="180" rx="4" class="t2"></rect>
+          <text data-hrv="293" x="138" y="52" class="small bold">HTML → markdown</text>
+          <text data-hrv="294" x="138" y="70" class="small muted">111–384</text>
+          <rect data-hrv="295" x="290" y="32" width="160" height="180" rx="4" class="t2"></rect>
+          <text data-hrv="296" x="298" y="52" class="small bold">markdown → HTML</text>
+          <text data-hrv="297" x="298" y="68" class="small">stand-ins, pairing,</text>
+          <text data-hrv="298" x="298" y="84" class="small">carry-over</text>
+          <text data-hrv="299" x="298" y="102" class="small muted">385–677, 768–806</text>
+          <rect data-hrv="300" x="460" y="32" width="70" height="180" rx="4" class="hot"></rect>
+          <text data-hrv="301" x="466" y="52" class="small bold">report</text>
+          <text data-hrv="302" x="466" y="70" class="small muted">678–767</text>
+          <text data-hrv="303" x="466" y="90" class="small">for SCOPES-</text>
+          <text data-hrv="304" x="466" y="106" class="small">DESIGN only</text>
+          <path data-hrv="305" d="M560 122 L620 122" class="goodarrow" marker-end="url(#a2)"></path>
+          <text data-hrv="306" x="640" y="20" class="bold">Proposed</text>
+          <rect data-hrv="307" x="640" y="32" width="160" height="38" rx="4" class="t2"></rect>
+          <text data-hrv="308" x="650" y="56" class="mono small">scopes.mjs · kinds, pick</text>
+          <rect data-hrv="309" x="640" y="78" width="160" height="38" rx="4" class="t2"></rect>
+          <text data-hrv="310" x="650" y="102" class="mono small">to-markdown.mjs</text>
+          <rect data-hrv="311" x="640" y="124" width="160" height="38" rx="4" class="t2"></rect>
+          <text data-hrv="312" x="650" y="148" class="mono small">from-markdown.mjs</text>
+          <rect data-hrv="313" x="640" y="170" width="160" height="38" rx="4" class="t2"></rect>
+          <text data-hrv="314" x="650" y="194" class="mono small">annotation.mjs ← report</text>
+          <rect data-hrv="315" x="820" y="32" width="168" height="84" rx="4" class="t2"></rect>
+          <text data-hrv="316" x="830" y="54" class="mono small">canonical.mjs gains</text>
+          <text data-hrv="317" x="830" y="72" class="small">canonicalHTML, rawHTML,</text>
+          <text data-hrv="318" x="830" y="90" class="small">hasAttrs; BLOCK renamed</text>
+          <text data-hrv="319" x="830" y="106" class="small">LAID_OUT_AS_BLOCK</text>
+          <text data-hrv="320" x="820" y="146" class="small goodtext">identity.mjs then needs</text>
+          <text data-hrv="321" x="820" y="162" class="small goodtext">only scopeElements</text>
+          <text data-hrv="322" x="820" y="178" class="small goodtext">and isBlock from scopes</text>
+        </svg>
+        <p data-hrv="323">
+          Mechanical, covered by the round-trip tests, and it lets two fidelity yaks run in parallel without colliding in one file. Done, on main: <code>scopes.mjs</code> (100 lines, kinds and picking), <code>to-markdown.mjs</code> (252), <code>from-markdown.mjs</code> (367), <code>scope-report.mjs</code> (77), and <code>canonical.mjs</code> took the canonical-form helpers. The two markdown halves need each other: the writer checks each piece by reading it back. So <code>to-markdown</code> imports <code>from-markdown</code>, and the shapes both use live in <code>from-markdown</code>. <code>scopeOf</code> went to the report module, since it calls the writer.
+        </p>
+      </div>
+      <div data-hrv="324" class="rec" id="r3">
+        <h3 data-hrv="325">3 · The client is an app: give it tiers and a protocol</h3>
+        <p data-hrv="326">
+          <code>client.js</code> is the largest file, 1,474 lines, and a whole little app: a view, a sync engine, a server conversation, its own telemetry. It has none of the layering the server has. Its hardest part has no shape: twenty top-level variables that together are a state machine for "what the file holds, what this tab typed, what's in flight, what came back". Every client test drives it through a linkedom tab with a faked focus model and a fast clock, and four CLAUDE.md gotchas are about that harness.
+        </p>
+        <p data-hrv="399">
+          Give it the same three tiers, under the same architecture test, and one protocol module that both sides import.
+        </p>
+        <svg data-hrv="327" viewBox="0 0 1000 230" role="img" aria-label="Client state grouped">
+          <rect data-hrv="328" x="10" y="20" width="230" height="190" rx="8" class="t2"></rect>
+          <text data-hrv="329" x="22" y="44" class="bold">Mirror of the file</text>
+          <text data-hrv="330" x="22" y="66" class="small mono">directives · threads · bases</text>
+          <text data-hrv="331" x="22" y="84" class="small mono">markdowns · committed</text>
+          <text data-hrv="332" x="22" y="102" class="small mono">savedDirectives · version</text>
+          <rect data-hrv="333" x="254" y="20" width="230" height="190" rx="8" class="hot"></rect>
+          <text data-hrv="334" x="266" y="44" class="bold">Save queue</text>
+          <text data-hrv="335" x="266" y="66" class="small mono">unsent · inFlight · saving</text>
+          <text data-hrv="336" x="266" y="84" class="small mono">saveTimer · edits · spills</text>
+          <text data-hrv="337" x="266" y="102" class="small mono">changedOnDisk</text>
+          <text data-hrv="338" x="266" y="130" class="small">merge on live notice:</text>
+          <text data-hrv="339" x="266" y="146" class="small mono">applyState · turnInBox</text>
+          <text data-hrv="340" x="266" y="162" class="small mono">pastSent · sendLeft</text>
+          <rect data-hrv="341" x="498" y="20" width="230" height="190" rx="8" class="browser"></rect>
+          <text data-hrv="342" x="510" y="44" class="bold">Box</text>
+          <text data-hrv="343" x="510" y="66" class="small mono">box · boxId · boxOpened</text>
+          <text data-hrv="344" x="510" y="84" class="small mono">boxSent · boxBehind</text>
+          <rect data-hrv="345" x="742" y="20" width="246" height="190" rx="8" class="browser"></rect>
+          <text data-hrv="346" x="754" y="44" class="bold">View</text>
+          <text data-hrv="347" x="754" y="66" class="small mono">markers · layer · crop marks</text>
+          <text data-hrv="348" x="754" y="84" class="small mono">docket · tip · positionAll</text>
+          <path data-hrv="349" d="M10 222 L484 222" class="goodarrow"></path>
+          <text data-hrv="350" x="10" y="216" class="small goodtext">one object, no DOM, tested in plain node with a fake fetch</text>
+          <path data-hrv="351" d="M498 222 L988 222" class="arrow"></path>
+          <text data-hrv="352" x="498" y="216" class="small muted">stays DOM code, subscribes to the sync object</text>
+        </svg>
+        <p data-hrv="400" class="sub">
+          The twenty variables today, grouped by what they mean. Above: what moves to the client's domain. Below: where each group lands.
+        </p>
+        <svg data-hrv="401" viewBox="0 0 1000 400" role="img" aria-label="Client in three tiers, with a protocol module shared with the server">
+          <defs data-hrv="402">
+            <marker data-hrv="403" id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path data-hrv="404" d="M0,0 L10,5 L0,10 z" fill="#646b78"></path>
+            </marker>
+          </defs>
+          <text data-hrv="405" x="10" y="20" class="bold">Browser: client/</text>
+          <rect data-hrv="406" x="10" y="32" width="600" height="70" rx="8" class="t1"></rect>
+          <text data-hrv="407" x="22" y="54" class="mono small bold">client/main.mjs · Tier I</text>
+          <text data-hrv="408" x="22" y="74" class="small">wires events: click → open box, type → domain, answer → view</text>
+          <text data-hrv="409" x="22" y="92" class="small muted">no state of its own</text>
+          <rect data-hrv="410" x="10" y="122" width="600" height="110" rx="8" class="t2"></rect>
+          <text data-hrv="411" x="22" y="144" class="mono small bold">client/domain/ · Tier II, no DOM, no fetch</text>
+          <text data-hrv="412" x="22" y="166" class="small"><tspan data-hrv="413" class="mono">sync.mjs</tspan>: mirror of the file, save queue, merge on live notice</text>
+          <text data-hrv="414" x="22" y="184" class="small"><tspan data-hrv="415" class="mono">box-session.mjs</tspan>: what the box opened with, sent, behind; Done</text>
+          <text data-hrv="416" x="22" y="202" class="small"><tspan data-hrv="417" class="mono">docket.mjs</tspan>: which directives, in what order, what's new</text>
+          <text data-hrv="418" x="22" y="222" class="small muted">tested in plain node, with a fake clock passed in</text>
+          <rect data-hrv="419" x="10" y="252" width="190" height="80" rx="8" class="t3"></rect>
+          <text data-hrv="420" x="22" y="274" class="mono small bold">view.mjs</text>
+          <text data-hrv="421" x="22" y="294" class="small">markers, crops, box,</text>
+          <text data-hrv="422" x="22" y="310" class="small">docket, positions</text>
+          <rect data-hrv="423" x="215" y="252" width="190" height="80" rx="8" class="t3"></rect>
+          <text data-hrv="424" x="227" y="274" class="mono small bold">server.mjs gateway</text>
+          <text data-hrv="425" x="227" y="294" class="small">PUT, POST Done,</text>
+          <text data-hrv="426" x="227" y="310" class="small">EventSource, state</text>
+          <rect data-hrv="427" x="420" y="252" width="190" height="80" rx="8" class="t3"></rect>
+          <text data-hrv="428" x="432" y="274" class="mono small bold">spans.mjs · storage.mjs</text>
+          <text data-hrv="429" x="432" y="294" class="small">browser telemetry,</text>
+          <text data-hrv="430" x="432" y="310" class="small">box size</text>
+          <text data-hrv="431" x="22" y="352" class="small muted">client/interface/ · Tier III</text>
+          <path data-hrv="432" d="M310 102 L310 122" class="arrow" marker-end="url(#a3)"></path>
+          <path data-hrv="433" d="M310 232 L310 252" class="arrow" marker-end="url(#a3)"></path>
+          <text data-hrv="434" x="660" y="20" class="bold">Shared kernel</text>
+          <rect data-hrv="435" x="660" y="122" width="328" height="110" rx="8" class="hot"></rect>
+          <text data-hrv="436" x="672" y="144" class="mono small bold">domain/protocol.mjs</text>
+          <text data-hrv="437" x="672" y="166" class="small">each body shape: PUT change, reply, Done,</text>
+          <text data-hrv="438" x="672" y="184" class="small">answer, change notice, state</text>
+          <text data-hrv="439" x="672" y="202" class="small">a validator and its error message beside each</text>
+          <text data-hrv="440" x="672" y="222" class="small muted">imports nothing, so it runs in both places</text>
+          <path data-hrv="441" d="M405 292 C 520 360, 760 340, 790 232" class="goodarrow" marker-end="url(#a3)"></path>
+          <rect data-hrv="442" x="660" y="282" width="328" height="70" rx="8" class="t2"></rect>
+          <text data-hrv="443" x="672" y="304" class="mono small bold">domain/revision.mjs (rec. 1)</text>
+          <text data-hrv="444" x="672" y="324" class="small">validates each change with protocol.mjs</text>
+          <path data-hrv="445" d="M824 282 L824 232" class="goodarrow" marker-end="url(#a3)"></path>
+          <text data-hrv="446" x="10" y="390" class="small muted">Arrows: imports, pointing down. The architecture test walks client/ with the same rules as the server.</text>
+        </svg>
+        <ul data-hrv="353" class="tight">
+          <li data-hrv="354">
+            No build step needed. Serve the client as ES modules from a dot path, <code>/.hrv/client/…</code>, the way <code>/.hrv/spans</code> takes the browser's spans, and load it with one <code>&lt;script type="module"&gt;</code>. Then the architecture test reads its imports like any other module's. The published pages on GitHub Pages carry no client, so nothing changes there.
+          </li>
+          <li data-hrv="447">
+            <code>domain/protocol.mjs</code> is the shared kernel in DDD terms: the one piece both contexts own, kept small and changed together. It's how recommendation 4 lands, and the server serves it to the browser under the same dot path.
+          </li>
+          <li data-hrv="355">
+            The client's domain is where the yaks <em>urgent: notify if the server is down</em>, <em>Live notice shows content edited on disk</em>, and <em>A half-typed save can drop a directive</em> land. They get cheaper to build and to test.
+          </li>
+          <li data-hrv="448">
+            Cost: <code>test/client.test.mjs</code> evaluates one inlined script today. Its tab has to load modules, or most of its tests move down to plain domain tests and the tab keeps a few end-to-end ones. The second is the better trade.
+          </li>
+          <li data-hrv="356">
+            Largest effort here. Worth a design pass in REPLY-DESIGN style first, and it goes after recommendation 1, which settles the server side of the protocol.
+          </li>
+        </ul>
+        <h3 data-hrv="449" id="r3-safety">Is there enough test coverage to do it safely?</h3>
+        <p data-hrv="450">
+          Yes, for the sync engine, the part that moves to <code>client/domain/</code>. The server side of every case is covered: 46 acceptance tests over real HTTP, 412s and spills included. The tab has 26 tests: 14 in <code>client.test.mjs</code> on threads, the docket, and focus, and 12 in <code>client-sync.test.mjs</code>, one or more for each sync row below.
+        </p>
+        <table data-hrv="451">
+          <thead>
+            <tr>
+              <th data-hrv="452">Tab behavior</th>
+              <th data-hrv="453">Tab tests</th>
+              <th data-hrv="454">Moves in the split</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-hrv="455">
+                Directive save, replies joining a thread, a turn refused for a reply
+              </td>
+              <td data-hrv="456"><span class="pill low">6</span></td>
+              <td data-hrv="457">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="458">Docket counts and stepping, review off, marker click</td>
+              <td data-hrv="459"><span class="pill low">3</span></td>
+              <td data-hrv="460">docket</td>
+            </tr>
+            <tr>
+              <td data-hrv="461">Focus back to the element after Done</td>
+              <td data-hrv="462"><span class="pill low">2</span></td>
+              <td data-hrv="463">view</td>
+            </tr>
+            <tr>
+              <td data-hrv="464">A typed <code>&lt;p&gt;</code> splits the scope; the spill</td>
+              <td data-hrv="465"><span class="pill low">1</span></td>
+              <td data-hrv="466">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="467">
+                Markdown save swaps in the answer's HTML, the box follows the holder ID
+              </td>
+              <td data-hrv="468"><span class="pill low">2</span></td>
+              <td data-hrv="469">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="470">412, element changed on disk: "not saved", the box keeps its text</td>
+              <td data-hrv="471"><span class="pill low">1</span></td>
+              <td data-hrv="472">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="473">Another element changed on disk: "the page changed"</td>
+              <td data-hrv="474"><span class="pill low">1</span></td>
+              <td data-hrv="475">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="476">Server down: "save failed", then recovers</td>
+              <td data-hrv="477"><span class="pill low">1</span></td>
+              <td data-hrv="478">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="479">A directive added or removed on disk shows without a reload</td>
+              <td data-hrv="480"><span class="pill low">2</span></td>
+              <td data-hrv="481">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="482">Revert, Clear and ⌥⌘⌫, a second box commits the first</td>
+              <td data-hrv="483"><span class="pill low">3</span></td>
+              <td data-hrv="484">box session</td>
+            </tr>
+            <tr>
+              <td data-hrv="485">Two tabs on one page</td>
+              <td data-hrv="486"><span class="pill low">2</span></td>
+              <td data-hrv="487">sync</td>
+            </tr>
+            <tr>
+              <td data-hrv="488">Crop marks, marker spots, box placement, dark mode; ⌘Z after Clear or Revert, the browser's undo</td>
+              <td data-hrv="489"><span class="pill med">manual</span></td>
+              <td data-hrv="490">view, unchanged</td>
+            </tr>
+          </tbody>
+        </table>
+        <p data-hrv="491">
+          The sync tests are characterization tests, in the tab harness both client test files share, <code>client-lib.mjs</code>. They pin what the client does today, and they're end-to-end, so they keep passing while the code moves under them. Once the domain exists, some of them move down to plain node tests. Layout and the browser's undo stay manual: linkedom has neither, and the view code moves least. One gap they pinned is a yak: a markdown save in another tab reads as "the page changed on disk" here, and that element refuses saves until a reload.
+        </p>
+        <h3 data-hrv="492" id="r3-brief">Brief for the agent who writes them</h3>
+        <ol data-hrv="493">
+          <li data-hrv="494">
+            Read CLAUDE.md's gotchas on the client test tab first: the fast clock, the faked focus, waiting on the tab's DOM, comparing elements with <code>assert.ok(a === b)</code>, <code>closeAllConnections</code>.
+          </li>
+          <li data-hrv="495">
+            One tab test per sync and box-session row in the table above. README's "Manual client checklist" says what each should do; name the checklist line in the test.
+          </li>
+          <li data-hrv="496">
+            Pin what happens now. Don't change <code>client.js</code> or <code>server.mjs</code>. A bug found gets a test pinning today's behavior, a comment naming the bug, and a yak tagged <code>@mountain:fidelity</code>.
+          </li>
+          <li data-hrv="497">
+            What the harness can't reach (layout, real focus): say so in the report, don't fake it.
+          </li>
+          <li data-hrv="498">
+            New file <code>test/client-sync.test.mjs</code>, with the harness pulled out of <code>client.test.mjs</code> into a lib, so the files run side by side. Time each file before and after; update TESTING.html if the bars change.
+          </li>
+          <li data-hrv="499">
+            Worktree, a commit per group of tests, rebase, full suite with <code>--test-reporter=tap</code>, fast-forward main, remove the worktree. Mark the yak done; don't push or <code>yx sync</code>.
+          </li>
+          <li data-hrv="500">
+            Report: rows covered and by which tests, bugs and their yaks, what couldn't be reached, suite time before and after, side effects outside the repo.
+          </li>
+        </ol>
+      </div>
+      <div data-hrv="357" class="rec" id="r4">
+        <h3 data-hrv="358">4 · One owner for the wire protocol</h3>
+        <p data-hrv="359">
+          The PUT, POST, and SSE shapes are written out three times: README's Design section (one bullet runs past 600 words), the comments over <code>putChange</code> and <code>postDone</code>, and the 400 error messages, which describe the shapes by hand. Each change to the protocol touches all three, plus <code>client.js</code>.
+        </p>
+        <ul data-hrv="360" class="tight">
+          <li data-hrv="361">
+            The shapes and their validators go in <code>domain/protocol.mjs</code>, each validator beside the shape it checks, with its error message. The server's <code>revision.mjs</code> (recommendation 1) and the client (recommendation 3) both import it.
+          </li>
+          <li data-hrv="362">
+            README keeps one short table of the shapes and links the module, the way it links SCOPES-DESIGN for scope rules. The Design section gets bullets a person can read in one breath.
+          </li>
+        </ul>
+      </div>
+      <div data-hrv="363" class="rec" id="r5">
+        <h3 data-hrv="364">5 · Small cleanups</h3>
+        <ul data-hrv="365" class="tight">
+          <li data-hrv="366">
+            <code>server.mjs</code> imports <code>formatFiles</code> from <code>formatter.mjs</code>, Tier I to Tier I. The rule allows it, but it makes one entry point a library of another. Fine as is; name it in the architecture test's comment so it reads as chosen.
+          </li>
+          <li data-hrv="367">
+            <code>parse(onDisk)</code> then <code>assignIds</code>, three times in <code>server.mjs</code>. Folds into <code>readRevision</code> with recommendation 1.
+          </li>
+          <li data-hrv="368">
+            The constants <code>STAND_IN</code>, <code>STOPS</code>, <code>FROM_MARKDOWN</code> sit at the end of <code>scopes.mjs</code>, after the code that uses them. They move with the split.
+          </li>
+          <li data-hrv="369">
+            Three fingerprints share the word "base" and its cousins: <em>version</em> (the file), <em>base</em> (an element), <em>thread base</em> (a thread). Clear in the code; worth one line in the context map so the tab and agent sides keep them apart.
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section data-hrv="370" id="leave">
+      <h2 data-hrv="371">Leave these alone</h2>
+      <ul data-hrv="372" class="tight">
+        <li data-hrv="373">
+          <code>oneAtATime</code>: twelve lines, and it makes the whole concurrency story true.
+        </li>
+        <li data-hrv="374">
+          The architecture test. Extend it when the split lands (a rule for "report code stays out of the core scope module", if it earns one), but don't loosen it.
+        </li>
+        <li data-hrv="375">
+          Files as the only truth, and the right to rewrite them. It's what keeps the tool small.
+        </li>
+        <li data-hrv="376">
+          The vendored bundles. They cost 700 KB of repo and buy running behind a proxy.
+        </li>
+      </ul>
+    </section>
+    <section data-hrv="377" id="order">
+      <h2 data-hrv="378">Suggested order</h2>
+      <svg data-hrv="379" viewBox="0 0 1000 110" role="img" aria-label="Suggested order">
+        <defs data-hrv="380">
+          <marker data-hrv="381" id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path data-hrv="382" d="M0,0 L10,5 L0,10 z" fill="#646b78"></path>
+          </marker>
+        </defs>
+        <rect data-hrv="383" x="10" y="20" width="200" height="60" rx="8" class="t2"></rect>
+        <text data-hrv="384" x="22" y="44" class="bold small">2 · split scopes.mjs</text>
+        <text data-hrv="385" x="22" y="62" class="small goodtext">done</text>
+        <path data-hrv="386" d="M210 50 L250 50" class="arrow" marker-end="url(#a5)"></path>
+        <rect data-hrv="387" x="250" y="20" width="230" height="60" rx="8" class="t1"></rect>
+        <text data-hrv="388" x="262" y="44" class="bold small">1 + 4 · revision + protocol</text>
+        <text data-hrv="389" x="262" y="62" class="small muted">rules and shapes move together</text>
+        <path data-hrv="390" d="M480 50 L520 50" class="arrow" marker-end="url(#a5)"></path>
+        <rect data-hrv="391" x="520" y="20" width="200" height="60" rx="8" class="box"></rect>
+        <text data-hrv="392" x="532" y="44" class="bold small">context map</text>
+        <text data-hrv="393" x="532" y="62" class="small muted">into OVERVIEW</text>
+        <path data-hrv="394" d="M720 50 L760 50" class="arrow" marker-end="url(#a5)"></path>
+        <rect data-hrv="395" x="760" y="20" width="228" height="60" rx="8" class="browser"></rect>
+        <text data-hrv="396" x="772" y="44" class="bold small">3 · client in tiers</text>
+        <text data-hrv="397" x="772" y="62" class="small muted">design pass first</text>
+      </svg>
+      <p data-hrv="398">5 rides along with whichever change touches the file.</p>
+    </section>
+  </body>
+</html>

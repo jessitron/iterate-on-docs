@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor: reply design</title>
+    <link rel="stylesheet" href="client.css">
+    <style>
+  :root { --ink: #222; --muted: #666; --line: #ddd; --page: #fafafa; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #aaa; --line: #444; --page: #1d1e21; } body { background: #141517; } }
+  body { margin: 0 auto; max-width: 900px; padding: 24px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 36px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .lede, .note { color: var(--muted); }
+  .note { font-size: 13px; margin: 6px 0 0; }
+  code { font: 13px ui-monospace, Menlo, monospace; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; vertical-align: top; }
+  .flow { width: 100%; height: auto; }
+  .flow text { font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink); }
+  .flow .lane { font-weight: 700; }
+  .flow .life { stroke: var(--line); stroke-width: 2; }
+  .flow .msg { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+  .flow .live { stroke: #d6336c; }
+  .flow .busy { fill: var(--page); stroke: var(--line); }
+  .flow .sub { font-size: 12px; fill: var(--muted); }
+  .road rect { fill: var(--page); stroke-width: 2; }
+  .road .built { stroke: #51cf66; }
+  .road .ready { stroke: #d6336c; }
+  .road .waits { stroke: var(--muted); stroke-dasharray: 5 4; }
+  .road .later { stroke: var(--line); stroke-dasharray: 5 4; }
+  .road .later + text, .road .later + text + text { fill: var(--muted); }
+  .stage { position: relative; background: var(--page); border: 1px solid var(--line); border-radius: 8px; padding: 24px; margin: 12px 0; }
+  .stage .hrv-layer { position: absolute; inset: 0; pointer-events: none; }
+  .stage .hrv-layer.rp-flow { position: static; }
+  .stage p, .stage h3 { margin: 0 0 12px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 300px; }
+  .grounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 8px 0 16px; }
+  .tile { position: relative; padding: 12px 12px 12px 34px; border-radius: 6px; font-size: 14px; }
+  .tile p { margin: 0 0 10px; }
+  .tile p:last-of-type { margin: 0; }
+  .vision { border-collapse: collapse; width: auto; margin: 12px 0; }
+  .vision th, .vision td { padding: 6px 12px; text-align: center; vertical-align: middle; font-weight: 400; font-size: 13px; }
+  .vision th:first-child { text-align: left; }
+  .vision .hrv-layer { display: inline-block; width: 20px; height: 20px; }
+  .vision :is(#hrv-layer, .hrv-layer) .hrv-marker { position: relative; }
+  .rp-protan .hrv-layer { filter: url(#rp-protan); }
+  .rp-deutan .hrv-layer { filter: url(#rp-deutan); }
+  .rp-tritan .hrv-layer { filter: url(#rp-tritan); }
+  .rp-grey .hrv-layer { filter: grayscale(1); }
+
+  /* Green is the agent's voice. Magenta stays yours: the icon, the directive, the main action. */
+  :root {
+    --rp-reply: #51cf66;
+    --rp-bubble: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M1 2h14v9h-3l1.5 3.5L8.5 11H1z'/></svg>");
+    --rp-dots: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='0' y='5.75' width='4.5' height='4.5'/><rect x='5.75' y='5.75' width='4.5' height='4.5'/><rect x='11.5' y='5.75' width='4.5' height='4.5'/></svg>");
+  }
+
+  /* Marker states. Waiting and answered are today's marker, no class. */
+  :is(#hrv-layer, .hrv-layer) .hrv-marker.rp-working::before { background: var(--rp-reply); -webkit-mask-image: var(--rp-dots); mask-image: var(--rp-dots); }
+  :is(#hrv-layer, .hrv-layer) .hrv-marker.rp-answered::before { background: var(--rp-reply); -webkit-mask-image: var(--rp-bubble); mask-image: var(--rp-bubble); }
+  /* The box's icon follows the marker while the agent works. */
+  :is(#hrv-layer, .hrv-layer) .hrv-icon.rp-icon-working { background: var(--rp-reply); -webkit-mask-image: var(--rp-dots); mask-image: var(--rp-dots); }
+  /* Alternatives for answered: a green pencil (color alone), or the pencil with a green square badge. */
+  :is(#hrv-layer, .hrv-layer) .hrv-marker.rp-green::before { background: var(--rp-reply); }
+  :is(#hrv-layer, .hrv-layer) .hrv-marker.rp-badge::after {
+    content: ""; position: absolute; display: block; top: -4px; right: -4px; width: 8px; height: 8px;
+    background: var(--rp-reply); box-shadow: 0 0 0 1px var(--hrv-surface), 0 0 0 2px var(--hrv-ring);
+  }
+  /* The tip on an answered marker: the reply, in prose type. */
+  :is(#hrv-layer, .hrv-layer) .hrv-tip.rp-tip-reply { font: var(--hrv-font); white-space: normal; border-left: 2px solid var(--rp-reply); }
+
+  /* The thread in the box: one turn per block, a rule at the left says whose. */
+  :is(#hrv-layer, .hrv-layer) .rp-thread { display: block; max-height: 240px; overflow: auto; }
+  :is(#hrv-layer, .hrv-layer) .rp-turn { display: block; padding: 4px 0 4px 8px; margin-top: 4px; border-left: 2px solid var(--hrv-accent); }
+  :is(#hrv-layer, .hrv-layer) .rp-turn:first-child { margin-top: 0; }
+  :is(#hrv-layer, .hrv-layer) .rp-turn.rp-agent { border-left-color: var(--rp-reply); }
+  :is(#hrv-layer, .hrv-layer) .rp-who { display: block; color: var(--hrv-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  :is(#hrv-layer, .hrv-layer) .rp-says { display: block; }
+  /* Directives in prose type; only Content is monospace. */
+  :is(#hrv-layer, .hrv-layer).rp-flow .hrv-box textarea.hrv-directive { font: var(--hrv-font); }
+  :is(#hrv-layer, .hrv-layer) .rp-old { color: var(--hrv-muted); text-decoration: line-through; }
+  :is(#hrv-layer, .hrv-layer) .rp-dots {
+    display: inline-block; width: 14px; height: 14px; vertical-align: -3px; margin-right: 4px; background: var(--rp-reply);
+    -webkit-mask: var(--rp-dots) center / contain no-repeat; mask: var(--rp-dots) center / contain no-repeat;
+  }
+
+  /* The docket: two rows, the reply count wears the bubble. */
+  :is(#hrv-layer, .hrv-layer) .rp-icon-reply {
+    display: inline-block; flex: none; width: 14px; height: 14px; vertical-align: -2px; background: var(--rp-reply);
+    -webkit-mask: var(--rp-bubble) center / contain no-repeat; mask: var(--rp-bubble) center / contain no-repeat;
+  }
+  :is(#hrv-layer, .hrv-layer) .hrv-docket-main > span { white-space: nowrap; }
+  :is(#hrv-layer, .hrv-layer) .hrv-docket.rp-stacked .hrv-docket-main { flex: 1 0 calc(100% - 56px); }
+  :is(#hrv-layer, .hrv-layer) .hrv-docket.rp-stacked .rp-row2 { border-top: 1px solid var(--hrv-line); }
+  :is(#hrv-layer, .hrv-layer) .hrv-docket.rp-arrived { box-shadow: 0 0 0 1px var(--rp-reply), 0 4px 16px rgba(0, 0, 0, 0.45); }
+  :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-off .rp-icon-reply { background: var(--hrv-muted); }
+</style>
+  </head>
+  <body>
+    <h1>html-revisor: reply design</h1>
+    <p class="lede">
+      The agent answers in the page. Each element carries its own small conversation, and many run at once while you keep reviewing.
+    </p>
+    <h2 id="status">Where it stands</h2>
+    <svg class="flow road" viewBox="0 0 900 340" role="img" aria-label="Build road for replies: ten pieces built, the iterate-on-docs side and the deploy waiting on Jess, five later">
+      <defs>
+        <marker id="road-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" fill="context-stroke"></path>
+        </marker>
+      </defs>
+      <text class="lane" x="10" y="26">built</text>
+      <text class="lane" x="240" y="26">built today</text>
+      <text class="lane" x="470" y="26">waits on you</text>
+      <text class="lane" x="700" y="26">later</text>
+      <rect class="built" x="10" y="44" width="190" height="46" rx="6"></rect>
+      <text x="20" y="63">✓ Reply format in the file</text>
+      <text class="sub" x="20" y="80">@Human after the last turn</text>
+      <rect class="built" x="10" y="102" width="190" height="46" rx="6"></rect>
+      <text x="20" y="121">✓ Thread in the box</text>
+      <text class="sub" x="20" y="138">You field, Resolve, bubble</text>
+      <rect class="built" x="10" y="160" width="190" height="46" rx="6"></rect>
+      <text x="20" y="179">✓ Server writes replies</text>
+      <text class="sub" x="20" y="196">reply.mjs, refused when stale</text>
+      <rect class="built" x="10" y="276" width="190" height="46" rx="6"></rect>
+      <text x="20" y="295">✓ Live notice</text>
+      <text class="sub" x="20" y="312">the tab hears every change</text>
+      <rect class="built" x="240" y="218" width="190" height="46" rx="6"></rect>
+      <text x="250" y="237">✓ Docket counts replies</text>
+      <text class="sub" x="250" y="254">a second row: new replies</text>
+      <rect class="built" x="10" y="218" width="190" height="46" rx="6"></rect>
+      <text x="20" y="237">✓ Announce Resolve</text>
+      <text class="sub" x="20" y="254">with the turns that ended</text>
+      <rect class="built" x="240" y="44" width="190" height="46" rx="6"></rect>
+      <text x="250" y="63">✓ Thread arrives live</text>
+      <text class="sub" x="250" y="80">in an open box, no duplicate</text>
+      <rect class="built" x="240" y="102" width="190" height="46" rx="6"></rect>
+      <text x="250" y="121">✓ New stays new</text>
+      <text class="sub" x="250" y="138">until you answer or Resolve</text>
+      <rect class="built" x="240" y="160" width="190" height="46" rx="6"></rect>
+      <text x="250" y="179">✓ Directive status</text>
+      <text class="sub" x="250" y="196">working: your turn is last</text>
+      <rect class="built" x="240" y="276" width="190" height="46" rx="6"></rect>
+      <text x="250" y="295">✓ Review off</text>
+      <text class="sub" x="250" y="312">hides the docket's arrows</text>
+      <rect class="ready" x="470" y="44" width="190" height="46" rx="6" stroke-width="3"></rect>
+      <text x="480" y="63">iterate-on-docs replies</text>
+      <text class="sub" x="480" y="80">written, on a branch</text>
+      <line class="msg" x1="565" y1="90" x2="565" y2="112" marker-end="url(#road-arrow)"></line>
+      <rect class="waits" x="470" y="116" width="190" height="46" rx="6"></rect>
+      <text x="480" y="135">Deploy and release</text>
+      <text class="sub" x="480" y="152">when you say so</text>
+      <rect class="later" x="700" y="44" width="190" height="46" rx="6"></rect>
+      <text x="710" y="63">Replies on edits</text>
+      <text class="sub" x="710" y="80">a yak of its own now</text>
+      <rect class="later" x="700" y="102" width="190" height="46" rx="6"></rect>
+      <text x="710" y="121">Modes</text>
+      <text class="sub" x="710" y="138">a page with no agent</text>
+      <rect class="later" x="700" y="160" width="190" height="46" rx="6"></rect>
+      <text x="710" y="179">Disk edits, live</text>
+      <text class="sub" x="710" y="196">content swaps in, no reload</text>
+      <rect class="later" x="700" y="218" width="190" height="46" rx="6"></rect>
+      <text x="710" y="237">Who edits the live file</text>
+      <text class="sub" x="710" y="254">agent and server, at once</text>
+      <rect class="later" x="700" y="276" width="190" height="46" rx="6"></rect>
+      <text x="710" y="295">Lighter reply loop</text>
+      <text class="sub" x="710" y="312">one commit per reply</text>
+    </svg>
+    <p class="note">
+      An agent replies today with <code>node reply.mjs &lt;page URL&gt; &lt;id&gt; &lt;thread&gt; &lt;text&gt;</code>, the id and thread from the Announcement. The reply arrives without a reload, in the marker and in an open box. The “built” column in <a href="#decided">Decided</a> marks each decision the code has.
+    </p>
+    <h2 id="for-jess">For you</h2>
+    <p class="note">
+      What's new since you looked. What you've seen goes; what's settled moves to Decided or to a yak.
+    </p>
+    <h3>Pick up here</h3>
+    <ol>
+      <li>
+        <strong>Everything in html-revisor is built and merged</strong> but the waits-on-you column of the road: the iterate-on-docs side, on its branch <code>replies-in-the-page</code>, and the deploy and release that carry both. You said that comes after the yaks are done.
+      </li>
+      <li>
+        <strong>Open yaks under “Replies”:</strong> the Contract carry, iterate-on-docs watching Announcements, and lightening the skill's reply loop. Beside them: rethink who edits the live file, modes, disk edits live, replies on edits.
+      </li>
+      <li>
+        <strong>To start the loop again:</strong> <code>./run REPLY-DESIGN.html</code>, with its output to a log the agent watches, so each Done reaches it as you make it. A watch lasts 30 minutes; say anything to restart one.
+      </li>
+      <li>
+        <strong>Main moved while we talked:</strong> the away run of 2026-10-24 merged links as markdown, stand-ins paired by their surroundings, focus back to the picked element when the box closes, and the <code>&gt;</code> fix. Its commit messages hold the details.
+      </li>
+    </ol>
+    <h3>Answered</h3>
+    <p class="note">Your last questions, settled. Read and drop.</p>
+    <ul>
+      <li>
+        <strong>Clear:</strong> the agent hears nothing on Clear itself. A Done after a Clear shows the directive going empty; a Done after Resolve adds <code>resolved</code>, the turns that ended.
+      </li>
+      <li>
+        <strong>“This directive changed on disk; close the box to see it”</strong> stays, for another tab or the agent writing the file. Its sibling, “a reply came in here”, went: the reply joins the open box now.
+      </li>
+      <li>
+        <strong>Commits and formatting in the reply loop:</strong> too much work for the agent, and a directive written by hand can't happen. Both are in “Lighten the skill's reply loop”; the agent writing around the server is in “Rethink who edits the live file”. Until then the agent formats.
+      </li>
+    </ul>
+    <h3>My guesses, to confirm</h3>
+    <p class="note">From the client work. Each is built; say if one is wrong.</p>
+    <ol>
+      <li>
+        <strong>A directive you've sent can't be edited in place,</strong> only added to or resolved. Once the box closes, the field opens empty; what you type is a new turn. That follows “the directive stays as you wrote it.”
+      </li>
+      <li>
+        <strong>A turn you add joins your open turn in the file,</strong> one <code>@AI</code> comment with a newline between, not a second comment. It needed no server change.
+      </li>
+      <li>
+        <strong>When a reply lands in your open box,</strong> what you'd saved moves up into the thread, above the reply, and the field keeps only what you typed after. If you'd rewritten the field rather than added to it, the whole text goes as a new turn after the reply.
+      </li>
+      <li>
+        <strong>The guard against a duplicate turn is a count of replies the tab has seen,</strong> sent with each directive save. Resolve doesn't carry it.
+      </li>
+      <li>
+        <strong>Clicking the replies row's count toggles review mode,</strong> as the directives row does.
+      </li>
+      <li>
+        <strong>A <code>&gt;</code> you type stays a <code>&gt;</code> now.</strong> Your turn-4 directive came back as <code>&amp;gt;</code>; on today's code I typed one in Chrome and it held, in the file, the Announcement, and the box. I closed the yak as not reproducible. A <code>--</code> still shows as <code>- -</code>: that's the comment's escape.
+      </li>
+      <li>
+        <strong>The Contract's Vocabulary and Browser behavior rows changed</strong> with the new words (new reply, working, the replies row). They go to iterate-on-docs with the deploy, on the same branch.
+      </li>
+    </ol>
+    <h2 id="flow">Flow</h2>
+    <p>
+      One directive, start to answer. The Announcement on stdout already exists; the rest is new. Magenta arrows are the server pushing to the tab.
+    </p>
+    <svg class="flow" viewBox="0 0 880 660" role="img" aria-label="Sequence: Jess, the server, the file, and the agent trading a directive and its reply">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" fill="context-stroke"></path>
+        </marker>
+      </defs>
+      <text class="lane" x="90" y="30" text-anchor="middle">Jess, in the browser</text>
+      <text class="lane" x="340" y="30" text-anchor="middle">server</text>
+      <text class="lane" x="560" y="30" text-anchor="middle">HTML file</text>
+      <text class="lane" x="790" y="30" text-anchor="middle">agent</text>
+      <line class="life" x1="90" y1="45" x2="90" y2="640"></line>
+      <line class="life" x1="340" y1="45" x2="340" y2="640"></line>
+      <line class="life" x1="560" y1="45" x2="560" y2="640"></line>
+      <line class="life" x1="790" y1="45" x2="790" y2="640"></line>
+      <line class="msg" x1="90" y1="80" x2="336" y2="80" marker-end="url(#arrow)"></line>
+      <text x="215" y="72" text-anchor="middle">types a directive (saves as she types)</text>
+      <line class="msg" x1="340" y1="115" x2="556" y2="115" marker-end="url(#arrow)"></line>
+      <text x="450" y="107" text-anchor="middle">writes the directive</text>
+      <line class="msg" x1="90" y1="155" x2="336" y2="155" marker-end="url(#arrow)"></line>
+      <text x="215" y="147" text-anchor="middle">Done</text>
+      <line class="msg" x1="340" y1="190" x2="786" y2="190" marker-end="url(#arrow)"></line>
+      <text x="565" y="182" text-anchor="middle">Announcement, one JSON line on stdout</text>
+      <rect class="busy" x="20" y="330" width="140" height="80" rx="6"></rect>
+      <text x="90" y="365" text-anchor="middle">keeps reviewing,</text>
+      <text x="90" y="383" text-anchor="middle">more directives</text>
+      <rect class="busy" x="720" y="330" width="140" height="80" rx="6"></rect>
+      <text x="790" y="365" text-anchor="middle">reads, researches,</text>
+      <text x="790" y="383" text-anchor="middle">edits elsewhere</text>
+      <line class="msg" x1="790" y1="445" x2="344" y2="445" marker-end="url(#arrow)"></line>
+      <text x="565" y="437" text-anchor="middle">reply (stale if you added a turn: read it, reply again)</text>
+      <line class="msg" x1="340" y1="480" x2="556" y2="480" marker-end="url(#arrow)"></line>
+      <text x="450" y="472" text-anchor="middle">writes the reply</text>
+      <rect class="busy" x="720" y="490" width="140" height="30" rx="6"></rect>
+      <text x="790" y="510" text-anchor="middle">commits the file</text>
+      <line class="msg live" x1="340" y1="515" x2="94" y2="515" marker-end="url(#arrow)"></line>
+      <text x="215" y="507" text-anchor="middle">marker shows the bubble; box shows the thread</text>
+      <line class="msg" x1="90" y1="565" x2="336" y2="565" marker-end="url(#arrow)"></line>
+      <text x="215" y="557" text-anchor="middle">answers in the box: marker back to the pencil</text>
+      <text x="215" y="600" text-anchor="middle">and around again, until she resolves it</text>
+      <text x="215" y="620" text-anchor="middle" fill="var(--muted)">one thread per element</text>
+    </svg>
+    <h2 id="box">Directive box with a thread</h2>
+    <p class="note">
+      Until the agent replies, the box is today's: Content, Directive, Done. Once it replies, the directive becomes the first turn in the thread, and the field below the thread takes your answer. You read top to bottom and type at the bottom. A rule at the left of each turn says whose it is, magenta yours and green the agent's, and the words “you” and “agent” say it too. Content is monospace; directives, turns, and replies are prose. The thread grows to 240px, then scrolls, and opens scrolled to the end.
+    </p>
+    <div class="row">
+      <div>
+        <div class="stage">
+          <p data-mark="selected">Where it's headed</p>
+          <div class="hrv-layer rp-flow">
+            <div class="hrv-box" data-side="below" style="position: relative; margin-top: 16px; --hrv-notch: 60px;">
+              <div class="hrv-head">
+                <span class="hrv-icon"></span> <span class="hrv-what">p · Where it's headed</span>
+              </div>
+              <div class="rp-thread">
+                <div class="rp-turn rp-you">
+                  <span class="rp-who">you</span> <span class="rp-says">Add a diagram of the PUT flow here</span>
+                </div>
+                <div class="rp-turn rp-agent">
+                  <span class="rp-who">agent</span> <span class="rp-says">Added a sequence diagram below this paragraph. I left out the retry path: it doubled the size. Want it as a second diagram?</span>
+                </div>
+                <div class="rp-turn rp-you">
+                  <span class="rp-who">you</span> <span class="rp-says">Yes, a second one</span>
+                </div>
+                <div class="rp-turn rp-agent">
+                  <span class="rp-who">agent</span> <span class="rp-says">Done. It sits under the first, captioned “When a save is stale.”</span>
+                </div>
+              </div>
+              <div class="hrv-label">
+                You <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Empty the turn you haven't sent">Clear</button>
+              </div>
+              <textarea class="hrv-directive" placeholder="Add to the thread">Swap their order</textarea>
+              <div class="hrv-row">
+                <div class="hrv-hint hrv-status">saved</div>
+                <button type="button" class="hrv-btn" title="End the thread: remove the directive and its replies">Resolve</button> <button type="button" class="hrv-btn hrv-done">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <strong>Answered.</strong> Two rounds; you're typing a third turn. Done sends it, the same as today. Clear empties the turn you're typing. Resolve, beside Done, ends the thread: it removes the directive and its replies. The thread needs no label: the turns say whose they are.
+        </p>
+      </div>
+    </div>
+    <p class="note">
+      Once the agent has a directive, the directive stays as you wrote it, and you add a turn instead. That keeps it from changing under the agent. A turn you add while the agent works will give it a stale notification, and then it can notice what you said and post its update again.
+    </p>
+    <h2 id="marker">Marker</h2>
+    <p class="note">
+      The tile stays: near-black, light ring, square. The glyph on it changes with the state, and nothing moves. The cycle ends where it began, so the magenta pencil stays the usual sight.
+    </p>
+    <ul class="note">
+      <li><strong>Waiting:</strong> today's magenta pencil. Your directive, no reply yet.</li>
+      <li>
+        <strong>New reply:</strong> a green speech bubble. The agent spoke last, so it's your turn. Opening the box doesn't change it; adding a turn or Resolve does.
+      </li>
+      <li>
+        <strong>Answered:</strong> back to the magenta pencil, waiting on the agent again.
+      </li>
+    </ul>
+    <p class="note">
+      The grounds and the color-blind check draw <a href="#working">working</a> too, a state for later, so every glyph is tested together.
+    </p>
+    <div class="grounds">
+      <div>
+        <div class="tile" style="background: #fff; color: #222;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">white</p>
+      </div>
+      <div>
+        <div class="tile" style="background: #18191c; color: #fff;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">near-black</p>
+      </div>
+      <div>
+        <div class="tile" style="background: #d6336c; color: #fff;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">our pink</p>
+      </div>
+      <div>
+        <div class="tile" style="background: #51cf66; color: #111;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">our green</p>
+      </div>
+      <div>
+        <div class="tile" style="background: repeating-linear-gradient(45deg, #d6336c 0 8px, #12b886 8px 16px); color: #fff;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">stripes</p>
+      </div>
+      <div>
+        <div class="tile" style="background: url(design/cat-on-table.png) center / cover; color: #fff; text-shadow: 0 1px 2px #000;">
+          <p>Waiting</p>
+          <p>Working</p>
+          <p>New reply</p>
+          <div class="hrv-layer">
+            <div class="hrv-marker" style="left: 14px; top: 12px;"></div>
+            <div class="hrv-marker rp-working" style="left: 14px; top: 43px;"></div>
+            <div class="hrv-marker rp-answered" style="left: 14px; top: 74px;"></div>
+          </div>
+        </div>
+        <p class="note">cat behind text</p>
+      </div>
+    </div>
+    <p class="note">
+      <strong>What it shows.</strong> The tile carries the marker on every ground, as it does today, so the green needs no halo of its own. On the near-black tile the green has 8.8:1 contrast; the magenta has 3.8:1.
+    </p>
+    <h3>Color-blind check</h3>
+    <p class="note">
+      Each row draws the markers through a simulation (Machado 2009, full severity, as SVG color matrices). The two columns at the right are answered markers we didn't pick.
+    </p>
+    <svg width="0" height="0" style="position: absolute;" aria-hidden="true">
+      <filter id="rp-protan">
+        <fecolormatrix type="matrix" values="0.152286 1.052583 -0.204868 0 0 0.114503 0.786281 0.099216 0 0 -0.003882 -0.048116 1.051998 0 0 0 0 0 1 0"></fecolormatrix>
+      </filter>
+      <filter id="rp-deutan">
+        <fecolormatrix type="matrix" values="0.367322 0.860646 -0.227968 0 0 0.280085 0.672501 0.047413 0 0 -0.011820 0.042940 0.968881 0 0 0 0 0 1 0"></fecolormatrix>
+      </filter>
+      <filter id="rp-tritan">
+        <fecolormatrix type="matrix" values="1.255528 -0.076749 -0.178779 0 0 -0.078411 0.930809 0.147602 0 0 0.004733 0.691367 0.303900 0 0 0 0 0 1 0"></fecolormatrix>
+      </filter>
+    </svg>
+    <table class="vision">
+      <thead>
+        <tr>
+          <th></th>
+          <th>waiting</th>
+          <th>working</th>
+          <th>new reply</th>
+          <th>not picked: green pencil</th>
+          <th>not picked: pencil + badge</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>typical</th>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-working"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-answered"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-green"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-badge"></div>
+            </div>
+          </td>
+        </tr>
+        <tr class="rp-protan">
+          <th>protanopia</th>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-working"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-answered"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-green"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-badge"></div>
+            </div>
+          </td>
+        </tr>
+        <tr class="rp-deutan">
+          <th>deuteranopia</th>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-working"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-answered"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-green"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-badge"></div>
+            </div>
+          </td>
+        </tr>
+        <tr class="rp-tritan">
+          <th>tritanopia</th>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-working"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-answered"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-green"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-badge"></div>
+            </div>
+          </td>
+        </tr>
+        <tr class="rp-grey">
+          <th>greyscale</th>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-working"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-answered"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-green"></div>
+            </div>
+          </td>
+          <td>
+            <div class="hrv-layer">
+              <div class="hrv-marker rp-badge"></div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">
+      <strong>What it shows.</strong> Green alone fails. Under deuteranopia, the most common kind, the magenta turns khaki (<code>#878168</code>) and the green turns a lighter khaki (<code>#c2b36e</code>): the two pencils differ in lightness alone, and a 14px glyph beside busy page text doesn't hold that difference at a glance. So the shape carries the state and the color backs it up. This green, <code>#51cf66</code>, kept the most distance from the magenta of five greens under protanopia and deuteranopia, and it is lighter than the magenta, which helps in greyscale. The bubble changes the whole glyph, so it reads at 14px in any vision; the badge's 8px square gets lost beside a neighbor marker.
+    </p>
+    <div class="row">
+      <div>
+        <div class="stage" style="height: 110px;">
+          <div style="margin: 44px 0 0 28px;">
+            <p data-mark="hover">Where it's headed</p>
+          </div>
+          <div class="hrv-layer">
+            <div class="hrv-marker rp-answered" style="left: 30px; top: 68px;"></div>
+            <div class="hrv-tip rp-tip-reply" style="left: 30px; top: 14px;">
+              Added a sequence diagram below this paragraph. I left out…
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="note">
+          <strong>Hover.</strong> The tip shows whatever was said last in the thread. On a new reply that's the reply, in prose type with the green rule.
+        </p>
+      </div>
+    </div>
+    <h2 id="docket">Docket</h2>
+    <p class="note">
+      Two rows. The top row counts directives: every open thread. The bottom row counts new replies: threads where the agent spoke last. Adding a turn takes one off the bottom row, and its thread stays in the top one; Resolve takes it off both. Opening the box changes nothing. ⌥↑ and ⌥↓ step through directives, as today. The replies row has its own arrows. Stepping to a reply works as stepping to a directive: the element scrolls to the middle, shows its crop marks, and its marker shows its tip.
+    </p>
+    <div class="row">
+      <div>
+        <div class="stage" style="height: 100px;">
+          <div class="hrv-layer">
+            <div class="hrv-docket rp-stacked" style="position: absolute; right: auto; left: 24px; bottom: auto; top: 24px; width: 200px;">
+              <div class="hrv-docket-msg"></div>
+              <div class="hrv-docket-main" title="Review mode: click to hide the marks and read the page">
+                <span class="hrv-icon"></span><span>5 directives</span>
+              </div>
+              <div class="hrv-step" title="Previous directive (⌥↑)">↑</div>
+              <div class="hrv-step" title="Next directive (⌥↓)">↓</div>
+              <div class="hrv-docket-main rp-row2">
+                <span class="rp-icon-reply"></span><span>2 new replies</span>
+              </div>
+              <div class="hrv-step rp-row2" title="Previous new reply">↑</div>
+              <div class="hrv-step rp-row2" title="Next new reply">↓</div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <strong>Two new replies.</strong> Five open threads; in two, the agent spoke last.
+        </p>
+      </div>
+      <div>
+        <div class="stage" style="height: 100px;">
+          <div class="hrv-layer">
+            <div class="hrv-docket rp-stacked rp-arrived" style="position: absolute; right: auto; left: 24px; bottom: auto; top: 24px; width: 200px;">
+              <div class="hrv-docket-msg"></div>
+              <div class="hrv-docket-main">
+                <span class="hrv-icon"></span><span>5 directives</span>
+              </div>
+              <div class="hrv-step">↑</div>
+              <div class="hrv-step">↓</div>
+              <div class="hrv-docket-main rp-row2">
+                <span class="rp-icon-reply"></span><span>3 new replies</span>
+              </div>
+              <div class="hrv-step rp-row2">↑</div>
+              <div class="hrv-step rp-row2">↓</div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <strong>A reply just came.</strong> The docket takes a green ring for 2 s, the way an error takes a red one, since the element may be off screen.
+        </p>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="stage" style="height: 70px;">
+          <div class="hrv-layer">
+            <div class="hrv-docket" style="position: absolute; right: auto; left: 24px; bottom: auto; top: 24px;">
+              <div class="hrv-docket-msg"></div>
+              <div class="hrv-docket-main">
+                <span class="hrv-icon"></span><span>5 directives</span>
+              </div>
+              <div class="hrv-step">↑</div>
+              <div class="hrv-step">↓</div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <strong>No new replies.</strong> The bottom row hides, and the docket is today's.
+        </p>
+      </div>
+      <div>
+        <div class="stage" style="height: 100px;">
+          <div class="hrv-layer">
+            <div class="hrv-docket rp-stacked hrv-off" style="position: absolute; right: auto; left: 24px; bottom: auto; top: 24px; width: 260px;">
+              <div class="hrv-docket-msg"></div>
+              <div class="hrv-docket-main">
+                <span class="hrv-icon"></span><span>5 directives · review off</span>
+              </div>
+              <div class="hrv-docket-main rp-row2">
+                <span class="rp-icon-reply"></span><span>2 new replies</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <strong>Review off.</strong> Clicking the docket turns review mode off, so you read the page as its readers will: markers and crop marks hide, and a click goes to the page instead of opening a box. The docket stays, says “review off”, and its glyphs go grey. Its arrows hide, and ⌥↑ and ⌥↓ don't step: there are no marks to step to. Click it again to bring the marks back.
+        </p>
+      </div>
+    </div>
+    <h2 id="open">Open questions</h2>
+    <ul>
+      <li>
+        Do we need a checkbox for whether the user wants a reply in this thread? ... probably but that's for later, after we try this.
+      </li>
+    </ul>
+    <h2 id="later">Out of scope for now</h2>
+    <ul class="note">
+      <li>
+        <strong><a href="#working">Working.</a></strong> The agent says it has a directive before it replies. Designed below.
+      </li>
+      <li>
+        <strong><a href="#edits">Replies on edits.</a></strong> You change Content and leave no directive; the agent answers the edit. Sketched below.
+      </li>
+      <li>
+        <strong>Links from a reply to other elements.</strong> Linking within a document may help later.
+      </li>
+      <li>
+        <strong>Buttons for yes and no.</strong> A complication; the field takes any answer.
+      </li>
+    </ul>
+    <h3 id="edits">Replies on edits</h3>
+    <div class="row">
+      <div>
+        <div class="stage">
+          <h3 data-mark="selected">Scopes</h3>
+          <div class="hrv-layer rp-flow">
+            <div class="hrv-box" data-side="below" style="position: relative; margin-top: 16px; --hrv-notch: 40px;">
+              <div class="hrv-head">
+                <span class="hrv-icon"></span> <span class="hrv-what">h3 · Scopes</span>
+              </div>
+              <div class="hrv-label">
+                Content <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Put back the content from the last commit">Revert</button>
+              </div>
+              <textarea class="hrv-text">Scopes</textarea>
+              <div class="rp-thread">
+                <div class="rp-turn rp-you">
+                  <span class="rp-who">you edited</span> <span class="rp-says"><span class="rp-old">Prose chunks</span> Scopes</span>
+                </div>
+                <div class="rp-turn rp-agent">
+                  <span class="rp-who">agent</span> <span class="rp-says">I also changed 3 other places that used the old word.</span>
+                </div>
+              </div>
+              <div class="hrv-label">
+                You <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Empty the turn you haven't sent" hidden>Clear</button>
+              </div>
+              <textarea class="hrv-directive" placeholder="Add to the thread"></textarea>
+              <div class="hrv-row">
+                <div class="hrv-hint">⌘↵ or esc to close</div>
+                <button type="button" class="hrv-btn" title="End the thread: remove the directive and its replies">Resolve</button> <button type="button" class="hrv-btn hrv-done">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note">The agent tells you what it did.</p>
+      </div>
+      <div>
+        <div class="stage">
+          <h3 data-mark="selected">Scopes</h3>
+          <div class="hrv-layer rp-flow">
+            <div class="hrv-box" data-side="below" style="position: relative; margin-top: 16px; --hrv-notch: 40px;">
+              <div class="hrv-head">
+                <span class="hrv-icon"></span> <span class="hrv-what">h3 · Scopes</span>
+              </div>
+              <div class="hrv-label">
+                Content <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Put back the content from the last commit">Revert</button>
+              </div>
+              <textarea class="hrv-text">Scopes</textarea>
+              <div class="rp-thread">
+                <div class="rp-turn rp-you">
+                  <span class="rp-who">you edited</span> <span class="rp-says"><span class="rp-old">Prose chunks</span> Scopes</span>
+                </div>
+                <div class="rp-turn rp-agent">
+                  <span class="rp-who">agent</span> <span class="rp-says">OVERVIEW.html and DESIGN.html say “prose chunk” too. Want me to update the other documents to match?</span>
+                </div>
+              </div>
+              <div class="hrv-label">
+                You <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Empty the turn you haven't sent" hidden>Clear</button>
+              </div>
+              <textarea class="hrv-directive" placeholder="Add to the thread"></textarea>
+              <div class="hrv-row">
+                <div class="hrv-hint">⌘↵ or esc to close</div>
+                <button type="button" class="hrv-btn" title="End the thread: remove the directive and its replies">Resolve</button> <button type="button" class="hrv-btn hrv-done">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note">The agent asks.</p>
+      </div>
+    </div>
+    <h3 id="working">Working</h3>
+    <ul class="note">
+      <li>
+        Working is a fact of the file: your turn is the last one in the thread. An agent answers every page, so a turn of yours always means the agent has it. It shows as soon as you close the box, survives a reload, and the agent's reply ends it. No CLI call, and no state in the server or the tab. A page with no agent is a mode for later.
+      </li>
+      <li>
+        So the pencil is a directive you're still writing. Once you close the box it's working, until the reply.
+      </li>
+      <li>
+        The marker takes three green squares, still, between the pencil and the bubble. They're drawn in the <a href="#marker">marker</a> grounds and color-blind check.
+      </li>
+      <li>
+        The box's icon takes the squares too, and the agent's turn shows them in place of words.
+      </li>
+      <li>Hovering a working marker shows your last turn.</li>
+    </ul>
+    <div class="row">
+      <div>
+        <div class="stage">
+          <p data-mark="selected">Where it's headed</p>
+          <div class="hrv-layer rp-flow">
+            <div class="hrv-box" data-side="below" style="position: relative; margin-top: 16px; --hrv-notch: 60px;">
+              <div class="hrv-head">
+                <span class="hrv-icon rp-icon-working"></span> <span class="hrv-what">p · Where it's headed</span>
+              </div>
+              <div class="rp-thread">
+                <div class="rp-turn rp-you">
+                  <span class="rp-who">you</span> <span class="rp-says">Add a diagram of the PUT flow here</span>
+                </div>
+                <div class="rp-turn rp-agent">
+                  <span class="rp-who">agent</span> <span class="rp-says"><span class="rp-dots"></span>working</span>
+                </div>
+              </div>
+              <div class="hrv-label">
+                You <button type="button" class="hrv-btn hrv-quiet hrv-field-action" title="Empty the turn you haven't sent" hidden>Clear</button>
+              </div>
+              <textarea class="hrv-directive" placeholder="Add to the thread"></textarea>
+              <div class="hrv-row">
+                <div class="hrv-hint">⌘↵ or esc to close</div>
+                <button type="button" class="hrv-btn" title="End the thread: remove the directive and its replies">Resolve</button> <button type="button" class="hrv-btn hrv-done">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="note">
+          The field stays open while the agent works: what you add goes to the agent as your next turn, and makes the reply it's writing stale.
+        </p>
+      </div>
+    </div>
+    <h2 id="decided">Decided</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>question</th>
+          <th>answer</th>
+          <th>built</th>
+          <th>see</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Where do replies live?</td>
+          <td>
+            In the page's HTML file, as HTML comments beside the directive, outside the element's content hash. A reply goes after the last turn in the thread, and the whole thread sits where a directive does: a run of turns before an image or a pre is that element's, so its parent's thread goes last. Cleanup removes them.
+          </td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Who writes the live file?</td>
+          <td>
+            The server, and it should be the only process that does. The agent hands it replies and status through a CLI that calls the running server, so the server orders the agent's writes with the browser's saves.
+          </td>
+          <td>✓</td>
+          <td><a href="#flow">flow</a></td>
+        </tr>
+        <tr>
+          <td>Who commits?</td>
+          <td>
+            The agent, each time it adds a reply, in whatever way it commits. The server never commits. A commit may catch half an edit of yours; the next one picks up the rest. So every turn is in history before Resolve removes its thread.
+          </td>
+          <td>on a branch</td>
+          <td><a href="#flow">flow</a></td>
+        </tr>
+        <tr>
+          <td>What is a turn now?</td>
+          <td>
+            A point to diff from. The agent notes the commit at the last turn boundary, so a diff from it shows every edit and directive since. That's a backup: the agent already hears each one from the server's output.
+          </td>
+          <td>on a branch</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>What if the directive changes while the agent replies?</td>
+          <td>
+            The server refuses the agent's write as stale, the same way it refuses a browser save on an element that changed.
+          </td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>How does the tab learn of a reply?</td>
+          <td>
+            The server pushes each change it makes to the open tab. It also watches the file, for a write that goes around it.
+          </td>
+          <td>✓</td>
+          <td><a href="#flow">flow</a></td>
+        </tr>
+        <tr>
+          <td>Where does a reply show?</td>
+          <td>In the box, below the directive: a thread, one per element.</td>
+          <td>✓</td>
+          <td><a href="#box">box</a></td>
+        </tr>
+        <tr>
+          <td>How do you answer a reply?</td>
+          <td>Add a turn to the thread. The directive stays as you wrote it.</td>
+          <td>✓</td>
+          <td><a href="#box">box</a></td>
+        </tr>
+        <tr>
+          <td>Which type is monospace?</td>
+          <td>Content alone. Directives, your turns, and replies are prose.</td>
+          <td>✓</td>
+          <td><a href="#box">box</a></td>
+        </tr>
+        <tr>
+          <td>How do you know the agent has it?</td>
+          <td>
+            The marker says. Magenta pencil while you write; three green squares once you close the box, while your turn is last; a green bubble once the agent has spoken last. Opening the box changes nothing.
+          </td>
+          <td>✓</td>
+          <td><a href="#marker">marker</a></td>
+        </tr>
+        <tr>
+          <td>Does anything move?</td>
+          <td>No. Nothing blinks or pulses.</td>
+          <td>✓</td>
+          <td><a href="#marker">marker</a></td>
+        </tr>
+        <tr>
+          <td>Whose color is whose?</td>
+          <td>
+            Magenta is yours, green the agent's. The glyph's shape and the words “you” and “agent” say it too, so color is never the only cue. DESIGN.html's palette changes to match when this ships.
+          </td>
+          <td>✓</td>
+          <td><a href="#marker">marker</a></td>
+        </tr>
+        <tr>
+          <td>What does a hover show?</td>
+          <td>Whatever was said last in the thread.</td>
+          <td>✓</td>
+          <td><a href="#marker">marker</a></td>
+        </tr>
+        <tr>
+          <td>What does the docket count?</td>
+          <td>
+            Two rows. Directives: every open thread. New replies: threads where the agent spoke last. ⌥↑ and ⌥↓ step through directives.
+          </td>
+          <td>✓</td>
+          <td><a href="#docket">docket</a></td>
+        </tr>
+        <tr>
+          <td>How does a thread end?</td>
+          <td>
+            You end it, with Resolve beside Done. It removes the directive and its replies. Clear, on your field, empties the turn you haven't sent.
+          </td>
+          <td>✓</td>
+          <td><a href="#box">box</a></td>
+        </tr>
+        <tr>
+          <td>Does the agent end a thread?</td>
+          <td>No. When it has nothing more to say, it replies 👍.</td>
+          <td>on a branch</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>What if you add a turn while the agent works?</td>
+          <td>
+            The agent sees it the next time it reads the server's output. Its reply comes back stale; it reads your turn and replies again.
+          </td>
+          <td>✓</td>
+          <td><a href="#flow">flow</a></td>
+        </tr>
+        <tr>
+          <td>How does the file tell whose turn is whose?</td>
+          <td>
+            By the prefix, which names who the words are for. Your turns are <code>&lt;!-- @AI: … --&gt;</code>, as directives are today. The agent's replies are <code>&lt;!-- @Human: … --&gt;</code>. A thread is the run of them beside the element, in order.
+          </td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>What changes in the Contract?</td>
+          <td>
+            The <code>@Human</code> prefix, the CLI that writes a reply, and the words you see: reply, new replies, Resolve.
+          </td>
+          <td>README only</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>What can get a reply?</td>
+          <td>A directive. Replies on edits come later.</td>
+          <td>✓</td>
+          <td><a href="#later">later</a></td>
+        </tr>
+        <tr>
+          <td>How does the agent hear a Resolve?</td>
+          <td>
+            Through the box's Done: its Announcement carries <code>resolved</code>, the turns that ended. One box session is one Announcement.
+          </td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>How does the agent find the server?</td>
+          <td><code>reply.mjs</code> takes the page URL the server prints when it starts.</td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>When does the agent reply in the page?</td>
+          <td>
+            Whenever it can watch the server's output. Markdown, or an agent that can't watch, takes turns.
+          </td>
+          <td>on a branch</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+    <script>
+  // Crop marks, with the client's geometry, as DESIGN.html draws them.
+  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hrv-crop-gap'));
+  function drawCrops() {
+    for (const old of document.querySelectorAll('.hrv-layer .hrv-crop')) old.remove();
+    for (const el of document.querySelectorAll('[data-mark]')) {
+      const crop = document.createElement('div');
+      crop.className = el.dataset.mark === 'selected' ? 'hrv-crop hrv-selected' : 'hrv-crop';
+      el.closest('.tile, .stage').querySelector('.hrv-layer').appendChild(crop);
+      const r = el.getBoundingClientRect();
+      const p = crop.offsetParent;
+      const o = p.getBoundingClientRect();
+      crop.style.left = r.left - gap - o.left - p.clientLeft + 'px';
+      crop.style.top = r.top - gap - o.top - p.clientTop + 'px';
+      crop.style.width = r.width + 2 * gap + 'px';
+      crop.style.height = r.height + 2 * gap + 'px';
+    }
+  }
+  addEventListener('load', drawCrops);
+  addEventListener('resize', drawCrops);
+</script>
+  </body>
+</html>

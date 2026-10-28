@@ -1,8 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize } from '../domain/format.mjs';
-import { parse, serialize } from '../domain/canonical.mjs';
-import { scopeOf, scopesWithin, scopeMarkdown, scopeFromMarkdown, roundTrips, canonicalHTML, annotate, editable, EDIT_LIMIT, scopeElements } from '../domain/scopes.mjs';
+import { parse, serialize, canonicalHTML } from '../domain/canonical.mjs';
+import { editable, EDIT_LIMIT, scopeElements } from '../domain/scopes.mjs';
+import { scopeMarkdown } from '../domain/to-markdown.mjs';
+import { roundTrips } from '../domain/from-markdown.mjs';
+import { scopesWithin } from '../domain/scope-report.mjs';
+import { scopeFromMarkdown } from '../domain/markdown-edits.mjs';
 
 const body = (html) => parse(`<html><body>${html}</body></html>`).querySelector('body');
 const markdownOf = (html) => scopeMarkdown(body(html).firstElementChild);
@@ -75,19 +79,8 @@ test('svg text is a scope of its own', () => {
   assert.deepEqual(scopes.map((s) => s.markdown), ['Hi <tspan font-weight="700">there</tspan>']);
 });
 
-test('annotating twice gives the same page', () => {
-  const document = parse('<html><head></head><body><div class="ex"><p>a</p></div></body></html>');
-  annotate(document);
-  const once = serialize(document);
-  annotate(document);
-  assert.equal(serialize(document), once);
-  assert.match(once, /<table class="scope-report">[\s\S]*all markdown/);
-  assert.match(once, /<details class="scope-report">/);
-  assert.equal(scopeOf(document.querySelector('.ex')).children.length, 1);
-});
-
 // ---- Round-trip rules ------------------------------------------------
-// The property itself is in roundtrip.test.mjs; these are the rules, one example each.
+// The property itself is in the roundtrip-*.test.mjs files; these are the rules, one example each.
 
 const scopeIn = (html) => {
   const document = parse(normalize(`<html><body>${html}</body></html>`));
@@ -183,6 +176,7 @@ test('text bare beside blocks stays bare when saved unchanged; edited, it is a p
 test('a link bare beside blocks keeps its ID when its text is edited into a paragraph', () => {
   const { document, el } = scopeIn('<div class="bar"><a class="logo" href="/">home page</a><div class="z"></div></div>');
   const id = el.querySelector('a').getAttribute('data-hrv');
+  assert.equal(scopeMarkdown(el), '[home page](/)\n\n<div class="z"></div>');
   const saved = canonicalHTML(document, scopeFromMarkdown(el, scopeMarkdown(el).replace('home', 'yak')), { ids: true });
   assert.match(saved, new RegExp(`<p><a data-hrv="${id}" class="logo" href="/">yak page</a></p>`));
 });
@@ -203,6 +197,41 @@ test('a destination with a space or parenthesis goes in angle brackets; a title 
   const { markdown, same } = saved('<p><a href="a b(1).html" title="say &quot;hi&quot;">x</a></p>');
   assert.equal(markdown, '[x](<a b(1).html> "say \\"hi\\"")');
   assert.ok(same);
+});
+
+test('a link with a class or a target is a markdown link, and the save carries those back', () => {
+  const link = '<a href="#s" title="this" target="_blank" class="ref">the section</a>';
+  const { markdown, same } = saved(`<p>See ${link}.</p>`);
+  assert.equal(markdown, 'See [the section](#s "this").');
+  assert.ok(same);
+  const { document, el } = scopeIn(`<p>See ${link}.</p>`);
+  const back = canonicalHTML(document, scopeFromMarkdown(el, 'See [the whole section](#s).'));
+  assert.match(back, /<a href="#s" target="_blank" class="ref">the whole section<\/a>/);
+});
+
+test('a link picked alone edits as a markdown link and keeps its other attributes', () => {
+  const { markdown, same } = saved('<a class="logo" href="/" rel="home">home page</a>');
+  assert.equal(markdown, '[home page](/)');
+  assert.ok(same);
+});
+
+test('links pair with their originals: same href and text first, then same href, then same text', () => {
+  const { document, el } = scopeIn('<p><a class="one" href="/a">x</a> <a class="two" href="/a">y</a> <a class="three" href="/b">z</a></p>');
+  const back = canonicalHTML(document, scopeFromMarkdown(el, '[y](/a) [x](/a) [z](/c) [new](/d)'));
+  assert.match(back, /class="two" href="\/a">y<.*class="one" href="\/a">x<.*class="three" href="\/c">z<.*<a href="\/d">new</);
+});
+
+test('a link with a new href and text takes nothing from a link it did not come from', () => {
+  const { document, el } = scopeIn('<p><a class="old" href="/a">docs</a></p>');
+  const back = canonicalHTML(document, scopeFromMarkdown(el, '[home](/) and [docs](/a)'));
+  assert.match(back, /<a href="\/">home<\/a> and <a class="old" href="\/a">docs<\/a>/);
+});
+
+test('a link or image written as HTML keeps the attributes it says', () => {
+  const { document, el } = scopeIn('<p><a class="ref" href="/a">x</a> <img src="a.png" alt="A" width="9"></p>');
+  const back = canonicalHTML(document, scopeFromMarkdown(el, '<a href="/a">x</a> <img src="a.png" alt="A" width="20">'));
+  assert.match(back, /<p><a href="\/a">x<\/a> <img src="a.png" alt="A" width="20"><\/p>/);
+  assert.doesNotMatch(canonicalHTML(document, scopeFromMarkdown(el, '[x](/a) ![A](a.png)')), /hrv-md/);
 });
 
 // The IDs of a list's items after saving markdown over it, by their place in the prior list.
@@ -240,6 +269,24 @@ test('two images of one picture that swap places keep their own sizes', () => {
   const { document, el } = scopeIn('<p><img src="a.png" alt="big" width="90"> <img src="a.png" alt="small" width="9"></p>');
   const back = canonicalHTML(document, scopeFromMarkdown(el, '![small](a.png) ![big](a.png)'));
   assert.match(back, /alt="small" width="9">.*alt="big" width="90"/);
+});
+
+// Two cards alike but for their headings, each with two textareas.
+const card = (name) =>
+  `<div class="card"><h3>${name}</h3><p>Text</p><textarea class="text">${name} text</textarea><p>Directive</p><textarea class="directive">${name} directive</textarea></div>`;
+const cardMarkdown = (name) => `<div class="card">\n\n### ${name}\n\nText\n\n⟦textarea⟧\n\nDirective\n\n⟦textarea⟧\n\n</div>`;
+const textareas = (html) => [...html.matchAll(/<textarea class="(\w+)">([^<]*)<\/textarea>/g)].map((m) => `${m[1]}: ${m[2]}`);
+
+test('removing a block that holds stand-ins leaves the next block its own', () => {
+  const { document, el } = scopeIn(`<section>${card('Alpha')}${card('Beta')}</section>`);
+  const back = canonicalHTML(document, scopeFromMarkdown(el, cardMarkdown('Beta')));
+  assert.deepEqual(textareas(back), ['text: Beta text', 'directive: Beta directive']);
+});
+
+test('two blocks that swap places take their own stand-ins with them', () => {
+  const { document, el } = scopeIn(`<section>${card('Alpha')}${card('Beta')}</section>`);
+  const back = canonicalHTML(document, scopeFromMarkdown(el, `${cardMarkdown('Beta')}\n\n${cardMarkdown('Alpha')}`));
+  assert.deepEqual(textareas(back), ['text: Beta text', 'directive: Beta directive', 'text: Alpha text', 'directive: Alpha directive']);
 });
 
 test('deleting an inline icon leaves a diagram between blocks, not in a paragraph', () => {

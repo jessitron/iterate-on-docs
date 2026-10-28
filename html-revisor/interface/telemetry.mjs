@@ -12,16 +12,38 @@ import { trace, context, propagation, SpanKind, SpanStatusCode } from '../vendor
 export const tracer = trace.getTracer('html-revisor');
 export { trace };
 
+// A clock for span times, in epoch milliseconds with a fraction. The SDK starts a span at
+// Date.now(), a whole millisecond, so steps in one request would claim the same start. This
+// clock adds performance.now(), which has microseconds, to an anchor on the wall clock. The
+// monotonic clock stops while the machine sleeps, and the wall clock can step; when the two
+// part by more than slack milliseconds, the anchor moves to the wall clock again.
+export function makeClock({ wall = Date.now, mono = () => performance.now(), origin = performance.timeOrigin, slack = 2 } = {}) {
+  let anchor = origin;
+  return () => {
+    const m = mono(), w = wall();
+    if (Math.abs(anchor + m - w) > slack) anchor = w - m;
+    return anchor + m;
+  };
+}
+export const spanTime = makeClock();
+
+// Spans made here take their start, end, and event times from the clock. A span given a start
+// time stamps an end or event that has none with Date.now(), so each one needs a time too.
+function fail(span, err) {
+  span.recordException(err, spanTime());
+  span.setStatus({ code: SpanStatusCode.ERROR, message: String(err?.message ?? err) });
+}
+
 // The span for one HTTP request. It continues the trace in the request's traceparent header,
 // if any, and ends when the response closes, with its status code.
 export function requestSpan(req, res, fn) {
   const parent = propagation.extract(context.active(), req.headers);
   const attributes = { 'http.request.method': req.method, 'url.path': req.url.split(/[?#]/)[0] };
-  return tracer.startActiveSpan(req.method, { kind: SpanKind.SERVER, attributes }, parent, (span) => {
+  return tracer.startActiveSpan(req.method, { kind: SpanKind.SERVER, attributes, startTime: spanTime() }, parent, (span) => {
     res.on('close', () => {
       span.setAttribute('http.response.status_code', res.statusCode);
       if (res.statusCode >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
-      span.end();
+      span.end(spanTime());
     });
     return fn(span);
   });
@@ -103,29 +125,31 @@ export function recordBrowserSpans(list) {
   return kept;
 }
 
+// The adapter for the domain's step port (domain/served-page.mjs): each step is a span.
+export const step = (name, fn) => inSpan(name, {}, () => fn());
+
 // Run fn(span) inside a span. The span ends when fn returns, or when the promise it returns
 // settles; a throw marks the span as an error.
 export function inSpan(name, attributes, fn) {
-  return tracer.startActiveSpan(name, { attributes }, (span) => {
-    const fail = (err) => {
-      span.recordException(err);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: String(err?.message ?? err) });
-      span.end();
+  return tracer.startActiveSpan(name, { attributes, startTime: spanTime() }, (span) => {
+    const thrown = (err) => {
+      fail(span, err);
+      span.end(spanTime());
       throw err;
     };
     let out;
     try {
       out = fn(span);
     } catch (err) {
-      fail(err);
+      thrown(err);
     }
     if (typeof out?.then !== 'function') {
-      span.end();
+      span.end(spanTime());
       return out;
     }
     return out.then((value) => {
-      span.end();
+      span.end(spanTime());
       return value;
-    }, fail);
+    }, thrown);
   });
 }
