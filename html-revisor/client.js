@@ -38,6 +38,10 @@
     directives = directives || {};
   }
 
+  // Replies: an agent answers in the page, so a turn you send is its to work on. Off, you and the
+  // agent take turns, and the box edits the directive in place.
+  var replying = !!document.querySelector('#hrv-directives[data-replies]');
+
   var layer = document.createElement('div');
   layer.id = 'hrv-layer';
   document.body.appendChild(layer);
@@ -70,10 +74,10 @@
     return !!said && said.reply;
   }
 
-  // Working: your turn is the last one, and its box is closed, so the agent has it. Every page
-  // has an agent today. The file says it; the agent's reply ends it.
+  // Working: replies are on, your turn is the last one, and its box is closed, so the agent has
+  // it. The file says it; the agent's reply ends it.
   function isWorking(id) {
-    return hasText(id) && id !== boxId;
+    return replying && hasText(id) && id !== boxId;
   }
 
   // Your open turn as the file will hold it: the turn the box opened on, then what the field adds.
@@ -1260,8 +1264,8 @@
     var el = elementFor(id);
     if (!el) return;
     boxId = id;
-    boxSent = directives[id] || '';
-    boxOpened = { session: randomHex(8), directive: boxSent };
+    boxSent = replying ? directives[id] || '' : '';
+    boxOpened = { session: randomHex(8), directive: directives[id] || '' };
     if (isScope(id)) boxOpened.markdown = markdowns[id];
     box = document.createElement('div');
     box.className = 'hrv-box';
@@ -1310,10 +1314,12 @@
     // next turn. The turns before it stay as written. Until then, the field is the directive.
     // A reply that comes in while the box is open joins the thread here (showThread).
     // A turn of yours the box opens on was sent when its box closed: it shows in the thread, the
-    // agent's working on it, and the field adds a turn after it.
+    // agent's working on it, and the field adds a turn after it. With replies off, the field
+    // holds the directive.
     var thread = null;
     var ta = document.createElement('textarea');
     ta.className = 'hrv-directive';
+    ta.value = boxSent ? '' : directives[id] || '';
     ta.addEventListener('input', function () {
       fit(ta);
       schedulePosition();

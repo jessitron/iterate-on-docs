@@ -29,17 +29,21 @@ export function parseArgs(argv) {
     const [flag, inline] = argv[i].split(/=(.*)/s);
     if (flag === '--port') config.port = Number(inline ?? argv[++i]);
     else if (flag === '--author') config.author = inline ?? argv[++i];
+    else if (flag === '--replies' && inline === undefined) config.replies = true;
     else if (!flag.startsWith('--')) config.root = path.resolve(argv[i]);
     else throw new Error(`unknown option ${flag}`);
   }
   return config;
 }
 
+// replies: an agent answers in the page, through reply.mjs. Off, the agent and the user take
+// turns: the agent edits the file between them, the tab shows no agent working, and a reply is
+// refused.
 // telemetry: the server sends spans, so the page's client records its own and posts them here.
 // Closing the server ends every tab's event stream and stops watching files, so close() returns.
-export function createServer({ root, author, telemetry = false }) {
+export function createServer({ root, author, replies = false, telemetry = false }) {
   const inTurn = oneAtATime();
-  const config = { root: path.resolve(root), author, telemetry, inTurn, resolved: resolvedTurns(), live: liveNotices(inTurn) };
+  const config = { root: path.resolve(root), author, replies, telemetry, inTurn, resolved: resolvedTurns(), live: liveNotices(inTurn) };
   const server = http.createServer((req, res) => {
     // Spans from the browser get no span of their own: one per batch would be noise.
     if (req.url === SPANS_PATH) return receiveSpans(req, res).catch((err) => sendError(res, err));
@@ -197,7 +201,7 @@ async function route(req, res, config) {
 // that has a reply. Also the base of every element so the tab can send it back with a change,
 // the markdown of every scope for the box to edit, and each scope's markdown at the last
 // commit, for Revert.
-async function getPage(res, file, urlPath, { author, telemetry, inTurn, live }) {
+async function getPage(res, file, urlPath, { author, replies, telemetry, inTurn, live }) {
   const span = trace.getActiveSpan();
   const formatted = await inTurn(file, async () => {
     const onDisk = await inSpan('read file', {}, () => readText(file));
@@ -220,7 +224,7 @@ async function getPage(res, file, urlPath, { author, telemetry, inTurn, live }) 
   });
   const assets = await readClientAssets();
   const html = inSpan('serialize', {}, () => {
-    injectClient(document, { directives, threads, bases, markdowns, committed, telemetry }, fingerprint(formatted), assets);
+    injectClient(document, { directives, threads, bases, markdowns, committed, replies, telemetry }, fingerprint(formatted), assets);
     return document.toString();
   });
   span?.setAttributes({
@@ -272,6 +276,7 @@ async function getState(res, file, urlPath, { author, inTurn }) {
 async function putChange(req, res, file, urlPath, config) {
   const change = await readJson(req);
   if (change && 'reply' in change) {
+    if (!config.replies) throw new HttpError(409, 'replies are off: start the server with --replies');
     const { id, thread, reply } = change;
     if (typeof id !== 'string' || typeof thread !== 'string' || typeof reply !== 'string' || !reply.trim() || Object.keys(change).length !== 3) {
       throw new HttpError(400, 'a reply must look like {"id": "<id>", "thread": "<thread base>", "reply": "text"}, with text');

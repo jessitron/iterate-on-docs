@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start html-revisor. Usage: ./run [file or dir] [--port 7777] [--author @AI]
+# Start html-revisor. Usage: ./run [file or dir] [--port 7777] [--author @AI] [--replies]
 # Given a file, it formats it and prints its URL. Defaults to the directory you run this from.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"

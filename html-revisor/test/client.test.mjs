@@ -147,6 +147,30 @@ test('working: your turn is last and its box closed; the box shows the agent wor
     tab.close();
   }));
 
+test('replies off: a closed box shows no agent working, and reopened, the field holds the directive to edit in place', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'page.html');
+    tab.open('p');
+    tab.type('add a diagram');
+    tab.done();
+    await until(() => s.announcements().length === 1);
+    assert.ok(!tab.marker('p').classList.contains('hrv-working'), 'the pencil: nobody has it yet');
+    assert.equal(tab.marker('p').getAttribute('aria-label'), 'add a diagram');
+
+    tab.open('p');
+    assert.equal(tab.layer.querySelector('.hrv-box .hrv-thread'), null, 'no thread');
+    assert.equal(tab.label(), 'Directive');
+    assert.equal(tab.field().value, 'add a diagram');
+    assert.ok(!tab.button('Resolve'));
+    tab.type('add a table');
+    await until(() => s.read('page.html').includes('<!-- @AI: add a table -->'));
+    assert.ok(!s.read('page.html').includes('add a diagram'), 'edited in place, not a second turn');
+    tab.done();
+    await until(() => s.announcements().length === 2);
+    assert.deepEqual(s.announcements()[1].directive, { before: 'add a diagram', after: 'add a table' });
+    tab.close();
+  }, { replies: false }));
+
 test('the docket counts new replies in a second row, steps through them, and rings green when one comes', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');

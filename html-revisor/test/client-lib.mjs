@@ -15,11 +15,12 @@ const clientSource = fs.readFileSync(path.join(here, '..', 'client.js'), 'utf8')
 export const FAST = 10;   // how much faster the tab's timers run than a browser's
 
 // A server on a fresh copy of the fixtures, in this process. s.down = true makes the tab's
-// fetches fail as a browser's do when the server is stopped.
-export async function withServer(fn) {
+// fetches fail as a browser's do when the server is stopped. Replies are on unless
+// { replies: false }: most tests here are of the thread.
+export async function withServer(fn, { replies = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-client-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
-  const server = createServer({ root: dir, author: '@AI' });
+  const server = createServer({ root: dir, author: '@AI', replies });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const log = console.log;

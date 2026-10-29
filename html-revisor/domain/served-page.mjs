@@ -24,8 +24,9 @@ export function tabStateOf(document, author, step = justRun) {
 // directives: {id: text}, each element's open turn. threads: {id: [{prefix, text}]}, the settled
 // turns of each thread with a reply. bases: {id: base}, sent back with each change. markdowns:
 // {id: markdown}. committed: {id: markdown} at the last commit. css, js: the client assets.
+// replies: an agent answers in the page, so a turn sent is the agent's to work on.
 // telemetry: the client records spans for its saves.
-export function injectClient(document, { directives, threads = {}, bases, markdowns = {}, committed = {}, telemetry = false }, version, { css, js }) {
+export function injectClient(document, { directives, threads = {}, bases, markdowns = {}, committed = {}, replies = false, telemetry = false }, version, { css, js }) {
   const head = document.querySelector('head') ?? document.documentElement;
   const body = document.querySelector('body') ?? document.documentElement;
 
@@ -37,6 +38,7 @@ export function injectClient(document, { directives, threads = {}, bases, markdo
   data.setAttribute('type', 'application/json');
   data.setAttribute('id', 'hrv-directives');
   if (version) data.setAttribute('data-version', version);
+  if (replies) data.setAttribute('data-replies', '');
   if (telemetry) data.setAttribute('data-telemetry', '');
   data.textContent = JSON.stringify(directives).replace(/</g, '\\u003c');
   body.appendChild(data);

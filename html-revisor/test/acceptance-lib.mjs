@@ -20,8 +20,8 @@ export const serverFile = path.join(here, '..', 'server.mjs');
 export const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(OTEL_|HRV_TELEMETRY)/.test(k)));
 
 // Run fn with a live server whose root is a fresh copy of the fixtures. With no args the
-// server runs in this process, from createServer, and its console lines are the log. With
-// CLI args it runs as the CLI runs it: server.mjs in a child process, its stdout the log.
+// server runs in this process, from createServer with replies on, and its console lines are the
+// log. With CLI args it runs as the CLI runs it: server.mjs in a child process, its stdout the log.
 export async function withServer(fn, args) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
@@ -90,7 +90,7 @@ function inProcess(dir) {
   const { log, error } = console;
   console.log = (...a) => (run.stdout += format(...a) + '\n');
   console.error = (...a) => (run.stderr += format(...a) + '\n');
-  const server = createServer({ root: dir, author: '@AI' });
+  const server = createServer({ root: dir, author: '@AI', replies: true });
   run.started = new Promise((r) => server.listen(0, '127.0.0.1', () => r(`http://localhost:${server.address().port}/`)));
   run.stop = async () => {
     await new Promise((r) => server.close(r));

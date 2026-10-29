@@ -602,6 +602,23 @@ test('reply CLI: the agent replies through the running server, and hears when it
     assert.deepEqual(JSON.parse(stale.stdout), { ok: false, error: 'its thread changed since', directive: '', thread: JSON.parse(landed.stdout).thread });
   }));
 
+test('replies are off unless the server starts with --replies: the page says which, and a reply is refused', async () => {
+  await withServer(async (s) => {
+    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
+    const { document } = await s.page('page.html');
+    assert.ok(!document.querySelector('#hrv-directives').hasAttribute('data-replies'));
+    const before = s.read('page.html');
+    const refused = await runReply([s.base + 'page.html', id, announced.thread, 'Added one.']);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /409 replies are off: start the server with --replies/);
+    assert.equal(s.read('page.html'), before, 'nothing written');
+  }, []);
+  await withServer(async (s) => {
+    const { document } = await s.page('page.html');
+    assert.ok(document.querySelector('#hrv-directives').hasAttribute('data-replies'));
+  }, ['--replies']);
+});
+
 test('reply CLI: usage, and a server that is not there', async () => {
   for (const args of [[], ['http://localhost:1/x.html', '1', 'abc'], ['x.html', '1', 'abc', 'text'], ['http://localhost:1/x.html', '1', 'abc', 'text', 'more']]) {
     const { status, stderr } = await runReply(args);
