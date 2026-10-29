@@ -1,5 +1,8 @@
 // html-revisor reply: the agent answers a directive, through the running server.
 //
+// Alpha, not good enough to use: only when the user asks for replies by name, with the server
+// started with --replies. Otherwise take turns. README, "Reply", says what breaks.
+//
 //   node reply.mjs <page URL> <id> <thread> <text>
 //   <page URL> is the page as the server's startup line names it; <id> and <thread> come from
 //   the Announcement. The server writes <!-- @Human: text --> after the thread's last turn, in
