@@ -57,6 +57,6 @@ hands out IDs afresh, so two iterations on one page don't collide.
 
 ## Report bugs
 
-If the server crashes or the user complains about it, offer to file an issue at
-https://github.com/jessitron/html-revisor/issues. Include the commit named in
-`../../html-revisor/VENDORED.md`. Issues are public: leave the user's document out.
+If the server crashes or the user complains about it, tell the user the moment, the page shape
+that caused it, and the commit named in `../../html-revisor/VENDORED.md`. They carry it to
+html-revisor. Don't file a GitHub issue.
