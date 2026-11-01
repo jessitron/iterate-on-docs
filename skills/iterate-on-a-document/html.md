@@ -57,6 +57,11 @@ hands out IDs afresh, so two iterations on one page don't collide.
 
 ## Report bugs
 
-If the server crashes or the user complains about it, tell the user the moment, the page shape
-that caused it, and the commit named in `../../html-revisor/VENDORED.md`. They carry it to
-html-revisor. Don't file a GitHub issue.
+If the server crashes or the user complains about it, write down the moment, the page shape that
+caused it, and the commit named in `../../html-revisor/VENDORED.md`. Leave the user's document
+out.
+
+If `~/code/jessitron/html-revisor` exists, add that as a yak there, and file no GitHub issue:
+`(cd ~/code/jessitron/html-revisor && yx add "<what broke>" --context "<the report>")`.
+
+Otherwise, offer to file it at https://github.com/jessitron/html-revisor/issues.
