@@ -61,6 +61,13 @@
             </td>
           </tr>
           <tr>
+            <td>What can't you pick?</td>
+            <td>
+              An element an agent marks <code>data-no-revise</code>, and all inside it. Clicks there stay the page's. A parent scope's markdown still holds its text: it can't be picked, and it isn't protected. The rule is in the client; the element keeps its ID and its place in scopes.
+            </td>
+            <td></td>
+          </tr>
+          <tr>
             <td>How big a scope edits as markdown?</td>
             <td>
               Under 4 KB of HTML, not counting element IDs and directives. A bigger one, such as a page's body or a wrapper around a whole page, takes directives and has no Content field.

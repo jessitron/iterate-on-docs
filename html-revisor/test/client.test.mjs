@@ -229,6 +229,57 @@ test('review off: the docket hides its arrows, and ⌥↓ goes to the page', () 
     tab.close();
   }));
 
+const WIDGET = `<html><head><title>t</title></head><body>
+  <p>Words.</p>
+  <section data-no-revise><label>Name <input type="text"></label><p>Inside <a href="#x">a link</a>.</p></section>
+</body></html>`;
+
+test('data-no-revise: a click in the element is the page\'s, with no box and no focus taken', () =>
+  withServer(async (s) => {
+    s.write('widget.html', WIDGET);
+    const tab = await openTab(s, 'widget.html');
+    let heard = 0;
+    tab.document.body.addEventListener('click', () => heard++);
+    const clicks = ['section', 'section input', 'section a'].map((selector) => {
+      const e = new tab.window.Event('click', { bubbles: true, cancelable: true });
+      tab.el(selector).dispatchEvent(e);
+      return e;
+    });
+    assert.equal(heard, 3, 'the page hears each click');
+    assert.ok(clicks.every((e) => !e.defaultPrevented), 'the click keeps its natural effect');
+    assert.equal(tab.box(), null, 'no box opens');
+    tab.el('section input').focus();
+    tab.click(tab.el('section input'));
+    assert.ok(tab.document.activeElement === tab.el('section input'), 'focus stays in the input');
+    tab.close();
+  }));
+
+test('data-no-revise: a click there leaves an open box open', () =>
+  withServer(async (s) => {
+    s.write('widget.html', WIDGET);
+    const tab = await openTab(s, 'widget.html');
+    tab.open('body > p');
+    tab.click(tab.el('section input'));
+    assert.ok(tab.box(), 'the box stays');
+    tab.close();
+  }));
+
+test('data-no-revise: hovering the element shows no crop marks, and the cursor stays the page\'s', () =>
+  withServer(async (s) => {
+    s.write('widget.html', WIDGET);
+    const tab = await openTab(s, 'widget.html');
+    tab.window.HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 });
+    const hover = (selector) => tab.el(selector).dispatchEvent(new tab.window.Event('mouseover', { bubbles: true }));
+    const marks = () => tab.layer.querySelector('.hrv-crop:not(.hrv-selected)').style.display;
+    hover('body > p');
+    assert.equal(marks(), 'block', 'an element outside it shows marks');
+    hover('section a');
+    assert.equal(marks(), 'none', 'one inside it shows none');
+    const css = fs.readFileSync(path.join(here, '..', 'client.css'), 'utf8');
+    assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*\) \{ cursor: copy/, 'the copy cursor skips it');
+    tab.close();
+  }));
+
 test('a marker click sets where the docket steps from, as a click on its element does', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');

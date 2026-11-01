@@ -100,6 +100,7 @@ The skills and the README in iterate-on-docs run and describe this tool. They re
 | Cleanup CLI | `node ../../html-revisor/cleanup.mjs <file>...`, from the skill's base directory, when the user says "good enough". Rewrites each file in place without directives (`<!-- @AI: … -->`) or element IDs, formatting kept. Prints each directive it removed on stdout as `<file>: <text>`, newlines as spaces. Exit 0 on success; exit 1 with `<file>: <problem>` on stderr when a file can't be read or written; exit 2 with usage when given no files |
 | Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill runs the formatter CLI before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
 | Element IDs | the formatter (GET, PUT, and the formatter CLI) writes `data-hrv="<n>"` on each element you can pick and `data-hrv-next="<n>"` on `<html>`. Agents leave both alone: don't change, copy, or remove them. A new element needs none; the next format gives it one |
+| No revise | an agent puts `data-no-revise` on an element, for a page with interaction of its own: that element and all inside it can't be picked. The tool ignores clicks there, so no box opens, and the page keeps its click behavior, focus, and cursor. A parent scope's markdown still holds its text: it can't be picked, and it isn't protected. The attribute stays through format and cleanup |
 | Browser behavior | click a block, link, image, or part of an SVG to leave a directive on it or change its wording; both save into the file as you type. If the element changed on disk since the page loaded, the save is refused with an error that suggests a reload; a change elsewhere in the file only brings a notice. Revert puts a scope's content back to the file's last commit, so in an iterate loop it goes back to the start of the turn. The box reopened on a directive holds it in the field to edit in place. The open tab hears of each change to the file without a reload: a directive added or removed on disk shows or takes away its marker, and a change to an element's content on disk brings the notice to reload |
 | Bug reports | issues go to `https://github.com/jessitron/html-revisor/issues`. `VENDORED.md` in the copy names the deployed commit, for the report |
 | README | this README ships in the output and keeps its "Directive format" section; iterate-on-docs links to it |
@@ -165,6 +166,9 @@ The count must be 0. If it is not, address those directives first so no unresolv
 directive is thrown away.
 Leave data-hrv and data-hrv-next attributes alone: don't change, copy, or remove
 them. New elements need none; the formatter adds them.
+On an element with interaction of its own, like input controls, add data-no-revise.
+That element and all inside it can't be picked for a directive, and clicks there
+go to the page.
 ```
 
 ## Manual client checklist
@@ -195,6 +199,7 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 - [ ] In a scope's box with a changed scope and a directive, Tab goes Revert, Content, Clear, Directive, Done, and wraps back to Revert; Shift-Tab goes the other way. A hidden action takes no stop. A button you Tab to wears the accent ring, and nothing moves; a click shows no ring. Enter or Space presses it.
 - [ ] Opening a second box commits and closes the first.
 - [ ] Plain click on a link opens a directive box; ⌘-, Ctrl-, Shift- or ⌥-click on a link goes to the page, so the link navigates.
+- [ ] Add `data-no-revise` to an element holding an input. Hovering it shows no marks and the page's cursor. Clicking the input puts the caret there, and no box opens; an open box stays open.
 - [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.
 - [ ] Stopping the server and typing shows `save failed: ...` on the docket; restarting and typing again saves and clears it.
 - [ ] Edit one element in the file on disk while the tab is open, then type a directive on that element: the docket says it wasn't saved and suggests a reload, the box's footer says `not saved`, the file stays untouched, and the box keeps your text.

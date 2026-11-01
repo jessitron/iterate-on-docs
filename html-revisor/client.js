@@ -93,9 +93,15 @@
     return node instanceof Node && layer.contains(node);
   }
 
-  // The nearest element with an ID, never html or body.
+  // An agent marks an element data-no-revise: it and all inside it stay the page's. The tool
+  // leaves their hover and their clicks alone.
+  function noRevise(node) {
+    return node instanceof Element && !!node.closest('[data-no-revise]');
+  }
+
+  // The nearest element with an ID, never html or body, and none in a data-no-revise element.
   function targetElement(node) {
-    if (!(node instanceof Element)) return null;
+    if (!(node instanceof Element) || noRevise(node)) return null;
     var el = node.closest('[data-hrv]');
     if (!el || el === document.documentElement || el === document.body) return null;
     return el;
@@ -1458,7 +1464,7 @@
 
   // Capture phase on document, so page handlers and link navigation lose.
   document.addEventListener('click', function (e) {
-    if (inLayer(e.target) || !reviewing) return;
+    if (inLayer(e.target) || !reviewing || noRevise(e.target)) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var el = targetElement(e.target);
     if (!el) {
