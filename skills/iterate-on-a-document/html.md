@@ -36,8 +36,9 @@ stderr and run it again.
 Leave `data-hrv` and `data-hrv-next` attributes alone: don't change, copy, or remove them. A new
 element needs none; the formatter gives it one. An open browser tab saves by these IDs.
 
-On an element with interaction of its own, like input controls, add `data-no-revise`. That
-element and all inside it can't be picked for a directive, and clicks there go to the page.
+On an element with interaction of its own, like input controls, add the HTML attribute
+`data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it can't be
+picked for a directive, and clicks there go to the page.
 
 ## Find directives
 
