@@ -1,5 +1,5 @@
 /* html-revisor client styles. The tool draws over the page and never styles it: page elements
-   get no classes, and the only rule that reaches them is the copy cursor.
+   get no classes, and the only rules that reach them set the cursor.
    The server inlines this file into every page it serves; DESIGN.html links it.
    Components are scoped to #hrv-layer, the layer the client script adds, or to .hrv-layer,
    for showing them in a document. :is() keeps the ID's specificity, so page CSS can't win. */
