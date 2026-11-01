@@ -41,8 +41,11 @@
 /* Clicking an element leaves a directive on it; the cursor says so. Review mode off (the docket)
    sets data-hrv-review="off" on the html element, which turns the cursor off. That attribute is
    the one mark the tool puts on the page, and only this rule reads it. An element an agent marks
-   data-no-revise, and all inside it, keeps the page's cursor. */
+   data-no-revise, and all inside it, keeps the page's cursor: the second rule stops the copy
+   cursor inheriting from a parent, and :where gives it no specificity, so any page rule wins.
+   A link keeps its pointer. */
 html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise], [data-no-revise] *) { cursor: copy !important; }
+:where(html:not([data-hrv-review="off"]) [data-no-revise]:not(:any-link)) { cursor: auto; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
 #hrv-layer { all: initial; display: block; position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; }

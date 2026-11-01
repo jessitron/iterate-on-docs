@@ -63,9 +63,16 @@
           <tr>
             <td>What can't you pick?</td>
             <td>
-              An element an agent marks <code>data-no-revise</code>, and all inside it. Clicks there stay the page's. A parent scope's markdown still holds its text: it can't be picked, and it isn't protected. The rule is in the client; the element keeps its ID and its place in scopes.
+              An element an agent marks <code>data-no-revise</code>, and all inside it. No marks, no box, and clicks stay the page's. The rule is in the client: the element still gets an ID, and the tables below show its rows as not pickable.
             </td>
-            <td></td>
+            <td><a href="#d7">D7</a>, <a href="#d9">D9</a>, <a href="#d10">D10</a></td>
+          </tr>
+          <tr>
+            <td>Can editing a parent change a <code>data-no-revise</code> element?</td>
+            <td>
+              Yes. The parent's markdown holds it, so editing the parent can change it. The mark limits what you pick, not what an edit reaches.
+            </td>
+            <td><a href="#d9">D9</a>, <a href="#d10">D10</a></td>
           </tr>
           <tr>
             <td>How big a scope edits as markdown?</td>
@@ -347,7 +354,7 @@
         A scope is any block you can pick: you leave a directive on it, or edit its whole content as markdown. Each case has the same four parts: its name, the question it asks in grey, the example HTML in a dashed box, and a table of the scopes the example would make. Disagree with a row? Leave a directive on it.
       </p>
       <p class="scope-report">
-        Under each example: its HTML (click to open), then a row for each element you could pick, nested inside the element that holds it. The last column is the markdown you would edit if you picked that element. ⟦svg⟧ marks something that isn't text riding inside the markdown.
+        Under each example: its HTML (click to open), then a row for each element you could pick, nested inside the element that holds it, and one marked not pickable for each element inside data-no-revise. The last column is the markdown you would edit if you picked that element. ⟦svg⟧ marks something that isn't text riding inside the markdown.
       </p>
       <h3>A. Clear prose</h3>
       <div id="a1" class="case">
@@ -1987,6 +1994,93 @@ node formatter.mjs try-me.html
               <td>
                 <pre>Beta</pre>
               </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d9" class="case">
+        <h4>D9. Controls an agent marks data-no-revise</h4>
+        <p class="ask">
+          The page keeps these clicks. Try it: no marks on the controls, and the input takes your typing. What does the section's markdown hold?
+        </p>
+        <div class="ex">
+          <section>
+            <p>Words you can pick.</p>
+            <div data-no-revise><label>Name <input type="text"></label> <button>Go</button></div>
+          </section>
+        </div>
+        <details class="scope-report">
+          <summary>HTML</summary>
+          <pre>&lt;section&gt;
+  &lt;p&gt;Words you can pick.&lt;/p&gt;
+  &lt;div data-no-revise&gt;&lt;label&gt;Name &lt;input type="text"&gt;&lt;/label&gt; &lt;button&gt;Go&lt;/button&gt;&lt;/div&gt;
+&lt;/section&gt;</pre>
+        </details>
+        <table class="scope-report">
+          <thead>
+            <tr>
+              <th>element</th>
+              <th>what markdown can say</th>
+              <th>what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>&lt;section&gt;</td>
+              <td>markdown with HTML</td>
+              <td>
+                <pre>Words you can pick.
+
+&lt;div data-no-revise&gt;&lt;label&gt;Name &lt;input type="text"&gt;&lt;/label&gt; &lt;button&gt;Go&lt;/button&gt;&lt;/div&gt;</pre>
+              </td>
+            </tr>
+            <tr>
+              <td> &lt;p&gt;</td>
+              <td>all markdown</td>
+              <td>
+                <pre>Words you can pick.</pre>
+              </td>
+            </tr>
+            <tr>
+              <td> &lt;div&gt;</td>
+              <td>not pickable: data-no-revise</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="d10" class="case">
+        <h4>D10. A marked link in a paragraph</h4>
+        <p class="ask">
+          The link goes where it goes, and the paragraph around it takes a box. Does a save of the paragraph keep the mark?
+        </p>
+        <div class="ex">
+          <p>Pick this paragraph, not <a data-no-revise href="#d10">this link</a>.</p>
+        </div>
+        <details class="scope-report">
+          <summary>HTML</summary>
+          <pre>&lt;p&gt;Pick this paragraph, not &lt;a data-no-revise href="#d10"&gt;this link&lt;/a&gt;.&lt;/p&gt;</pre>
+        </details>
+        <table class="scope-report">
+          <thead>
+            <tr>
+              <th>element</th>
+              <th>what markdown can say</th>
+              <th>what you would edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>&lt;p&gt;</td>
+              <td>all markdown</td>
+              <td>
+                <pre>Pick this paragraph, not [this link](#d10).</pre>
+              </td>
+            </tr>
+            <tr>
+              <td> &lt;a&gt;</td>
+              <td>not pickable: data-no-revise</td>
+              <td></td>
             </tr>
           </tbody>
         </table>

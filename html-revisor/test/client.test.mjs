@@ -277,6 +277,7 @@ test('data-no-revise: hovering the element shows no crop marks, and the cursor s
     assert.equal(marks(), 'none', 'one inside it shows none');
     const css = fs.readFileSync(path.join(here, '..', 'client.css'), 'utf8');
     assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*\) \{ cursor: copy/, 'the copy cursor skips it');
+    assert.match(css, /:where\(.*\[data-no-revise\].*\{ cursor: auto; \}/, 'and does not inherit into it from a parent');
     tab.close();
   }));
 
