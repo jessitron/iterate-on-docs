@@ -166,9 +166,9 @@ The count must be 0. If it is not, address those directives first so no unresolv
 directive is thrown away.
 Leave data-hrv and data-hrv-next attributes alone: don't change, copy, or remove
 them. New elements need none; the formatter adds them.
-On an element with interaction of its own, like input controls, add data-no-revise.
-That element and all inside it can't be picked for a directive, and clicks there
-go to the page.
+On an element with interaction of its own, like input controls, add the HTML
+attribute data-no-revise to its tag: <div data-no-revise>. That element and all
+inside it can't be picked for a directive, and clicks there go to the page.
 ```
 
 ## Manual client checklist
