@@ -66,8 +66,9 @@ function replacing(prior, nodes) {
 }
 
 const LEGEND = `Under each example: its HTML (click to open), then a row for each element you could pick,
-  nested inside the element that holds it. The last column is the markdown you would edit if you
-  picked that element. ⟦svg⟧ marks something that isn't text riding inside the markdown.`;
+  nested inside the element that holds it, and one marked not pickable for each element inside
+  data-no-revise. The last column is the markdown you would edit if you picked that element. ⟦svg⟧
+  marks something that isn't text riding inside the markdown.`;
 
 const SCOPE_VIEW_CSS = `
   table.scope-report { font-size: 0.75rem; margin: 0.5rem 0; width: 100%; }

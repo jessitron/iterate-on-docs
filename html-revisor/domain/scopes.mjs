@@ -53,6 +53,10 @@ const pickableInline = (el) =>
   !isBlock(el) &&
   (el.localName !== 'span' || (!el.closest('pre') && [...el.parentNode.childNodes].filter(meaningful).length > 1));
 
+// An agent's mark: this element and all inside it can't be picked. It stays a scope here, with
+// an ID and its markdown in its parent's. The client holds the rule; the reports show it.
+export const noRevise = (el) => el.closest('[data-no-revise]') !== null;
+
 // The elements of the scopes nested in el, nearest first. The rule behind scopesWithin
 // (scope-report.mjs) and scopeElements.
 export function pickable(el) {

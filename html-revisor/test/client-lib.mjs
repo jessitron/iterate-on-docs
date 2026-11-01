@@ -97,9 +97,13 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
   Object.assign(window.Node, { DOCUMENT_POSITION_PRECEDING: 2, DOCUMENT_POSITION_FOLLOWING: 4 });
   const streams = [];
   const timers = new Set();
+  // A plain object: setting href records where the tab went, and the tab stays where it is.
+  const location = { pathname: '/' + name, origin: s.base, href: `${s.base}/${name}` };
+  Object.defineProperty(document, 'baseURI', { get: () => location.href });
   const context = {
     window, document, Node: window.Node, Element: window.Element, Event: window.Event,
-    location: { pathname: '/' + name },
+    location,
+    URL,
     navigator: { platform: 'MacIntel', sendBeacon: () => true },
     localStorage: {
       getItem: (k) => (storage.has(k) ? storage.get(k) : null),
@@ -122,7 +126,7 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
   const layer = document.getElementById('hrv-layer');
   const el = (selector) => document.querySelector(selector);
   const tab = {
-    window, document, layer, el,
+    window, document, layer, el, location,
     // The element the docket last stepped to: its tag. No layout, so no tip shows.
     steppedTo: () => scrolled.at(-1)?.localName,
     steps: () => scrolled.length,

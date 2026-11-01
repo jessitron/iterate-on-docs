@@ -274,6 +274,86 @@ test('two tabs: a markdown save in one asks the other to reload', () =>
 // Checklist: "Stopping the server and typing shows `save failed: ...` on the docket; restarting
 // and typing again saves and clears it."
 // The tab's live notices go on through this; a stopped server would end them too.
+// A click with these keys, as a tab sees it. The event comes back to show what became of it.
+const clickWith = (tab, selector, keys) => {
+  const e = new tab.window.Event('click', { bubbles: true, cancelable: true });
+  Object.assign(e, keys);
+  tab.el(selector).dispatchEvent(e);
+  return e;
+};
+
+test('Cmd- or Ctrl-click on an internal link moves this tab there', () =>
+  withServer(async (s) => {
+    for (const keys of [{ metaKey: true }, { ctrlKey: true }]) {
+      const tab = await openTab(s, 'demo.html');
+      const e = clickWith(tab, 'a[href="other.html"]', keys);
+      assert.ok(e.defaultPrevented, 'no new tab');
+      await until(() => tab.location.href === `${s.base}/other.html`);
+      tab.close();
+    }
+  }));
+
+test('Cmd-click on a link to a place in this page moves this tab there', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    clickWith(tab, 'a[href="#goals"]', { metaKey: true });
+    await until(() => tab.location.href === `${s.base}/demo.html#goals`);
+    tab.close();
+  }));
+
+test('Cmd-click on an external link stays the browser\'s, and so does Shift-Cmd-click on an internal one', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    const here = tab.location.href;
+    const clicks = [
+      clickWith(tab, 'a[href^="https:"]', { metaKey: true }),
+      clickWith(tab, 'a[href="other.html"]', { metaKey: true, shiftKey: true }),
+    ];
+    assert.ok(clicks.every((e) => !e.defaultPrevented), 'the browser opens these');
+    assert.equal(tab.location.href, here);
+    tab.close();
+  }));
+
+test('review off: Cmd-click on an internal link stays the browser\'s', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    tab.click(tab.layer.querySelector('.hrv-docket-main'));
+    const e = clickWith(tab, 'a[href="other.html"]', { metaKey: true });
+    assert.ok(!e.defaultPrevented, 'with review off, a plain click is the one that moves the tab');
+    tab.close();
+  }));
+
+test('Cmd-click on an internal link with a box open: the box\'s words land, then the tab moves', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    tab.open('h1');
+    tab.type('still typing this');
+    clickWith(tab, 'a[href="other.html"]', { metaKey: true });
+    assert.equal(tab.box(), null, 'the box closes');
+    assert.equal(tab.location.href, `${s.base}/demo.html`, 'no leaving before the save lands');
+    await until(() => tab.location.href === `${s.base}/other.html`);
+    assert.ok(s.read('demo.html').includes('still typing this'), 'the file has the words');
+    assert.equal(s.announcements().length, 1, 'and the Done went out');
+    tab.close();
+  }));
+
+test('Cmd-click on an internal link when the save fails: the tab stays, with the problem showing', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    tab.open('h1');
+    tab.type('not lost');
+    s.down = true;
+    clickWith(tab, 'a[href="other.html"]', { metaKey: true });
+    await until(() => tab.message().includes('save failed'));
+    s.down = false;
+    tab.open('h1');
+    tab.type('not lost, again');
+    tab.done();
+    await until(() => s.read('demo.html').includes('not lost, again'));
+    assert.equal(tab.location.href, `${s.base}/demo.html`, 'a later save does not pick the leaving back up');
+    tab.close();
+  }));
+
 test('server down: "save failed", then typing again once it is back saves the latest text', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');

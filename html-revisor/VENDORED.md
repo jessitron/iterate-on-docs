@@ -3,4 +3,4 @@
 This directory is a copy of html-revisor, kept here because its purpose is this plugin.
 Don't edit it here. Change the source, then run `./deploy` there; it replaces this directory.
 
-Source: `~/code/jessitron/html-revisor` at `d5a82a2`.
+Source: `~/code/jessitron/html-revisor` at `68f3a69`.

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse, serialize } from '../domain/canonical.mjs';
 import { normalize } from '../domain/format.mjs';
-import { scopeOf } from '../domain/scope-report.mjs';
+import { scopeOf, report } from '../domain/scope-report.mjs';
 import { annotate } from '../domain/annotation.mjs';
 
 const page = (examples) => `<html><head></head><body><section id="scopes"><p>Cases.</p>${examples}</section></body></html>`;
@@ -19,6 +19,21 @@ test('annotating twice gives the same page', () => {
   assert.match(once, /<table class="scope-report">[\s\S]*all markdown/);
   assert.match(once, /<details class="scope-report">/);
   assert.equal(scopeOf(parse(once).querySelector('.ex')).children.length, 1);
+});
+
+test('a row inside data-no-revise says not pickable and offers nothing to edit; the parent still holds its text', () => {
+  const html = '<section><p>free</p><div data-no-revise><p>held</p></div></section>';
+  const document = parse(annotated(page(`<div class="ex">${html}</div>`)));
+  const rows = [...document.querySelectorAll('table.scope-report tr')].slice(1).map((tr) =>
+    [...tr.querySelectorAll('td')].map((td) => td.textContent.trim()));
+  const row = (text) => rows.filter((r) => r[0] === text);
+  assert.equal(row('<p>')[0][1], 'all markdown', 'a paragraph outside it is pickable');
+  assert.deepEqual(row('<div>')[0].slice(1), ['not pickable: data-no-revise', '']);
+  assert.deepEqual(row('<p>')[1].slice(1), ['not pickable: data-no-revise', ''], 'so is one inside it');
+  assert.match(row('<section>')[0][2], /held/);
+  const printed = report(scopeOf(parse(html).querySelector('section')));
+  assert.match(printed, /<div>  not pickable: data-no-revise/);
+  assert.doesNotMatch(printed.split('\n').at(-1), /held/);
 });
 
 test('annotating writes the page in canonical form, and a page without IDs gets none', () => {

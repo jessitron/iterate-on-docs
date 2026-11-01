@@ -198,7 +198,7 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 - [ ] After `⌘↵`, `Esc`, or Done, focus is on the element: Tab goes to the next link after it, not the top of the page. Once focus leaves, the element holds no `tabindex`.
 - [ ] In a scope's box with a changed scope and a directive, Tab goes Revert, Content, Clear, Directive, Done, and wraps back to Revert; Shift-Tab goes the other way. A hidden action takes no stop. A button you Tab to wears the accent ring, and nothing moves; a click shows no ring. Enter or Space presses it.
 - [ ] Opening a second box commits and closes the first.
-- [ ] Plain click on a link opens a directive box; ⌘-, Ctrl-, Shift- or ⌥-click on a link goes to the page, so the link navigates.
+- [ ] Plain click on a link opens a directive box. ⌘- or Ctrl-click on a link in this site moves this tab there, once the open box's saves have landed; on a link to another site it opens a new tab. Shift- or ⌥-click goes to the browser.
 - [ ] Add `data-no-revise` to an element holding an input. Hovering it shows no marks and the page's cursor. Clicking the input puts the caret there, and no box opens; an open box stays open.
 - [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.
 - [ ] Stopping the server and typing shows `save failed: ...` on the docket; restarting and typing again saves and clears it.

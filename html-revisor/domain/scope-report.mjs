@@ -2,7 +2,7 @@
 // it. Tier II, pure functions over a DOM. scopes.mjs, the CLI, prints report; annotation.mjs
 // writes exampleReport under each example in SCOPES-DESIGN.html.
 import { rawHTML } from './canonical.mjs';
-import { pickable } from './scopes.mjs';
+import { noRevise, pickable } from './scopes.mjs';
 import { scopeMarkdown } from './to-markdown.mjs';
 
 // A scope: { el, markdown, children }. Every block element is one; so are links, images, spans,
@@ -17,9 +17,12 @@ export const scopesWithin = (el) => pickable(el).map(scopeOf);
 
 const label = (el) => `<${el.localName}${el.getAttribute('class') ? `.${el.getAttribute('class').split(/\s+/).join('.')}` : ''}>`;
 
+const NOT_PICKABLE = 'not pickable: data-no-revise';
+
 // How much of the scope markdown can say.
 export function coverage(scope) {
   const md = scope.markdown;
+  if (noRevise(scope.el)) return NOT_PICKABLE;
   if (scope.el.localName === 'text') return 'svg text: markdown inside the label';
   if (md.trim() === '') return 'nothing to edit';
   const notes = [];
@@ -31,7 +34,7 @@ export function coverage(scope) {
 
 // One line per scope, indented by nesting, the markdown on one line (⏎ for newlines).
 export function report(scope, depth = 0) {
-  const md = scope.markdown.replace(/\n/g, '⏎');
+  const md = noRevise(scope.el) ? NOT_PICKABLE : scope.markdown.replace(/\n/g, '⏎');
   const lines = [`${'  '.repeat(depth)}${label(scope.el)}${md ? `  ${md}` : ''}`];
   for (const child of scope.children) lines.push(report(child, depth + 1));
   return lines.join('\n');
@@ -50,7 +53,7 @@ function reportRows(document, scope, depth = 0) {
   };
   cell(`${' '.repeat(depth)}${label(scope.el)}`);
   cell(coverage(scope));
-  cell(scope.markdown, true);
+  cell(noRevise(scope.el) ? '' : scope.markdown, true);   // nothing to edit in what you can't pick
   return [tr, ...scope.children.flatMap((c) => reportRows(document, c, depth + 1))];
 }
 

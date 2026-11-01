@@ -19,6 +19,7 @@
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
   var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown'|'done', id}
+  var leavingTo = null;     // where this tab goes once its saves land; a failed save cancels it
   var version = null;       // fingerprint of the file as this tab last saw it
   var changedOnDisk = false; // a save found the file changed by someone else
   var inFlight = null;      // the change the PUT in flight carries
@@ -835,7 +836,11 @@
   function saveNow() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    if (saving || unsent.length === 0) return;
+    if (saving) return;
+    if (unsent.length === 0) {
+      if (leavingTo) location.href = leavingTo;
+      return;
+    }
     saving = true;
     var change = unsent.shift();
     if (change.kind === 'done') return sendDone(change);
@@ -900,7 +905,8 @@
       endSpan(change.span, failed);
       saving = false;
       inFlight = null;
-      if (!failed) saveNow();
+      if (failed) leavingTo = null;
+      else saveNow();
     });
   }
 
@@ -1462,9 +1468,34 @@
 
   // ---- click handling ----
 
+  // Where a ⌘-click (Ctrl-click elsewhere) goes when it lands on a link in this site, or null.
+  // Review takes the plain click, so this one follows a link the way a plain click would.
+  // A link to another site keeps the browser's new tab, and Shift or Option keep their meanings.
+  function internalHref(e) {
+    if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return null;
+    var link = e.target instanceof Element && e.target.closest('a[href]');
+    if (!link) return null;
+    var url = URL.parse(link.getAttribute('href'), document.baseURI);
+    return url && url.origin === location.origin ? url.href : null;
+  }
+
+  // A navigation aborts a PUT on its way, so the tab leaves when its saves have landed.
+  function leaveTo(href) {
+    leavingTo = href;
+    closeBox('link');
+    saveNow();
+  }
+
   // Capture phase on document, so page handlers and link navigation lose.
   document.addEventListener('click', function (e) {
     if (inLayer(e.target) || !reviewing || noRevise(e.target)) return;
+    var href = internalHref(e);
+    if (href) {
+      e.preventDefault();
+      e.stopPropagation();
+      leaveTo(href);
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var el = targetElement(e.target);
     if (!el) {
