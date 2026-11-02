@@ -532,20 +532,6 @@ test('a directive save that saw fewer replies than the thread has is 412, so a t
     assert.equal((await s.put('page.html', { id, base: bases[id], resolve: true, replies: 1 })).status, 400, 'replies goes with a directive');
   }));
 
-test('a reply to an element with no thread, or one that is gone, is refused', () =>
-  withServer(async (s) => {
-    const { id, announced } = await directAndAnnounce(s, 'page.html', 'p', 'add a diagram');
-    const { bases } = await s.page('page.html');
-    await s.put('page.html', { id, base: bases[id], resolve: true });
-    const before = s.read('page.html');
-    const resolved = await s.put('page.html', { id, thread: announced.thread, reply: 'Done.' });
-    assert.equal(resolved.status, 412);
-    assert.deepEqual(await resolved.json(), { ok: false, error: 'that element has no directive to reply to' });
-    const gone = await s.put('page.html', { id: '999', thread: announced.thread, reply: 'Done.' });
-    assert.deepEqual(await gone.json(), { ok: false, error: 'that element is gone from the file' });
-    assert.equal(s.read('page.html'), before);
-  }));
-
 test('a reply body is an id, a thread base, and text', () =>
   withServer(async (s) => {
     for (const body of [{ id: '1', reply: 'a' }, { id: '1', thread: 'x', reply: ' ' }, { id: 1, thread: 'x', reply: 'a' }, { id: '1', thread: 'x', reply: 'a', base: 'y' }, { id: '1', thread: 'x', reply: 'a', directive: 'b' }]) {

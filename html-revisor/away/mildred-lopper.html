@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Mildred Lopper</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+      code { background: #f2f2f2; padding: 0 .2rem; overflow-wrap: anywhere; }
+      .status-value { font-weight: bold; }
+      .guess { border-left: 3px solid #ccc; padding-left: .8rem; margin-bottom: 1rem; }
+      #diff::before { content: "Diff"; display: block; font-size: 1.5em; font-weight: bold; margin: 1em 0 .5em; }
+    </style>
+  </head>
+  <body>
+    <h1>Mildred Lopper</h1>
+    <p><a href="index.html">Back to the index</a>. Wave 3, size S.</p>
+    <section id="status" class="status">
+      <h2>Status</h2>
+      <p class="status-value">merged-ready</p>
+      <p class="status-why">
+        <code>check base</code> is gone, the suite is green, and the branch waits for the coordinator.
+      </p>
+    </section>
+    <section id="plan" class="plan">
+      <h2>Plan</h2>
+      <p>Yak: <code>remove-server-step-spans-that-stay-under-1-ms-on-a-big-page-r0sf</code></p>
+      <p>
+        Work: Jess's word narrows the yak: "Keep them for now; remove the ones that never pass 1 ms." Remove the <code>check base</code> span and nothing else. Keep <code>set directive</code> and <code>read file</code>. Add a human yak (👩🏽‍🦱) for <code>set directive</code>, her call. Rewrite the sentence in <code>OBSERVABILITY.html</code> rather than dropping it.
+      </p>
+      <p>Files:</p>
+      <ul>
+        <li>
+          <code>domain/revision.mjs</code> (made by Marshal Portwine in wave 1; at the scaffold's commit, the span is in <code>server.mjs</code>)
+        </li>
+        <li><code>test/telemetry.test.mjs</code></li>
+        <li><code>OBSERVABILITY.html</code></li>
+        <li><code>README.md</code>, Telemetry section</li>
+        <li>
+          <code>test/revision.test.mjs</code>: pins the step list, so it changes too. Added once the work began.
+        </li>
+        <li>
+          <code>OVERVIEW.html</code>: this yak was on the performance trail, and <code>CLAUDE.md</code> says to swap in another when it's done. Added once the work began.
+        </li>
+      </ul>
+    </section>
+    <section id="log" class="log">
+      <h2>Log</h2>
+      <ul>
+        <li>2026-11-01 13:17: Herald Trumpington made this page.</li>
+        <li>
+          2026-11-01 13:40: Started the yak. Plan grew by two files, <code>test/revision.test.mjs</code> and <code>OVERVIEW.html</code>; reasons in Plan.
+        </li>
+        <li>
+          2026-11-01 13:44: Removed <code>check base</code>, rewrote the <code>OBSERVABILITY.html</code> sentence, and swapped the trail yak. Suite: 281 pass, 1 skipped, 0 fail.
+        </li>
+        <li>
+          2026-11-01 13:45: Guess <code>guess-trail-swap</code>. Added the human yak for <code>set directive</code>.
+        </li>
+      </ul>
+    </section>
+    <section id="guesses" class="guesses">
+      <h2>Guesses</h2>
+      <div id="guess-set-directive-stays" class="guess">
+        <p>
+          <strong>Guess:</strong> <code>set directive</code> stays, because it passed 1 ms once, at 1.17 ms.
+        </p>
+        <p>
+          <strong>Why:</strong> Jess's rule removes the ones that never pass 1 ms, and one 1.17 ms is near enough the line that it's her call.
+        </p>
+        <p>
+          <strong>If wrong:</strong> remove the span the way <code>check base</code> went, in <code>domain/revision.mjs</code>, <code>test/telemetry.test.mjs</code>, and <code>OBSERVABILITY.html</code>.
+        </p>
+      </div>
+      <div id="guess-sentence" class="guess">
+        <p>
+          <strong>Guess:</strong> the sentence in <code>OBSERVABILITY.html</code> that begins "A step that stays under 1 ms on a big page too" says the rule as it stands now, and stops naming <code>check base</code>. It says <code>set directive</code> passed 1 ms once.
+        </p>
+        <p>
+          <strong>Why:</strong> today it says neither span has passed 1 ms, and that is false of <code>set directive</code>. The rule still holds for the next step.
+        </p>
+        <p>
+          <strong>If wrong:</strong> rewrite the sentence in <code>OBSERVABILITY.html</code>.
+        </p>
+      </div>
+      <div id="guess-trail-swap" class="guess">
+        <p>
+          <strong>Guess:</strong> <code>OVERVIEW.html</code>'s "Leaner spans" on the performance trail becomes "Fast big saves", from <code>saves-are-fast-on-a-big-nested-page-8qed</code>. The brief named <code>OVERVIEW.html</code> only for the span's name, and it doesn't hold that name, but the yak was on the trail.
+        </p>
+        <p>
+          <strong>Why:</strong> <code>CLAUDE.md</code> says to swap a done trail yak for an open one from the same mountain. The other open performance yaks are "Markdown on open", already on the trail, a question about test timing, and a Chrome check for Jess.
+        </p>
+        <p>
+          <strong>If wrong:</strong> change the title and label of that yak in <code>OVERVIEW.html</code>'s trail, or put "Leaner spans" back and reopen the yak until <code>set directive</code> is settled.
+        </p>
+      </div>
+    </section>
+    <section id="result" class="result">
+      <h2>Result</h2>
+      <p>
+        One commit: the subject is "Remove the check base span: it never passes 1 ms - claude". This page rides in it, so its hash is in the branch, not here.
+      </p>
+      <p>Tests: <code>npm test</code>, 282 tests, 281 pass, 1 skipped, 0 fail.</p>
+      <p>
+        For a user: a trace of <code>PUT change</code> has no <code>check base</code> step. Saves, conflicts, and answers don't change. A query on that span name finds nothing from now on. Its time counts in the <code>PUT change</code> span's own time.
+      </p>
+    </section>
+    <section id="diff" class="diff">
+      <h2>Diff</h2>
+      <p><a href="https://github.com/jessitron/html-revisor/compare/1c7a174c5dff6f9efed67845de3e10cf2b19a06b...1a7393f8e3bf8472d52da7f79fb9238ca38e8c05">Mildred Lopper's changes on GitHub</a></p>
+    </section>
+    <section id="gotchas" class="gotchas">
+      <h2>Gotchas</h2>
+      <ul>
+        <li>
+          The brief's file list left out <code>test/revision.test.mjs</code>, which pins step names exactly. A grep for the span name found it before the suite did.
+        </li>
+      </ul>
+    </section>
+    <section id="new-yaks" class="new-yaks">
+      <h2>New yaks</h2>
+      <ul>
+        <li>
+          <code>decide-does-set-directive-keep-its-span-ygit</code>: 👩🏽‍🦱 Decide: does set directive keep its span?
+        </li>
+      </ul>
+    </section>
+  </body>
+</html>

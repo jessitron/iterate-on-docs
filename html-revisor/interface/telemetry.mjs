@@ -125,8 +125,9 @@ export function recordBrowserSpans(list) {
   return kept;
 }
 
-// The adapter for the domain's step port (domain/served-page.mjs): each step is a span.
-export const step = (name, fn) => inSpan(name, {}, () => fn());
+// The adapter for the domain's step port (domain/served-page.mjs, domain/revision.mjs): each step
+// is a span, and what the step notes goes on it.
+export const step = (name, fn) => inSpan(name, {}, (span) => fn((attributes) => span.setAttributes(attributes)));
 
 // Run fn(span) inside a span. The span ends when fn returns, or when the promise it returns
 // settles; a throw marks the span as an error.

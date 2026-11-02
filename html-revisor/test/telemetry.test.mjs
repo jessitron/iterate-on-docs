@@ -151,9 +151,11 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
     assert.equal(put.attributes['hrv.scope.id'], id);
     assert.equal(put.attributes['hrv.directive.count'], 1);
     const putSteps = spans.filter((s) => s.parentSpanId === put.spanId).map((s) => s.name);
-    for (const step of ['read file', 'parse', 'check base', 'set directive', 'serialize', 'write file', 'reparse', 'bases']) {
+    for (const step of ['read file', 'parse', 'set directive', 'serialize', 'write file', 'reparse', 'bases']) {
       assert.ok(putSteps.includes(step), `PUT has no ${step} step; it has ${putSteps}`);
     }
+    const bases = spans.find((s) => s.parentSpanId === put.spanId && s.name === 'bases');
+    assert.ok(bases.attributes['hrv.element.count'] > 0, 'what a domain step notes lands on its span');
 
     // Steps run one after another, so each starts after the one before; whole milliseconds would tie.
     const starts = spans.filter((s) => s.parentSpanId === put.spanId).map((s) => BigInt(s.startTimeUnixNano)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));

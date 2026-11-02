@@ -76,7 +76,7 @@
         <text x="765" y="190">0.3 ms</text>
       </svg>
       <p class="note">
-        The save span starts when the change goes out. The typing before it is in two attributes: <code>hrv.wait.ms</code> since the first keystroke, <code>hrv.quiet.ms</code> since the last. The round trip is about 13 ms on this 14 KB page. Most server steps take under 2 ms here. A step that stays under 1 ms on a big page too doesn't earn its span, and we mean to remove it; so far <code>check base</code> and <code>set directive</code> never have.
+        The save span starts when the change goes out. The typing before it is in two attributes: <code>hrv.wait.ms</code> since the first keystroke, <code>hrv.quiet.ms</code> since the last. The round trip is about 13 ms on this 14 KB page. Most server steps take under 2 ms here. A step that stays under 1 ms on a big page too doesn't earn its span. <code>set directive</code> keeps its span: it passed 1 ms once, at 1.17 ms on a page over 30 KB.
       </p>
       <p class="note">
         A <code>PUT change</code> with no <code>write file</code> step saved what the file already holds, and <code>hrv.wrote</code> is false on it. Typing makes these: the server trims a directive, so a trailing space changes nothing, and in markdown a trailing space at the end of a paragraph is gone in the canonical file. A refused save (412, 400) stops before that step too.
@@ -99,7 +99,7 @@
             <td>browser</td>
             <td>from when we decide to save, until the page has been updated</td>
             <td>
-              <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.element</code> (tag name), <code>hrv.edits</code> (keystrokes in this one save), <code>hrv.wait.ms</code> (first keystroke → sent, queue included), <code>hrv.quiet.ms</code> (last keystroke → sent), <code>hrv.html.before</code>, <code>hrv.html.after</code> (markdown saves), <code>hrv.markdown.before</code>, <code>hrv.markdown.after</code> or <code>hrv.directive.before</code>, <code>hrv.directive.after</code>; each text with a <code>.length</code>. <code>hrv.directive</code> on both kinds: the scope's directive once the save lands. <code>hrv.box.session</code>: one ID per box opened, shared by its saves and its <code>done</code>.
+              <code>hrv.change.kind</code>, <code>hrv.scope.id</code>, <code>hrv.element</code> (tag name), <code>hrv.edits</code> (keystrokes in this one save), <code>hrv.wait.ms</code> (first keystroke → sent, queue included), <code>hrv.quiet.ms</code> (last keystroke → sent), <code>hrv.html.before</code>, <code>hrv.html.after</code> (markdown saves), <code>hrv.markdown.before</code>, <code>hrv.markdown.after</code> or <code>hrv.directive.before</code>, <code>hrv.directive.after</code>; each text with a <code>.length</code>. <code>hrv.reverted</code> on markdown saves: true when this save carries a Revert. Revert types the committed markdown into the field, so it counts as one more edit, and <code>hrv.markdown.before</code> is what it threw away. <code>hrv.directive</code> on both kinds: the scope's directive once the save lands. <code>hrv.box.session</code>: one ID per box opened, shared by its saves and its <code>done</code>.
             </td>
           </tr>
           <tr>
@@ -122,7 +122,7 @@
             <td><code>close box</code> (event)</td>
             <td>browser</td>
             <td>
-              a dot on the save going out when the box closes (Done, Escape, a click away, another box, a ⌘-click on a link); none when no save is going
+              a dot on the save going out when the box closes (Done, Escape, a click away, another box); none when no save is going
             </td>
             <td>
               <code>hrv.close.by</code>, <code>hrv.scope.id</code>, <code>hrv.pending</code> (saves still waiting behind it)
@@ -178,15 +178,6 @@
         </thead>
         <tbody>
           <tr>
-            <td>Revert</td>
-            <td>
-              No span or event. Revert types the committed markdown into the Content field, so it goes out as a <code>save markdown</code> that looks like typing. If a save for that scope is still waiting, the Revert joins it as one more of its <code>hrv.edits</code>.
-            </td>
-            <td>
-              <code>hrv.reverted = true</code> on the <code>save markdown</code> that carries a Revert. Its <code>hrv.markdown.before.length</code> is what Revert threw away, and <code>hrv.markdown.after.length</code> is the committed scope.
-            </td>
-          </tr>
-          <tr>
             <td>Opening a box</td>
             <td>
               No span. A scope's size shows up only when you save it. Closing the box makes a <code>done</code> span, and everything from one box shares <code>hrv.box.session</code>.
@@ -225,6 +216,9 @@
         </li>
         <li>
           <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22duration_ms%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22starts-with%22%2C%22value%22%3A%22save%20%22%7D%5D%2C%22breakdowns%22%3A%5B%22trace.trace_id%22%2C%22name%22%2C%22hrv.edits%22%5D%2C%22orders%22%3A%5B%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22duration_ms%22%2C%22order%22%3A%22descending%22%7D%5D%2C%22limit%22%3A20%7D">The slowest saves</a>, one row per trace. Click a trace ID to see its waterfall.
+        </li>
+        <li>
+          <a href="https://ui.honeycomb.io/modernity/environments/local/datasets/html-revisor?query=%7B%22time_range%22%3A7200%2C%22calculations%22%3A%5B%7B%22op%22%3A%22HEATMAP%22%2C%22column%22%3A%22hrv.markdown.after.length%22%7D%2C%7B%22op%22%3A%22P50%22%2C%22column%22%3A%22hrv.markdown.after.length%22%7D%2C%7B%22op%22%3A%22MAX%22%2C%22column%22%3A%22hrv.markdown.after.length%22%7D%2C%7B%22op%22%3A%22COUNT%22%7D%5D%2C%22filters%22%3A%5B%7B%22column%22%3A%22name%22%2C%22op%22%3A%22%3D%22%2C%22value%22%3A%22save%20markdown%22%7D%5D%2C%22breakdowns%22%3A%5B%22hrv.reverted%22%2C%22hrv.element%22%5D%7D">How big are the scopes I edit?</a> Markdown length after each save, by element; <code>hrv.reverted</code> true picks out the Reverts, whose length is the committed scope.
         </li>
       </ul>
     </section>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Marshal Portwine</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+      code { background: #f2f2f2; padding: 0 .2rem; overflow-wrap: anywhere; }
+      .status-value { font-weight: bold; }
+      .guess { border-left: 3px solid #ccc; padding-left: .8rem; margin-bottom: 1rem; }
+      #diff::before { content: "Diff"; display: block; font-size: 1.5em; font-weight: bold; margin: 1em 0 .5em; }
+    </style>
+  </head>
+  <body>
+    <h1>Marshal Portwine</h1>
+    <p><a href="index.html">Back to the index</a>. Wave 1, size M/L.</p>
+    <section id="status" class="status">
+      <h2>Status</h2>
+      <p class="status-value">merged-ready</p>
+      <p class="status-why">
+        The save and reply rules are in <code>domain/revision.mjs</code>, and the full suite passes.
+      </p>
+    </section>
+    <section id="plan" class="plan">
+      <h2>Plan</h2>
+      <p>Yaks:</p>
+      <ul>
+        <li>
+          <code>domainrevisionmjs-move-put-change-and-reply-rules-out-of-servermjs-using-the-step-port-x30d</code>
+        </li>
+        <li>
+          <code>pull-the-save-rules-into-the-domain-applychange-with-the-step-port-per-assessmenthtml-paxn</code> (duplicate of the first)
+        </li>
+      </ul>
+      <p>
+        Work: move the conflict and apply rules of <code>applyChange</code> from <code>server.mjs</code> into <code>domain/revision.mjs</code>, a new module, with the step port. The port's shape is the one <code>tabStateOf</code> in <code>domain/served-page.mjs</code> takes. Span names stay. Behavior stays.
+      </p>
+      <p>Files:</p>
+      <ul>
+        <li><code>server.mjs</code></li>
+        <li><code>domain/revision.mjs</code> (new)</li>
+        <li>a new test file for the module</li>
+        <li><code>README.md</code>, Design section</li>
+        <li><code>OVERVIEW.html</code></li>
+        <li><code>ASSESSMENT.html</code></li>
+        <li>
+          added while working: <code>interface/telemetry.mjs</code>, <code>test/telemetry.test.mjs</code>, <code>test/acceptance.test.mjs</code>, <code>CLAUDE.md</code>
+        </li>
+      </ul>
+      <p>Ottoline Slice works in the same wave. Stay out of her files.</p>
+    </section>
+    <section id="log" class="log">
+      <h2>Log</h2>
+      <ul>
+        <li>2026-11-01 13:17: Herald Trumpington made this page.</li>
+        <li>
+          2026-11-01 13:20: Started. Both yaks are wip. The yak's name covers replies too, so the plan takes in <code>putReply</code> as well as <code>applyChange</code>.
+        </li>
+        <li>
+          2026-11-01 13:25: <code>2c254f9</code>: <code>domain/revision.mjs</code> holds the rules, <code>server.mjs</code> keeps the I/O, and <code>test/revision.test.mjs</code> has 15 plain tests. 279 tests, 278 pass, 1 skipped.
+        </li>
+        <li>
+          2026-11-01 13:26: <code>12b8c84</code>: <code>ASSESSMENT.html</code> was committed with 496 element IDs; cleanup took them out in a commit of their own, so the next diff reads.
+        </li>
+        <li>
+          2026-11-01 13:27: <code>5f27b2a</code>: README, OVERVIEW, and ASSESSMENT updated; recommendation 1 reads as done. Two stale lines in <code>CLAUDE.md</code> fixed after it.
+        </li>
+      </ul>
+    </section>
+    <section id="guesses" class="guesses">
+      <h2>Guesses</h2>
+      <div id="guess-outcome-value" class="guess">
+        <p>
+          <strong>Guess:</strong> the domain returns a plain value for a conflict or a refused save, and <code>server.mjs</code> turns it into the 412 or the <code>HttpError</code> 400, the <code>hrv.conflict</code> attribute, and the log line.
+        </p>
+        <p>
+          <strong>Why:</strong> the domain touches no console and no interface module, and those three are what an HTTP answer needs.
+        </p>
+        <p>
+          <strong>If wrong:</strong> change the return shape in <code>domain/revision.mjs</code> and the mapping in <code>server.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-io-stays" class="guess">
+        <p>
+          <strong>Guess:</strong> the file read, the file write, <code>live.wrote</code>, and <code>resolved.note</code> stay in <code>server.mjs</code>, around the domain calls.
+        </p>
+        <p>
+          <strong>Why:</strong> orchestration does I/O around a domain call. The step port is for spans, and these are not spans the domain needs.
+        </p>
+        <p>
+          <strong>If wrong:</strong> add a port to <code>domain/revision.mjs</code> and pass the adapter from <code>server.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-duplicate-yak" class="guess">
+        <p>
+          <strong>Guess:</strong> mark both yaks done when the work lands, with the second's context pointing at the first.
+        </p>
+        <p><strong>Why:</strong> they ask for the same move.</p>
+        <p>
+          <strong>If wrong:</strong> reopen <code>pull-the-save-rules-into-the-domain-applychange-with-the-step-port-per-assessmenthtml-paxn</code>.
+        </p>
+      </div>
+      <div id="guess-reply-too" class="guess">
+        <p>
+          <strong>Guess:</strong> the reply's rules moved too, as <code>reviseThread</code>, though the task named only <code>applyChange</code>.
+        </p>
+        <p>
+          <strong>Why:</strong> the yak's name says "PUT change and reply rules", and ASSESSMENT draws the reply in the same shape.
+        </p>
+        <p>
+          <strong>If wrong:</strong> put the body of <code>reviseThread</code> back in <code>putReply</code> in <code>server.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-step-note" class="guess">
+        <p>
+          <strong>Guess:</strong> the step port grew: <code>fn</code> receives <code>note(attributes)</code>, which the adapter in <code>interface/telemetry.mjs</code> sets on the span. <code>tabStateOf</code> ignores it.
+        </p>
+        <p>
+          <strong>Why:</strong> <code>bases</code> carries <code>hrv.element.count</code> and <code>markdowns</code> carries <code>hrv.scope.count</code>, the second found inside the step. Plain <code>step(name, fn)</code> would drop them or move work out of the span.
+        </p>
+        <p>
+          <strong>If wrong:</strong> take the attributes off those two spans, or give the port a third argument, in <code>domain/revision.mjs</code> and <code>interface/telemetry.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-two-calls" class="guess">
+        <p>
+          <strong>Guess:</strong> a change takes two domain calls, <code>revise</code> then <code>answerOf</code>, with the write between them. <code>reviseThread</code> is one call, and its count and new thread base are worked out before the write.
+        </p>
+        <p>
+          <strong>Why:</strong> <code>reparse</code>, <code>bases</code>, and <code>markdowns</code> are spans that follow <code>write file</code>, and span order is behavior. A reply has no spans after the write, so doing that work earlier shows nowhere.
+        </p>
+        <p>
+          <strong>If wrong:</strong> give <code>domain/revision.mjs</code> a write port and make <code>revise</code> async.
+        </p>
+      </div>
+      <div id="guess-conflict-log" class="guess">
+        <p>
+          <strong>Guess:</strong> a conflict carries its log line as plain text, and <code>server.mjs</code> prints it with the page's path. Replied-since has none, as before.
+        </p>
+        <p>
+          <strong>Why:</strong> the log's wording differs from the error's and from <code>hrv.conflict</code>, and which conflicts log is part of the rule. The domain still touches no console.
+        </p>
+        <p>
+          <strong>If wrong:</strong> drop <code>log</code> from <code>conflict</code> in <code>domain/revision.mjs</code> and build the line in <code>sendConflict</code> in <code>server.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-acceptance-stay" class="guess">
+        <p>
+          <strong>Guess:</strong> one acceptance test moved to plain calls (reply with no thread, or element gone). The other conflict tests stayed in <code>test/acceptance.test.mjs</code>, and each rule has a plain test too.
+        </p>
+        <p>
+          <strong>Why:</strong> the ones left check the 412, the log line, the file untouched, and body validation, which only HTTP shows.
+        </p>
+        <p><strong>If wrong:</strong> trim <code>test/acceptance.test.mjs</code> further.</p>
+      </div>
+    </section>
+    <section id="result" class="result">
+      <h2>Result</h2>
+      <p>Commits:</p>
+      <ul>
+        <li>
+          <code>2c254f9</code> domain/revision.mjs: the save and reply rules leave server.mjs, through the step port
+        </li>
+        <li>
+          <code>12b8c84</code> ASSESSMENT: committed form, no element IDs, as the doc pages are
+        </li>
+        <li>
+          <code>5f27b2a</code> README, OVERVIEW, ASSESSMENT: domain/revision.mjs is in, recommendation 1 is done
+        </li>
+        <li>a last commit: CLAUDE.md's two stale lines and this page</li>
+      </ul>
+      <p>
+        Tests: full suite, 279 tests, 278 pass, 0 fail, 1 skipped (265 before: 15 new in <code>test/revision.test.mjs</code>, one acceptance test moved there). The architecture test passes with the new module.
+      </p>
+      <p>
+        For a user, nothing changes: same answers, same span names, same <code>hrv.*</code> attributes. <code>test/telemetry.test.mjs</code> now pins that a domain step's note lands on its span. <code>check base</code> stays, for a later agent. <code>TESTING.html</code> belongs to Ottoline Slice, so its counts wait.
+      </p>
+    </section>
+    <section id="diff" class="diff">
+      <h2>Diff</h2>
+      <p><a href="https://github.com/jessitron/html-revisor/compare/8984ce3263b9f3a0f38e42ffcfe31dfe670cd153...b7a053e9c6e6b33d53b5e9b1842465a11582cc6e">Marshal Portwine's changes on GitHub</a></p>
+    </section>
+    <section id="gotchas" class="gotchas">
+      <h2>Gotchas</h2>
+      <ul>
+        <li>
+          <code>CLAUDE.md</code> says doc pages are committed with no element IDs, but <code>ASSESSMENT.html</code> held 496. A check in the test suite for that rule would have caught it sooner, and this branch's diff would have started clean.
+        </li>
+        <li>
+          A <code>&lt;p&gt;</code> spill needs a typed <code>&lt;p&gt;</code>: a blank line in a paragraph's markdown stays in one scope. The header of <code>test/spill.test.mjs</code> says so; read it before writing a spill example.
+        </li>
+      </ul>
+    </section>
+    <section id="new-yaks" class="new-yaks">
+      <h2>New yaks</h2>
+      <ul>
+        <li>
+          <code>declare-the-step-port-once-justrun-sits-in-served-pagemjs-and-revisionmjs-with-two-shapes-lk2h</code>: Declare the step port once: justRun sits in served-page.mjs and revision.mjs, with two shapes
+        </li>
+      </ul>
+    </section>
+  </body>
+</html>

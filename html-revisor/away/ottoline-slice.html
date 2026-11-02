@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ottoline Slice</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+      code { background: #f2f2f2; padding: 0 .2rem; overflow-wrap: anywhere; }
+      .status-value { font-weight: bold; }
+      .guess { border-left: 3px solid #ccc; padding-left: .8rem; margin-bottom: 1rem; }
+      #diff::before { content: "Diff"; display: block; font-size: 1.5em; font-weight: bold; margin: 1em 0 .5em; }
+    </style>
+  </head>
+  <body>
+    <h1>Ottoline Slice</h1>
+    <p><a href="index.html">Back to the index</a>. Wave 1, size S.</p>
+    <section id="status" class="status">
+      <h2>Status</h2>
+      <p class="status-value">merged-ready</p>
+      <p class="status-why">
+        Suite green at 5.3 s wall, from 8.8 s; the branch is ready for the coordinator.
+      </p>
+    </section>
+    <section id="plan" class="plan">
+      <h2>Plan</h2>
+      <p>Yak: <code>roundtrip-generated-editstestmjs-is-the-long-bar-8rd0</code></p>
+      <p>
+        Work: time each of the five <code>EDITS</code> kinds, then split them across two test files. <code>node --test</code> runs files side by side, so the suite's wall time is its slowest file.
+      </p>
+      <p>Files:</p>
+      <ul>
+        <li><code>test/roundtrip-generated-edits*.mjs</code></li>
+        <li><code>TESTING.html</code> (re-measure its bars)</li>
+      </ul>
+      <p>
+        <code>EDITS</code> itself lives in <code>test/roundtrip-lib.mjs</code>. Read it; change it only as the split needs, and say so in the Log. Marshal Portwine works in the same wave. Stay out of his files.
+      </p>
+    </section>
+    <section id="log" class="log">
+      <h2>Log</h2>
+      <ul>
+        <li>2026-11-01 13:17: Herald Trumpington made this page.</li>
+        <li>2026-11-01 13:30: Started <code>8rd0</code>. Timing each kind alone.</li>
+        <li>
+          2026-11-01 13:31: Alone, with 0.1 s of startup: word 1.77 s, insert 1.76 s, remove 1.36 s, swap 1.57 s, word and insert 1.87 s. Baseline suite: 8.84 s wall, 265 tests.
+        </li>
+        <li>
+          2026-11-01 13:36: <code>ae5122a</code> split the file: word edits and the rest in <code>roundtrip-generated-edits.test.mjs</code>, structure edits in <code>roundtrip-generated-edits-structure.test.mjs</code>. <code>test/roundtrip-lib.mjs</code> changed: it gained <code>STRUCTURE_EDITS</code> and <code>generatedEditTests</code>, and <code>EDITS</code> stayed as it was. Suite 5.35 s wall; same 265 test names, by diff.
+        </li>
+        <li>
+          2026-11-01 13:40: The suite takes 1 s more than the longest file alone. Spawned every file at once and timed each exit: computing files run a quarter longer side by side, waiting files don't. Added a yak; the cause is open.
+        </li>
+        <li>
+          2026-11-01 13:50: <code>TESTING.html</code> re-measured: bars, note, test counts, round-trip tables, recommendation. Added the missing <code>spill.test.mjs</code> row. Commit <code>a69abf6</code>.
+        </li>
+        <li>2026-11-01 13:55: Full suite green. Marked <code>8rd0</code> done.</li>
+      </ul>
+    </section>
+    <section id="guesses" class="guesses">
+      <h2>Guesses</h2>
+      <div id="guess-split-by-time" class="guess">
+        <p>
+          <strong>Guess:</strong> pick the two groups by measured time, so the longer file is as short as the kinds allow.
+        </p>
+        <p>
+          <strong>Why:</strong> a kind can't split in two, and the measure decides what the split saves.
+        </p>
+        <p>
+          <strong>If wrong:</strong> move a kind between the two files in <code>test/roundtrip-generated-edits*.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-new-kind-covered" class="guess">
+        <p>
+          <strong>Guess:</strong> one file names its kinds and the other takes the rest of <code>Object.keys(EDITS)</code>.
+        </p>
+        <p><strong>Why:</strong> a kind added later still runs, with no list to remember.</p>
+        <p><strong>If wrong:</strong> name the kinds in both files.</p>
+      </div>
+      <div id="guess-words-against-structure" class="guess">
+        <p>
+          <strong>Guess:</strong> word and word and insert in one file, insert, remove, and swap in the other. The structure file names its kinds, so a new kind lands beside the words, in the shorter file.
+        </p>
+        <p>
+          <strong>Why:</strong> two splits tie by time (3.4 s against 4.4 s of test), and this one has a name. <code>word and insert</code> does change structure too; it went with the words to keep the files even.
+        </p>
+        <p>
+          <strong>If wrong:</strong> change <code>STRUCTURE_EDITS</code> in <code>test/roundtrip-lib.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-two-files-not-three" class="guess">
+        <p>
+          <strong>Guess:</strong> stop at two files, though the suite lands at 5.4 s, not the yak's "near 4 s".
+        </p>
+        <p>
+          <strong>Why:</strong> the task says two, and <code>roundtrip-generated.test.mjs</code> and <code>roundtrip-pages.test.mjs</code> finish at 5.3 s anyway, so a third file gains 0.1 s.
+        </p>
+        <p>
+          <strong>If wrong:</strong> see yak <code>why-do-computing-test-files-run-a-quarter-longer-side-by-side-y5ow</code>.
+        </p>
+      </div>
+      <div id="guess-fix-stale-counts" class="guess">
+        <p>
+          <strong>Guess:</strong> <code>TESTING.html</code>'s stale test counts and its missing <code>spill.test.mjs</code> row got fixed in this change, though the yak names only the two sections.
+        </p>
+        <p>
+          <strong>Why:</strong> the task says re-measure, and the counts sit beside the bars. Left stale, the page disagrees with itself.
+        </p>
+        <p><strong>If wrong:</strong> nothing to undo; they match the suite.</p>
+      </div>
+    </section>
+    <section id="result" class="result">
+      <h2>Result</h2>
+      <p>Commits:</p>
+      <ul>
+        <li>
+          <code>ae5122a</code> Split the generated edit tests into two files: suite 8.8 s to 5.4 s - claude
+        </li>
+        <li>
+          <code>a69abf6</code> TESTING: re-measure after the edit tests split; three files tie for the long bar - claude
+        </li>
+      </ul>
+      <p>
+        Tests: <code>npm test</code>, 265 tests, 264 pass, 0 fail, 1 skipped (the Honeycomb test, which needs a key). The 265 test names are the same before and after, by diff.
+      </p>
+      <p>
+        For a user: the suite takes 5.4 s, median of five, from 8.8 s. That falls short of the yak's "near 4 s", because computing files run a quarter longer side by side. Three files now tie for the long bar. Nothing a page's reader sees changed.
+      </p>
+    </section>
+    <section id="diff" class="diff">
+      <h2>Diff</h2>
+      <p><a href="https://github.com/jessitron/html-revisor/compare/b7a053e9c6e6b33d53b5e9b1842465a11582cc6e...258b0d4aeb4672a3778ddc168458381988bfbb2d">Ottoline Slice's changes on GitHub</a></p>
+    </section>
+    <section id="gotchas" class="gotchas">
+      <h2>Gotchas</h2>
+      <ul>
+        <li>
+          <code>CLAUDE.md</code> says the suite's wall time is its slowest file. That's the slowest file side by side: a computing file runs a quarter longer there than alone (4.4 s alone, 5.4 s in the suite). Timing files alone predicts the order, not the wall time. A line saying so would have set the right target. I left <code>CLAUDE.md</code> alone, as outside my files.
+        </li>
+      </ul>
+    </section>
+    <section id="new-yaks" class="new-yaks">
+      <h2>New yaks</h2>
+      <ul>
+        <li>
+          <code>why-do-computing-test-files-run-a-quarter-longer-side-by-side-y5ow</code>: Why do computing test files run a quarter longer side by side?
+        </li>
+      </ul>
+    </section>
+  </body>
+</html>

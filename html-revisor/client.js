@@ -19,7 +19,6 @@
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
   var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown'|'done', id}
-  var leavingTo = null;     // where this tab goes once its saves land; a failed save cancels it
   var version = null;       // fingerprint of the file as this tab last saw it
   var changedOnDisk = false; // a save found the file changed by someone else
   var inFlight = null;      // the change the PUT in flight carries
@@ -732,6 +731,7 @@
     }
     if (change.kind === 'resolve') return span;
     var markdown = change.kind === 'markdown';
+    if (markdown) a['hrv.reverted'] = !!change.reverted;
     var before = (markdown ? markdowns[change.id] : savedDirectives[change.id]) || '';
     var after = (markdown ? edits[change.id] : directives[change.id]) || '';
     a['hrv.' + change.kind + '.before'] = capped(before);
@@ -836,11 +836,7 @@
   function saveNow() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    if (saving) return;
-    if (unsent.length === 0) {
-      if (leavingTo) location.href = leavingTo;
-      return;
-    }
+    if (saving || unsent.length === 0) return;
     saving = true;
     var change = unsent.shift();
     if (change.kind === 'done') return sendDone(change);
@@ -898,6 +894,7 @@
       failed = 'save failed: ' + (err && err.message ? err.message : err);
       endSpan(put, failed);
       addUnsent(change.kind, change.id, change.session); // a later edit retries it
+      if (change.reverted) markReverted(change.id);
       boxStatus('');
       showProblem(failed);
     }).then(function () {
@@ -905,8 +902,7 @@
       endSpan(change.span, failed);
       saving = false;
       inFlight = null;
-      if (failed) leavingTo = null;
-      else saveNow();
+      if (!failed) saveNow();
     });
   }
 
@@ -1224,9 +1220,14 @@
     typeOver(ta, '');
   }
 
-  // Put back the scope's markdown at the last commit.
+  // Put back the scope's markdown at the last commit. Typing over it saves; mark that save.
   function revert(textArea, id) {
     typeOver(textArea, committed[id]);
+    markReverted(id);
+  }
+
+  function markReverted(id) {
+    unsent.forEach(function (c) { if (c.kind === 'markdown' && c.id === id) c.reverted = true; });
   }
 
   // The turns, one block each: who said it, then what. A turn {working: true} is the agent's
@@ -1468,32 +1469,25 @@
 
   // ---- click handling ----
 
-  // Where a ⌘-click (Ctrl-click elsewhere) goes when it lands on a link in this site, or null.
-  // Review takes the plain click, so this one follows a link the way a plain click would.
-  // A link to another site keeps the browser's new tab, and Shift or Option keep their meanings.
-  function internalHref(e) {
+  // Where a ⌘-click (Ctrl-click elsewhere) goes when it lands on a link to a place in this page,
+  // or null. A new tab of the same page is no use. Links to other pages keep the browser's new
+  // tab, and Shift or Option keep their meanings.
+  function placeInPage(e) {
     if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return null;
     var link = e.target instanceof Element && e.target.closest('a[href]');
     if (!link) return null;
     var url = URL.parse(link.getAttribute('href'), document.baseURI);
-    return url && url.origin === location.origin ? url.href : null;
-  }
-
-  // A navigation aborts a PUT on its way, so the tab leaves when its saves have landed.
-  function leaveTo(href) {
-    leavingTo = href;
-    closeBox('link');
-    saveNow();
+    return url && url.hash && url.href.split('#')[0] === location.href.split('#')[0] ? url.href : null;
   }
 
   // Capture phase on document, so page handlers and link navigation lose.
   document.addEventListener('click', function (e) {
     if (inLayer(e.target) || !reviewing || noRevise(e.target)) return;
-    var href = internalHref(e);
-    if (href) {
+    var place = placeInPage(e);
+    if (place) {
       e.preventDefault();
       e.stopPropagation();
-      leaveTo(href);
+      location.href = place;   // same document: it scrolls, and saves on their way go on
       return;
     }
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;

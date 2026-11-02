@@ -16,11 +16,12 @@ export const FAST = 10;   // how much faster the tab's timers run than a browser
 
 // A server on a fresh copy of the fixtures, in this process. s.down = true makes the tab's
 // fetches fail as a browser's do when the server is stopped. Replies are on unless
-// { replies: false }: most tests here are of the thread.
-export async function withServer(fn, { replies = true } = {}) {
+// { replies: false }: most tests here are of the thread. { telemetry: true } has the tab record
+// spans, which tab.spans() reads.
+export async function withServer(fn, { replies = true, telemetry = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'html-revisor-client-'));
   fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
-  const server = createServer({ root: dir, author: '@AI', replies });
+  const server = createServer({ root: dir, author: '@AI', replies, telemetry });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const log = console.log;
@@ -96,6 +97,7 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
   document.execCommand = () => false;
   Object.assign(window.Node, { DOCUMENT_POSITION_PRECEDING: 2, DOCUMENT_POSITION_FOLLOWING: 4 });
   const streams = [];
+  const beacons = [];
   const timers = new Set();
   // A plain object: setting href records where the tab went, and the tab stays where it is.
   const location = { pathname: '/' + name, origin: s.base, href: `${s.base}/${name}` };
@@ -104,7 +106,7 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
     window, document, Node: window.Node, Element: window.Element, Event: window.Event,
     location,
     URL,
-    navigator: { platform: 'MacIntel', sendBeacon: () => true },
+    navigator: { platform: 'MacIntel', sendBeacon: (url, blob) => { beacons.push(blob); return true; } },
     localStorage: {
       getItem: (k) => (storage.has(k) ? storage.get(k) : null),
       setItem: (k, v) => storage.set(k, String(v)),
@@ -149,6 +151,8 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
     },
     button(text) { return [...layer.querySelectorAll('.hrv-box button')].find((b) => b.textContent === text); },
     done() { tab.click(tab.button('Done')); },
+    // The spans the tab has posted so far, oldest batch first.
+    spans: async () => (await Promise.all(beacons.map((b) => b.text()))).flatMap((body) => JSON.parse(body)),
     connected: () => until(() => streams.some((e) => e.heard)),
     // The tab stops hearing live notices, as when one is on its way while the tab saves.
     deafen() { streams.forEach((e) => e.close()); },

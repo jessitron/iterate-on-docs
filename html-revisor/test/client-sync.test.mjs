@@ -212,6 +212,64 @@ test('Revert shows once a scope differs from the commit, and puts the committed 
     tab.close();
   }));
 
+// The tab's save markdown spans, once count of them have been posted.
+const markdownSaves = (tab, count) => until(async () => {
+  const saves = (await tab.spans()).filter((span) => span.name === 'save markdown');
+  return saves.length >= count && saves;
+});
+
+test('a save that carries a Revert says so; the saves around it say not', () =>
+  withServer(async (s) => {
+    commitAll(s.dir);
+    const tab = await openTab(s, 'page.html');
+    tab.open('p');
+    tab.type('First paragraph, edited', tab.content());
+    await until(() => tab.hint() === 'saved');
+    tab.click(tab.button('Revert'));
+    await until(() => tab.hint() === 'saved');
+    tab.type('First paragraph, again', tab.content());
+    await until(() => tab.hint() === 'saved');
+    const saves = await markdownSaves(tab, 3);
+    assert.deepEqual(saves.map((span) => span.attributes['hrv.reverted']), [false, true, false]);
+    assert.equal(saves[1].attributes['hrv.markdown.before'], 'First paragraph, edited', 'what Revert threw away');
+    assert.equal(saves[1].attributes['hrv.markdown.after'], 'First paragraph', 'the committed scope');
+    tab.close();
+  }, { telemetry: true }));
+
+test('a Revert joins a save still waiting: one save, marked, that counts it as an edit', () =>
+  withServer(async (s) => {
+    commitAll(s.dir);
+    const tab = await openTab(s, 'page.html');
+    tab.open('p');
+    tab.type('First paragraph, edited', tab.content());
+    tab.click(tab.button('Revert'));
+    await until(() => tab.hint() === 'saved');
+    const saves = await markdownSaves(tab, 1);
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0].attributes['hrv.reverted'], true);
+    assert.equal(saves[0].attributes['hrv.edits'], 2);
+    tab.close();
+  }, { telemetry: true }));
+
+test('a Revert whose save failed stays marked when a later edit retries it', () =>
+  withServer(async (s) => {
+    commitAll(s.dir);
+    const tab = await openTab(s, 'page.html');
+    tab.open('p');
+    tab.type('First paragraph, edited', tab.content());
+    await until(() => tab.hint() === 'saved');
+    s.down = true;
+    tab.click(tab.button('Revert'));
+    await until(() => tab.message().includes('save failed'));
+    s.down = false;
+    tab.type('First paragraph', tab.content());
+    await until(() => tab.hint() === 'saved');
+    const saves = await markdownSaves(tab, 3);
+    assert.ok(saves[1].error, 'the save that failed');
+    assert.deepEqual(saves.map((span) => span.attributes['hrv.reverted']), [false, true, true]);
+    tab.close();
+  }, { telemetry: true }));
+
 // Checklist: "Opening a second box commits and closes the first."
 test('opening a second box commits the first: its Done goes out after its save, and the box moves', () =>
   withServer(async (s) => {
@@ -274,86 +332,6 @@ test('two tabs: a markdown save in one asks the other to reload', () =>
 // Checklist: "Stopping the server and typing shows `save failed: ...` on the docket; restarting
 // and typing again saves and clears it."
 // The tab's live notices go on through this; a stopped server would end them too.
-// A click with these keys, as a tab sees it. The event comes back to show what became of it.
-const clickWith = (tab, selector, keys) => {
-  const e = new tab.window.Event('click', { bubbles: true, cancelable: true });
-  Object.assign(e, keys);
-  tab.el(selector).dispatchEvent(e);
-  return e;
-};
-
-test('Cmd- or Ctrl-click on an internal link moves this tab there', () =>
-  withServer(async (s) => {
-    for (const keys of [{ metaKey: true }, { ctrlKey: true }]) {
-      const tab = await openTab(s, 'demo.html');
-      const e = clickWith(tab, 'a[href="other.html"]', keys);
-      assert.ok(e.defaultPrevented, 'no new tab');
-      await until(() => tab.location.href === `${s.base}/other.html`);
-      tab.close();
-    }
-  }));
-
-test('Cmd-click on a link to a place in this page moves this tab there', () =>
-  withServer(async (s) => {
-    const tab = await openTab(s, 'demo.html');
-    clickWith(tab, 'a[href="#goals"]', { metaKey: true });
-    await until(() => tab.location.href === `${s.base}/demo.html#goals`);
-    tab.close();
-  }));
-
-test('Cmd-click on an external link stays the browser\'s, and so does Shift-Cmd-click on an internal one', () =>
-  withServer(async (s) => {
-    const tab = await openTab(s, 'demo.html');
-    const here = tab.location.href;
-    const clicks = [
-      clickWith(tab, 'a[href^="https:"]', { metaKey: true }),
-      clickWith(tab, 'a[href="other.html"]', { metaKey: true, shiftKey: true }),
-    ];
-    assert.ok(clicks.every((e) => !e.defaultPrevented), 'the browser opens these');
-    assert.equal(tab.location.href, here);
-    tab.close();
-  }));
-
-test('review off: Cmd-click on an internal link stays the browser\'s', () =>
-  withServer(async (s) => {
-    const tab = await openTab(s, 'demo.html');
-    tab.click(tab.layer.querySelector('.hrv-docket-main'));
-    const e = clickWith(tab, 'a[href="other.html"]', { metaKey: true });
-    assert.ok(!e.defaultPrevented, 'with review off, a plain click is the one that moves the tab');
-    tab.close();
-  }));
-
-test('Cmd-click on an internal link with a box open: the box\'s words land, then the tab moves', () =>
-  withServer(async (s) => {
-    const tab = await openTab(s, 'demo.html');
-    tab.open('h1');
-    tab.type('still typing this');
-    clickWith(tab, 'a[href="other.html"]', { metaKey: true });
-    assert.equal(tab.box(), null, 'the box closes');
-    assert.equal(tab.location.href, `${s.base}/demo.html`, 'no leaving before the save lands');
-    await until(() => tab.location.href === `${s.base}/other.html`);
-    assert.ok(s.read('demo.html').includes('still typing this'), 'the file has the words');
-    assert.equal(s.announcements().length, 1, 'and the Done went out');
-    tab.close();
-  }));
-
-test('Cmd-click on an internal link when the save fails: the tab stays, with the problem showing', () =>
-  withServer(async (s) => {
-    const tab = await openTab(s, 'demo.html');
-    tab.open('h1');
-    tab.type('not lost');
-    s.down = true;
-    clickWith(tab, 'a[href="other.html"]', { metaKey: true });
-    await until(() => tab.message().includes('save failed'));
-    s.down = false;
-    tab.open('h1');
-    tab.type('not lost, again');
-    tab.done();
-    await until(() => s.read('demo.html').includes('not lost, again'));
-    assert.equal(tab.location.href, `${s.base}/demo.html`, 'a later save does not pick the leaving back up');
-    tab.close();
-  }));
-
 test('server down: "save failed", then typing again once it is back saves the latest text', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');

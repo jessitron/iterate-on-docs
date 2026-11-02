@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html data-hrv-next="161" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor away mode</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 58rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; vertical-align: top; }
+      th { background: #f2f2f2; }
+      code { background: #f2f2f2; padding: 0 .2rem; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body data-hrv="1">
+    <h1 data-hrv="2">html-revisor away mode</h1>
+    <p data-hrv="3">
+      The report on the away mode run you asked for. Delete <code>away/</code> when you've read it. Each agent has a page of its own, in the shape <a data-hrv="4" href="FORMAT.md">FORMAT.md</a> gives.
+    </p>
+    <section data-hrv="5" id="round-1">
+      <h2 data-hrv="6">Round 1</h2>
+      <h3 data-hrv="7">Summary</h3>
+      <div data-hrv="8" id="round-1-summary">
+        <p data-hrv="9">
+          You said "do an away mode run." Agents went through the open yaks, picked five that needed no decision from you, and did them, one agent to a task. The names are made up for the run. All five are merged to main and pushed. None is deployed, so the html-revisor you use day to day, the copy in iterate-on-docs, still runs the old code.
+        </p>
+        <ul data-hrv="10">
+          <li data-hrv="11">
+            <strong>Move the save rules into the domain</strong> (Marshal Portwine). This was recommendation 1 in <code>ASSESSMENT.html</code>. When a browser saved an edit or a reply, <code>server.mjs</code> decided whether it conflicted and what to answer: domain rules sitting in the orchestration tier. They now live in a new file, <code>domain/revision.mjs</code>, with tests of their own. Saving behaves as it did, with the same spans. The reply rules moved too, which goes past what the yak named.
+          </li>
+          <li data-hrv="12">
+            <strong>Shorten the test suite</strong> (Ottoline Slice). One file of generated edit tests took about 8 s, and the suite can't finish before its slowest file. That file is now two. The suite went from 8.8 s to about 5.4 s, short of the "near 4 s" the yak hoped for: test files run slower side by side, and nobody knows why yet.
+          </li>
+          <li data-hrv="13">
+            <strong>Land a telemetry attribute that never arrived</strong> (Lazarus Quill). A yak said a save made by the Revert button would carry <code>hrv.reverted</code>, so Honeycomb could tell Reverts from typing. It was marked done on October 18, but the commit stayed on an unmerged branch. The agent reopened the yak, ported the work to main, and added tests. Nobody has seen it in a real browser or in Honeycomb; that check is a yak for you.
+          </li>
+          <li data-hrv="14">
+            <strong>Shorten a second slow test file</strong> (Hargreaves Sockpuller). <code>live-notice.test.mjs</code> went from 3.8 s to 2.2 s by cutting its fixed pauses. The suite's total didn't move, because other files set it. The yak also asked for waits on a condition in place of fixed pauses, and the last of those pauses stayed.
+          </li>
+          <li data-hrv="15">
+            <strong>Remove a span too short to earn its place</strong> (Mildred Lopper). You had said to remove the server step spans that never pass 1 ms. By the measurements, only <code>check base</code> qualified, and it's gone. <code>set directive</code> reached 1.17 ms once, so it stays until you decide.
+          </li>
+        </ul>
+        <p data-hrv="16">
+          Tests on main: 282 tests, 281 pass, 0 fail, 1 skipped (the Honeycomb test, which needs a key).
+        </p>
+      </div>
+      <h3 data-hrv="17">Read first</h3>
+      <p data-hrv="18">
+        The guesses Jess should check before anything else, with links to their blocks on the agents' pages.
+      </p>
+      <ul data-hrv="19" id="round-1-read-first">
+        <li data-hrv="20">
+          <a data-hrv="21" href="marshal-portwine.html#guess-outcome-value">Marshal: guess-outcome-value</a>: the domain returns a plain value for a conflict or refusal.
+        </li>
+        <li data-hrv="22">
+          <a data-hrv="23" href="marshal-portwine.html#guess-io-stays">Marshal: guess-io-stays</a>: reads, writes, and notices stay in <code>server.mjs</code>.
+        </li>
+        <li data-hrv="24">
+          <a data-hrv="25" href="marshal-portwine.html#guess-duplicate-yak">Marshal: guess-duplicate-yak</a>: both yaks marked done for one move.
+        </li>
+        <li data-hrv="26">
+          <a data-hrv="27" href="marshal-portwine.html#guess-reply-too">Marshal: guess-reply-too</a>: the reply's rules moved too.
+        </li>
+        <li data-hrv="28">
+          <a data-hrv="29" href="marshal-portwine.html#guess-step-note">Marshal: guess-step-note</a>: the step port grew a <code>note(attributes)</code>.
+        </li>
+        <li data-hrv="30">
+          <a data-hrv="31" href="marshal-portwine.html#guess-two-calls">Marshal: guess-two-calls</a>: a change takes <code>revise</code> and <code>answerOf</code>, with the write between them.
+        </li>
+        <li data-hrv="32">
+          <a data-hrv="33" href="marshal-portwine.html#guess-conflict-log">Marshal: guess-conflict-log</a>: a conflict carries its log line as text.
+        </li>
+        <li data-hrv="34">
+          <a data-hrv="35" href="marshal-portwine.html#guess-acceptance-stay">Marshal: guess-acceptance-stay</a>: the conflict tests stay in acceptance, with one moved.
+        </li>
+        <li data-hrv="36">
+          <a data-hrv="37" href="lazarus-quill.html#guess-yak-record">Lazarus: guess-yak-record</a>: reopen the yak, so the record shows this round.
+        </li>
+        <li data-hrv="38">
+          <a data-hrv="39" href="lazarus-quill.html#guess-port-by-hand">Lazarus: guess-port-by-hand</a>: <code>987ea63</code> retyped against main.
+        </li>
+        <li data-hrv="40">
+          <a data-hrv="41" href="lazarus-quill.html#guess-typing-after-revert">Lazarus: guess-typing-after-revert</a>: <code>hrv.reverted</code> stays true when typing joins the save.
+        </li>
+        <li data-hrv="42">
+          <a data-hrv="43" href="lazarus-quill.html#guess-client-lib">Lazarus: guess-client-lib</a>: the test tab gained a telemetry option, and the tests sit in <code>test/client-sync.test.mjs</code>.
+        </li>
+        <li data-hrv="44">
+          <a data-hrv="45" href="mildred-lopper.html#guess-set-directive-stays">Mildred: guess-set-directive-stays</a>: <code>set directive</code> stays, at 1.17 ms once.
+        </li>
+        <li data-hrv="46">
+          <a data-hrv="47" href="mildred-lopper.html#guess-sentence">Mildred: guess-sentence</a>: the <code>OBSERVABILITY.html</code> sentence states the rule as it stands.
+        </li>
+        <li data-hrv="48">
+          <a data-hrv="49" href="mildred-lopper.html#guess-trail-swap">Mildred: guess-trail-swap</a>: "Fast big saves" replaces "Leaner spans" on <code>OVERVIEW.html</code>'s trail.
+        </li>
+        <li data-hrv="50">
+          <a data-hrv="51" href="hargreaves-sockpuller.html#guess-no-notice-wait">Hargreaves: guess-no-notice-wait</a>: a no-notice wait of 250 ms, from a slowest notice of 206 ms.
+        </li>
+        <li data-hrv="52">
+          <a data-hrv="53" href="hargreaves-sockpuller.html#guess-no-marker-file">Hargreaves: guess-no-marker-file</a>: <code>none()</code> stays a plain length. Its flake risk went untested.
+        </li>
+        <li data-hrv="54">
+          <a data-hrv="55" href="hargreaves-sockpuller.html#guess-merged-waits">Hargreaves: guess-merged-waits</a>: two checks share one wait, so a failure names the test, not which of the two.
+        </li>
+        <li data-hrv="56">
+          <a data-hrv="57" href="ottoline-slice.html#guess-split-by-time">Ottoline: guess-split-by-time</a>: groups picked by measured time.
+        </li>
+        <li data-hrv="58">
+          <a data-hrv="59" href="ottoline-slice.html#guess-new-kind-covered">Ottoline: guess-new-kind-covered</a>: one file names its kinds, the other takes the rest.
+        </li>
+        <li data-hrv="60">
+          <a data-hrv="61" href="ottoline-slice.html#guess-words-against-structure">Ottoline: guess-words-against-structure</a>: words in one file, structure edits in the other.
+        </li>
+        <li data-hrv="62">
+          <a data-hrv="63" href="ottoline-slice.html#guess-two-files-not-three">Ottoline: guess-two-files-not-three</a>: stop at two files, at 5.4 s.
+        </li>
+        <li data-hrv="64">
+          <a data-hrv="65" href="ottoline-slice.html#guess-fix-stale-counts">Ottoline: guess-fix-stale-counts</a>: stale counts and a missing row in <code>TESTING.html</code> fixed along the way.
+        </li>
+      </ul>
+      <h3 data-hrv="66">Things for Jess</h3>
+      <ul data-hrv="67" id="round-1-for-jess">
+        <li data-hrv="68">
+          The architecture changed: <code>OVERVIEW.html</code> and <code>README.md</code> show <code>domain/revision.mjs</code>.
+        </li>
+        <li data-hrv="69">
+          Your three directives from the <code>observability-revert</code> loop never reached main, and they are in yak <code>observabilityhtml-jesss-three-directives-left-on-worktree-observability-revert-lhk5</code>. One of them: the public page names your team and environment. That yak covers the prose. The page's Honeycomb query links name them too, in their URLs, and Lazarus Quill's new link is one more.
+        </li>
+        <li data-hrv="70">
+          Hargreaves Sockpuller's yak goal was partly unmet: <code>none()</code> stays a fixed wait, and the keep-alive theory was wrong. Close takes under 1 ms in that file.
+        </li>
+        <li data-hrv="71">
+          Ottoline Slice's result fell short of the yak's "near 4 s": three files tie at about 5.3 s. Yak <code>why-do-computing-test-files-run-a-quarter-longer-side-by-side-y5ow</code> holds the open question.
+        </li>
+        <li data-hrv="72">
+          <code>TESTING.html</code> is stale by three tests: it says 279, and the <code>client-sync.test.mjs</code> bar says 18 where the file has 21. Hargreaves Sockpuller measured on a branch without Lazarus Quill's tests. Yak: <code>testinghtml-says-279-tests-the-suite-has-282-rfpz</code>.
+        </li>
+        <li data-hrv="73">
+          Human yaks: <code>chrome-revert-a-scope-with-telemetry-on-see-hrvreverted-true-in-honeycomb-adx2</code> and <code>decide-does-set-directive-keep-its-span-ygit</code>.
+        </li>
+        <li data-hrv="74">
+          Stale worktrees: <code>agent-a5e579ab3090ce628</code>, <code>design-revert</code>, <code>observability-doc</code>, and <code>telemetry-client</code> are merged. Keep <code>observability-revert</code>, which is not merged, until the yak above is handled. Nothing was touched.
+        </li>
+        <li data-hrv="75">
+          Old servers still running, also untouched: pids 18193 and 18349 from <code>observability-revert</code>, 69179 from <code>observability-doc</code>, and 73789 from <code>box-session</code>, a worktree that is no longer on the list.
+        </li>
+      </ul>
+      <h3 data-hrv="76">Agents</h3>
+      <table data-hrv="77" id="round-1-agents">
+        <thead>
+          <tr>
+            <th data-hrv="78">Agent</th>
+            <th data-hrv="79">Yaks</th>
+            <th data-hrv="80">Wave</th>
+            <th data-hrv="81">Size</th>
+            <th data-hrv="82">Page</th>
+            <th data-hrv="83">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="84">Marshal Portwine</td>
+            <td data-hrv="85">
+              <code>domainrevisionmjs-move-put-change-and-reply-rules-out-of-servermjs-using-the-step-port-x30d</code>, and its duplicate <code>pull-the-save-rules-into-the-domain-applychange-with-the-step-port-per-assessmenthtml-paxn</code>
+            </td>
+            <td data-hrv="86">1</td>
+            <td data-hrv="87">M/L</td>
+            <td data-hrv="88">
+              <a data-hrv="89" href="marshal-portwine.html">marshal-portwine.html</a>
+            </td>
+            <td data-hrv="90">
+              merged, <a data-hrv="91" href="https://github.com/jessitron/html-revisor/compare/8984ce3263b9f3a0f38e42ffcfe31dfe670cd153...b7a053e9c6e6b33d53b5e9b1842465a11582cc6e">diff</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="92">Ottoline Slice</td>
+            <td data-hrv="93"><code>roundtrip-generated-editstestmjs-is-the-long-bar-8rd0</code></td>
+            <td data-hrv="94">1</td>
+            <td data-hrv="95">S</td>
+            <td data-hrv="96">
+              <a data-hrv="97" href="ottoline-slice.html">ottoline-slice.html</a>
+            </td>
+            <td data-hrv="98">
+              merged, <a data-hrv="99" href="https://github.com/jessitron/html-revisor/compare/b7a053e9c6e6b33d53b5e9b1842465a11582cc6e...258b0d4aeb4672a3778ddc168458381988bfbb2d">diff</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="100">Lazarus Quill</td>
+            <td data-hrv="101">
+              <code>mark-a-save-that-carries-a-revert-hrvreverted-on-save-markdown-zee4</code>
+            </td>
+            <td data-hrv="102">2</td>
+            <td data-hrv="103">S</td>
+            <td data-hrv="104">
+              <a data-hrv="105" href="lazarus-quill.html">lazarus-quill.html</a>
+            </td>
+            <td data-hrv="106">
+              merged, <a data-hrv="107" href="https://github.com/jessitron/html-revisor/compare/78e23a01fd8e9c7a5ca0a6bb85f075a96050726f...16a1c1302e99c1f1e4b67ba9ff8ebc74eff8641f">diff</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="108">Hargreaves Sockpuller</td>
+            <td data-hrv="109">
+              <code>live-noticetestmjs-close-the-servers-sockets-and-wait-on-conditions-uj0i</code>
+            </td>
+            <td data-hrv="110">2</td>
+            <td data-hrv="111">S</td>
+            <td data-hrv="112">
+              <a data-hrv="113" href="hargreaves-sockpuller.html">hargreaves-sockpuller.html</a>
+            </td>
+            <td data-hrv="114">
+              merged, <a data-hrv="115" href="https://github.com/jessitron/html-revisor/compare/16a1c1302e99c1f1e4b67ba9ff8ebc74eff8641f...fa41ce5a94a47528de86c00135df81a8bcede60d">diff</a>
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="116">Mildred Lopper</td>
+            <td data-hrv="117">
+              <code>remove-server-step-spans-that-stay-under-1-ms-on-a-big-page-r0sf</code>
+            </td>
+            <td data-hrv="118">3</td>
+            <td data-hrv="119">S</td>
+            <td data-hrv="120">
+              <a data-hrv="121" href="mildred-lopper.html">mildred-lopper.html</a>
+            </td>
+            <td data-hrv="122">
+              merged, <a data-hrv="123" href="https://github.com/jessitron/html-revisor/compare/1c7a174c5dff6f9efed67845de3e10cf2b19a06b...1a7393f8e3bf8472d52da7f79fb9238ca38e8c05">diff</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h3 data-hrv="124">What went public</h3>
+      <p data-hrv="125">
+        Pushing main publishes everything GitHub Pages serves, <code>away/</code> included. The coordinator lists each public change here.
+      </p>
+      <ul data-hrv="126" id="round-1-public">
+        <li data-hrv="127">
+          <code>OVERVIEW.html</code> (Marshal Portwine): the Modules diagram's domain box names <code>revision</code>.
+        </li>
+        <li data-hrv="128">
+          <code>ASSESSMENT.html</code> (Marshal Portwine): the 500 stray element IDs came out in <code>12b8c84</code>, on 495 lines. His page says 496; the commit's parent holds 500. Recommendation 1 reads as done, and its diagram's "Now" and "Proposed" became "Before" and "Now".
+        </li>
+        <li data-hrv="129">
+          <code>TESTING.html</code> (Ottoline Slice): bars, counts, round-trip tables, and recommendation re-measured after the split, with a <code>spill.test.mjs</code> row added.
+        </li>
+        <li data-hrv="130">
+          <code>TESTING.html</code> (Hargreaves Sockpuller): re-measured after the live notice waits, with a <code>revision.test.mjs</code> row added.
+        </li>
+        <li data-hrv="131">
+          <code>OBSERVABILITY.html</code> (Lazarus Quill): <code>hrv.reverted</code> added to <code>save markdown</code>, the Revert row out of "Not recorded yet", and a new query link, "How big are the scopes I edit?".
+        </li>
+        <li data-hrv="132">
+          <code>OBSERVABILITY.html</code> (Mildred Lopper): the sentence on steps under 1 ms states the rule, and says <code>set directive</code> keeps its span, at 1.17 ms once.
+        </li>
+        <li data-hrv="133">
+          <code>OVERVIEW.html</code> (Mildred Lopper): the performance trail's "Leaner spans" became "Fast big saves", title and label.
+        </li>
+        <li data-hrv="134">
+          <code>away/</code>: this directory, every agent's page, and this index, from the first push on.
+        </li>
+        <li data-hrv="135">
+          The first push of main, at 13:20, moved <code>origin/main</code> from <code>723f390</code> to <code>8984ce3</code>. It published commits that were on local main and not yet on origin, <code>723f390..2551c3c</code>: <code>f875b7e</code> (a sentence each in <code>DESIGN.html</code> and <code>client.css</code>), <code>12bfb16</code> (<code>CONTRIBUTING.md</code>), and <code>2551c3c</code> (bug reports).
+        </li>
+      </ul>
+      <h3 data-hrv="136">Process rules</h3>
+      <p data-hrv="137">These bind every yak agent.</p>
+      <ul data-hrv="138" id="round-1-rules">
+        <li data-hrv="139">No push, <code>yx sync</code>, deploy, release, or Chrome.</li>
+        <li data-hrv="140">
+          Agents don't edit this index, or files belonging to other agents in the same wave.
+        </li>
+        <li data-hrv="141">The full suite passes before an agent reports merged-ready.</li>
+        <li data-hrv="142">
+          If stuck after a few real attempts, write it up, add a yak, and stop.
+        </li>
+        <li data-hrv="143">
+          Each agent's work lands as one merge commit on main, made by the coordinator.
+        </li>
+        <li data-hrv="144">Browser checks become human yaks (👩🏽‍🦱).</li>
+      </ul>
+      <h3 data-hrv="145">Runners-up</h3>
+      <ul data-hrv="146" id="round-1-runners-up">
+        <li data-hrv="147">
+          <code>xb3s</code> (S): OBSERVABILITY already has sections; narrow to README's paste block plus padding. It shares files with every wave.
+        </li>
+        <li data-hrv="148">
+          <code>8hlj</code>: rewrites SCOPES-DESIGN, which Jess's live server is serving.
+        </li>
+        <li data-hrv="149"><code>k58f</code>: worth it only if Jess types <code>--</code>.</li>
+      </ul>
+      <h3 data-hrv="150">Rejected</h3>
+      <ul data-hrv="151" id="round-1-rejected">
+        <li data-hrv="152">
+          <code>n2fy</code>: a <code>&lt;p&gt;</code>'s own box shows newlines at main; literal br appears in enclosing scopes and an li, and needs <code>tfgh</code>'s decision.
+        </li>
+        <li data-hrv="153">
+          <code>tfgh</code>, <code>6drc</code>, <code>xi7n</code>, <code>esu5</code>, <code>f6im</code>: undecided design.
+        </li>
+        <li data-hrv="154"><code>n6a7</code>: risk undecided.</li>
+        <li data-hrv="155"><code>169q</code>: cause unknown, needs a browser.</li>
+        <li data-hrv="156"><code>crzm</code>: A1 needs the human table-cell decision.</li>
+        <li data-hrv="157"><code>nt0l</code>: open points.</li>
+        <li data-hrv="158">
+          <code>8h1h</code>, <code>cgi1</code>, <code>6wtf</code>, <code>ms27</code>: large or design-first.
+        </li>
+        <li data-hrv="159">
+          <code>wx09</code>, <code>ebqh</code>, <code>x7bn</code>, <code>jf66</code>: client UI design or no repro.
+        </li>
+        <li data-hrv="160">iterate-on-docs yaks: tied to deploy.</li>
+      </ul>
+    </section>
+  </body>
+</html>

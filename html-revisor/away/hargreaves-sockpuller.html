@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Hargreaves Sockpuller</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+      code { background: #f2f2f2; padding: 0 .2rem; overflow-wrap: anywhere; }
+      .status-value { font-weight: bold; }
+      .guess { border-left: 3px solid #ccc; padding-left: .8rem; margin-bottom: 1rem; }
+      #diff::before { content: "Diff"; display: block; font-size: 1.5em; font-weight: bold; margin: 1em 0 .5em; }
+    </style>
+  </head>
+  <body>
+    <h1>Hargreaves Sockpuller</h1>
+    <p><a href="index.html">Back to the index</a>. Wave 2, size S.</p>
+    <section id="status" class="status">
+      <h2>Status</h2>
+      <p class="status-value">merged-ready</p>
+      <p class="status-why">
+        The suite is green, and <code>live-notice.test.mjs</code> went from 3.8 s to 2.2 s.
+      </p>
+    </section>
+    <section id="plan" class="plan">
+      <h2>Plan</h2>
+      <p>
+        Yak: <code>live-noticetestmjs-close-the-servers-sockets-and-wait-on-conditions-uj0i</code>
+      </p>
+      <p>
+        Work: add <code>closeAllConnections</code> beside the <code>server.close</code> in <code>test/acceptance-lib.mjs</code>, and shorten the no-notice waits (<code>tab.none()</code> in <code>test/live-notice.test.mjs</code>).
+      </p>
+      <p>Files:</p>
+      <ul>
+        <li><code>test/live-notice.test.mjs</code></li>
+        <li><code>test/acceptance-lib.mjs</code></li>
+        <li><code>TESTING.html</code> (re-measure its bars)</li>
+      </ul>
+      <p>Lazarus Quill works in the same wave. Stay out of his files.</p>
+    </section>
+    <section id="log" class="log">
+      <h2>Log</h2>
+      <ul>
+        <li>2026-11-01 13:17: Herald Trumpington made this page.</li>
+        <li>
+          2026-11-01 13:20: Started. Timed the file: 3.8 s, of which 3.6 s is nine <code>none()</code> waits of 400 ms.
+        </li>
+        <li>
+          2026-11-01 13:25: Measured write to notice: p50 112 ms, p90 124, max 206 with five suites beside it. Server close takes under 1 ms here, so a keep-alive socket holds nothing in this file.
+        </li>
+        <li>
+          2026-11-01 13:30: <code>1b352ad</code>: <code>closeAllConnections</code> beside close, <code>none()</code> at 250 ms, two tabs listen at once, the no-op save shares the echo's wait.
+        </li>
+        <li>
+          2026-11-01 13:35: Ran seven broken servers under five suites of load: each failed 5 of 5 runs, and the unbroken one passed 5 of 5.
+        </li>
+        <li>
+          2026-11-01 13:42: <code>98b686f</code>: re-measured <code>TESTING.html</code>; added the <code>revision.test.mjs</code> row, and acceptance is 46 tests. The clock was read at this entry only; the times of the four entries above it are estimates.
+        </li>
+      </ul>
+    </section>
+    <section id="guesses" class="guesses">
+      <h2>Guesses</h2>
+      <div id="guess-no-notice-wait" class="guess">
+        <p>
+          <strong>Guess:</strong> a no-notice wait stays long enough for a real notice to arrive, measured on this machine, and no shorter. That came to 250 ms: the slowest notice was 206 ms with five suites running.
+        </p>
+        <p>
+          <strong>Why:</strong> a condition can't prove that nothing comes, and a wait that's too short lets a test pass on a broken server.
+        </p>
+        <p>
+          <strong>If wrong:</strong> raise <code>NO_NOTICE_MS</code> in <code>test/live-notice.test.mjs</code>.
+        </p>
+      </div>
+      <div id="guess-no-marker-file" class="guess">
+        <p>
+          <strong>Guess:</strong> <code>none()</code> stays a plain length. I did not build a condition from a marker file and the test's own <code>fs.watch</code>.
+        </p>
+        <p>
+          <strong>Why:</strong> the marker would show that fs.watch delivered, about 11 ms of the 112; the 100 ms debounce and the read would still need a length. It would save about 70 ms a wait. A second watch in the server's process also shares libuv's FSEvents stream with the server's watch, and starting or closing one can restart that stream, which I judged a flake risk. I did not test that risk. The file is not the long bar, so the suite gains nothing from it.
+        </p>
+        <p>
+          <strong>If wrong:</strong> add the marker and its watch to <code>listen</code> in <code>test/live-notice.test.mjs</code>, and lower <code>NO_NOTICE_MS</code>.
+        </p>
+      </div>
+      <div id="guess-merged-waits" class="guess">
+        <p>
+          <strong>Guess:</strong> in the save test, the no-op save and the echo check share one wait, and that wait now listens on both tabs.
+        </p>
+        <p>
+          <strong>Why:</strong> either bug is one more notice in the same window. The broken-server runs show the test still fails for each one. A failure now names the test, not which of the two.
+        </p>
+        <p>
+          <strong>If wrong:</strong> put back a <code>none()</code> before the second <code>s.put</code> in <code>test/live-notice.test.mjs</code>.
+        </p>
+      </div>
+    </section>
+    <section id="result" class="result">
+      <h2>Result</h2>
+      <ul>
+        <li>
+          <code>1b352ad</code> live-notice tests: close the sockets, hear nothing for 250 ms, not 400 - claude
+        </li>
+        <li>
+          <code>98b686f</code> TESTING: re-measure after the live notice waits; 279 tests, revision's row - claude
+        </li>
+      </ul>
+      <p>
+        Tests: full suite 279, 278 pass, 0 fail, 1 skipped (the Honeycomb test, with no key). <code>live-notice.test.mjs</code> alone: 7 of 7.
+      </p>
+      <p>
+        <code>live-notice.test.mjs</code> went from 3.8 s to 2.2 s. The suite stays at 5.4 s, since this file was not the long bar. <code>closeAllConnections</code> changed no time: close was not held in this file. The last test keeps a bare <code>server.close</code>, because it tests that close ends the stream by itself.
+      </p>
+      <p>
+        Broken servers, each 5 runs with five suites beside it: echo of its own write, another file as news, a no-op save that tells, a no-op save that writes, no debounce on top of the echo, connect sent twice, a state fetch that writes. All failed 5 of 5. Nothing changed for a user: this is tests and a doc page.
+      </p>
+    </section>
+    <section id="diff" class="diff">
+      <h2>Diff</h2>
+      <p><a href="https://github.com/jessitron/html-revisor/compare/16a1c1302e99c1f1e4b67ba9ff8ebc74eff8641f...fa41ce5a94a47528de86c00135df81a8bcede60d">Hargreaves Sockpuller's changes on GitHub</a></p>
+    </section>
+    <section id="gotchas" class="gotchas">
+      <h2>Gotchas</h2>
+      <ul>
+        <li>
+          The yak suspected a keep-alive socket, but this file's close takes under 1 ms: the server's own <code>close</code> ends the event streams. Timing one close first saved the search.
+        </li>
+        <li>
+          A mutant copy of the repo needs every top-level <code>.mjs</code>, not just <code>server.mjs</code>: it imports <code>formatter.mjs</code>. Run a no-change control through the same script, which is what showed the first run was all false failures.
+        </li>
+        <li>
+          <code>TESTING.html</code> had drifted from main: acceptance at 47 where main has 46, and no row for <code>revision.test.mjs</code>. Counting each file's tests from the run, not from the page, found it.
+        </li>
+      </ul>
+    </section>
+    <section id="new-yaks" class="new-yaks">
+      <h2>New yaks</h2>
+      <ul></ul>
+    </section>
+  </body>
+</html>

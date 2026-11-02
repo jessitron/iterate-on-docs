@@ -16,8 +16,9 @@
 // This file holds the generators and checks. The tests sit in several roundtrip-*.test.mjs
 // files, because node --test runs files side by side and the suite waits on the longest:
 // roundtrip-generated (round-trip and tidy markdown on generated pages),
-// roundtrip-generated-edits (reconcile on generated pages), roundtrip-pages (this repo's
-// pages and the fixtures), roundtrip-mintlify (the mintlify page).
+// roundtrip-generated-edits and roundtrip-generated-edits-structure (reconcile on generated
+// pages), roundtrip-pages (this repo's pages and the fixtures), roundtrip-mintlify (the
+// mintlify page).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -295,6 +296,10 @@ export const EDITS = {
   },
 };
 
+// The edits that add, drop, or move elements. roundtrip-generated-edits-structure runs these and
+// roundtrip-generated-edits the rest, so that a new edit lands in the file with time to spare.
+export const STRUCTURE_EDITS = ['insert', 'remove', 'swap'];
+
 // Each ID in the nodes, and the tag and text of the element that carries it. Whitespace aside:
 // an edit made in the DOM has none between elements.
 function idsIn(nodes) {
@@ -365,4 +370,19 @@ export function pageFailure(html, seed, kind) {
     if (failure) return `seed ${seed(n)}: ${failure}`;
   }
   return null;
+}
+
+// Reconcile as property tests on generated pages: each edit keeps every element's ID and
+// directive. One test per kind of edit, each running every seed.
+export function generatedEditTests(kinds) {
+  for (const kind of kinds) {
+    test(`edited, every scope in generated pages keeps its IDs: ${kind} (${SEEDS} seeds)`, () => {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const tidy = seed % 2 === 0;
+        const html = normalize(`<html><body>${generator(random(seed), tidy)()}</body></html>`);
+        const failure = pageFailure(html, (n) => seed * 1000 + n, kind);
+        assert.equal(failure, null, `page seed ${seed}${tidy ? ' (tidy)' : ''}, ${failure}`);
+      }
+    });
+  }
 }

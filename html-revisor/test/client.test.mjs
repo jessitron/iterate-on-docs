@@ -281,6 +281,68 @@ test('data-no-revise: hovering the element shows no crop marks, and the cursor s
     tab.close();
   }));
 
+const LINKS = `<html><head><title>t</title></head><body>
+  <h1 id="top">Links</h1>
+  <p><a id="hash" href="#top">here</a> <a id="named" href="links.html#top">here by name</a></p>
+  <p><a id="page" href="other.html">another page</a> <a id="place" href="other.html#top">a place there</a></p>
+  <p><a id="site" href="https://example.com/#top">another site</a></p>
+</body></html>`;
+
+// A click with these keys. The event comes back to show what became of it.
+const clickWith = (tab, selector, keys) => {
+  const e = new tab.window.Event('click', { bubbles: true, cancelable: true });
+  Object.assign(e, keys);
+  tab.el(selector).dispatchEvent(e);
+  return e;
+};
+
+test('Cmd- or Ctrl-click on a link to a place in this page moves this tab there', () =>
+  withServer(async (s) => {
+    s.write('links.html', LINKS);
+    for (const keys of [{ metaKey: true }, { ctrlKey: true }]) {
+      for (const link of ['#hash', '#named']) {
+        const tab = await openTab(s, 'links.html');
+        assert.ok(clickWith(tab, link, keys).defaultPrevented, 'no new tab');
+        assert.equal(tab.location.href, `${s.base}/links.html#top`);
+        tab.close();
+      }
+    }
+  }));
+
+test('Cmd-click on a link to another page or site is the browser\'s, and so is Shift-Cmd-click', () =>
+  withServer(async (s) => {
+    s.write('links.html', LINKS);
+    const tab = await openTab(s, 'links.html');
+    const clicks = [
+      clickWith(tab, '#page', { metaKey: true }),
+      clickWith(tab, '#place', { metaKey: true }),
+      clickWith(tab, '#site', { metaKey: true }),
+      clickWith(tab, '#hash', { metaKey: true, shiftKey: true }),
+    ];
+    assert.ok(clicks.every((e) => !e.defaultPrevented), 'the browser opens these');
+    assert.equal(tab.location.href, `${s.base}/links.html`);
+    tab.close();
+  }));
+
+test('Cmd-click to a place in this page leaves an open box open', () =>
+  withServer(async (s) => {
+    s.write('links.html', LINKS);
+    const tab = await openTab(s, 'links.html');
+    tab.open('h1');
+    clickWith(tab, '#hash', { metaKey: true });
+    assert.ok(tab.box(), 'the box stays');
+    tab.close();
+  }));
+
+test('review off: Cmd-click to a place in this page is the browser\'s', () =>
+  withServer(async (s) => {
+    s.write('links.html', LINKS);
+    const tab = await openTab(s, 'links.html');
+    tab.click(tab.layer.querySelector('.hrv-docket-main'));
+    assert.ok(!clickWith(tab, '#hash', { metaKey: true }).defaultPrevented);
+    tab.close();
+  }));
+
 test('a marker click sets where the docket steps from, as a click on its element does', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');

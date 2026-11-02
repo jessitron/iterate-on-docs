@@ -93,7 +93,7 @@ function inProcess(dir) {
   const server = createServer({ root: dir, author: '@AI', replies: true });
   run.started = new Promise((r) => server.listen(0, '127.0.0.1', () => r(`http://localhost:${server.address().port}/`)));
   run.stop = async () => {
-    await new Promise((r) => server.close(r));
+    await new Promise((r) => { server.close(r); server.closeAllConnections(); });
     Object.assign(console, { log, error });
   };
   return run;

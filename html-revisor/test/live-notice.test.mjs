@@ -10,8 +10,14 @@ import { fingerprint } from '../domain/bases.mjs';
 import { createServer } from '../server.mjs';
 import { here, withServer, idOf, directAndAnnounce } from './acceptance-lib.mjs';
 
+// How long none() listens. No condition can show that a notice won't come, so this is a length,
+// the longest a notice takes: the file's watcher waits 100 ms for quiet, then reads. Write to
+// notice measured 112 ms at p50, 124 at p90, and 206 at most with five suites running beside it.
+// Too short a wait won't fail a test: it lets a broken server pass.
+const NO_NOTICE_MS = 250;
+
 // Open a page's event stream, as the tab's EventSource does. next() resolves to the next
-// notice, the data of a change event; none(ms) checks that nothing comes for that long.
+// notice, the data of a change event; none() checks that nothing more comes.
 async function listen(s, name) {
   const abort = new AbortController();
   const res = await fetch(s.base + name, { headers: { Accept: 'text/event-stream' }, signal: abort.signal });
@@ -46,8 +52,8 @@ async function listen(s, name) {
       assert.equal(event, 'change');
       return notice;
     },
-    async none(ms = 400) {
-      await new Promise((r) => setTimeout(r, ms));
+    async none() {
+      await new Promise((r) => setTimeout(r, NO_NOTICE_MS));
       assert.deepEqual(notices.slice(read), [], 'no more notices');
     },
     close: () => abort.abort(),
@@ -81,11 +87,10 @@ test('live notice: a save goes to every open tab once, with the version its answ
     for (const tab of tabs) {
       assert.deepEqual(await tab.next(), { version: answer.after, cause: 'directive', id: p });
     }
-    // The server's own write is not news again when the watcher sees it.
-    for (const tab of tabs) await tab.none();
     // A save that changes nothing writes nothing, and says nothing.
     await s.put('page.html', { id: p, base: bases[p], directive: 'shorter' });
-    await tabs[0].none();
+    // Nor is the server's own write news again when the watcher sees it.
+    await Promise.all(tabs.map((tab) => tab.none()));
     tabs.forEach((tab) => tab.close());
   }));
 
@@ -160,6 +165,7 @@ test('live notice: closing the server ends the streams and the watchers', async 
     const res = await fetch(`http://127.0.0.1:${server.address().port}/page.html`, { headers: { Accept: 'text/event-stream' } });
     const reader = res.body.getReader();
     await reader.read();
+    // No closeAllConnections here: close() itself has to end the stream.
     await new Promise((r) => server.close(r));
     for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read());
   } finally {

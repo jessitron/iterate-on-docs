@@ -6,15 +6,14 @@ import path from 'node:path';
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { formatFiles } from './formatter.mjs';
-import { parse, serialize } from './domain/canonical.mjs';
-import { ID, elementById, assignIds } from './domain/identity.mjs';
+import { parse } from './domain/canonical.mjs';
 import { normalize } from './domain/format.mjs';
-import { collectDirectives, threadOf, threadsOf, removeThreads, removeThread, setDirective, placeReply, replyCount } from './domain/directives.mjs';
-import { scopeElements, editable } from './domain/scopes.mjs';
-import { fingerprint, baseOf, basesOf, threadBaseOf, around } from './domain/bases.mjs';
-import { markdownsOf, committedMarkdowns, saveMarkdown, spillOf, settle, spillIds, servedHTML, holderOf } from './domain/markdown-edits.mjs';
+import { scopeElements } from './domain/scopes.mjs';
+import { fingerprint } from './domain/bases.mjs';
+import { markdownsOf, committedMarkdowns } from './domain/markdown-edits.mjs';
 import { announcementOf } from './domain/announcements.mjs';
 import { injectClient, tabStateOf } from './domain/served-page.mjs';
+import { readRevision, revise, answerOf, reviseThread } from './domain/revision.mjs';
 import { readText, readBytes, writeText, listDirectory, isDirectory, readCommitted, readClientAssets, watchFile } from './interface/files.mjs';
 import {
   HttpError, decodeRequestPath, resolveUnderRoot, readJson, sendFile, sendHtml, sendJson, sendNoContent, redirect, sendError, directoryListing,
@@ -245,11 +244,7 @@ async function getState(res, file, urlPath, { author, inTurn }) {
   const span = trace.getActiveSpan();
   const onDisk = await inTurn(file, () => inSpan('read file', {}, () => readText(file)));
   span?.setAttributes({ 'hrv.page': urlPath, 'hrv.page.bytes': onDisk.length });
-  const document = inSpan('parse', {}, () => {
-    const doc = parse(onDisk);
-    assignIds(doc);
-    return doc;
-  });
+  const document = readRevision(onDisk, step);
   const body = JSON.stringify({ version: fingerprint(onDisk), ...tabStateOf(document, author, step) });
   span?.setAttribute('hrv.answer.bytes', body.length);
   sendJson(res, 200, body);
@@ -297,118 +292,49 @@ async function putChange(req, res, file, urlPath, config) {
 // Announcement carried; a turn added or resolved since makes it stale, and the answer is 412
 // with the thread's directive and base now, so the agent can read the new turn and reply again.
 // The answer to a reply that lands carries the new base, for a reply after it.
-async function putReply(res, file, urlPath, { id, thread, reply }, { author, live }) {
+async function putReply(res, file, urlPath, change, { author, live }) {
+  const { id, reply } = change;
   const span = trace.getActiveSpan();
   span?.updateName('PUT reply');
   span?.setAttributes({ 'hrv.page': urlPath, 'hrv.change.kind': 'reply', 'hrv.scope.id': id, 'hrv.change.bytes': reply.length });
   const onDisk = await inSpan('read file', {}, () => readText(file));
   span?.setAttribute('hrv.page.bytes', onDisk.length);
-  const document = inSpan('parse', {}, () => {
-    const doc = parse(onDisk);
-    assignIds(doc);
-    return doc;
-  });
-  const el = elementById(document, id);
-  const turns = el ? threadOf(el, author) : [];
-  const now = el && inSpan('check thread', {}, () => threadBaseOf(el, author));
-  if (!turns.length || now !== thread) {
-    const why = !el ? 'that element is gone from the file' : !turns.length ? 'that element has no directive to reply to' : 'its thread changed since';
-    span?.setAttribute('hrv.conflict', why);
-    console.log(`${urlPath} — stale reply on element ${id} (${why})`);
-    const current = turns.length ? { directive: collectDirectives(document, author)[id] ?? '', thread: now } : {};
-    return sendJson(res, 412, { ok: false, error: why, ...current });
-  }
-  inSpan('place reply', {}, () => placeReply(el, reply, author));
-  const written = inSpan('serialize', {}, () => serialize(document));
-  await inSpan('write file', {}, () => writeText(file, written));
-  live.wrote(file, written, 'reply', id);
-  const reread = elementById(parse(written), id);
-  const count = Object.keys(collectDirectives(document, author)).length;
-  span?.setAttribute('hrv.directive.count', count);
-  sendJson(res, 200, { ok: true, count, thread: threadBaseOf(reread, author), before: fingerprint(onDisk), after: fingerprint(written) });
+  const revised = reviseThread(onDisk, change, author, step);
+  if (revised.conflict) return sendConflict(res, urlPath, revised.conflict);
+  await inSpan('write file', {}, () => writeText(file, revised.written));
+  live.wrote(file, revised.written, 'reply', id);
+  span?.setAttribute('hrv.directive.count', revised.answer.count);
+  sendJson(res, 200, revised.answer);
 }
 
-async function applyChange(res, file, urlPath, { id, base, directive, markdown, replies, spill = [] }, kind, { author, resolved, live }) {
+async function applyChange(res, file, urlPath, change, kind, { author, resolved, live }) {
+  const { id, directive, markdown, spill = [] } = change;
   const span = trace.getActiveSpan();
   span?.setAttributes({ 'hrv.page': urlPath, 'hrv.change.kind': kind, 'hrv.scope.id': id, 'hrv.change.bytes': (directive ?? markdown ?? '').length });
   if (spill.length) span?.setAttribute('hrv.spill.count', spill.length);
   const onDisk = await inSpan('read file', {}, () => readText(file));
   span?.setAttribute('hrv.page.bytes', onDisk.length);
-  let document = inSpan('parse', {}, () => {
-    const doc = parse(onDisk);
-    assignIds(doc);
-    return doc;
-  });
-  const el = elementById(document, id);
-  if (!el || inSpan('check base', {}, () => baseOf(el, author)) !== base) {
-    span?.setAttribute('hrv.conflict', el ? 'changed on disk' : 'no such element');
-    console.log(`${urlPath} — conflict on element ${id} (${el ? 'it changed on disk' : 'no such element'})`);
-    return sendJson(res, 412, { ok: false, error: el ? 'that element changed on disk' : 'that element is gone from the file' });
+  const revised = revise(onDisk, change, kind, author, step);
+  if (revised.conflict) return sendConflict(res, urlPath, revised.conflict);
+  if (revised.refused) throw new HttpError(400, revised.refused);
+  if (revised.answer.spill?.length) span?.setAttribute('hrv.spill.made', revised.answer.spill.length);
+  span?.setAttribute('hrv.wrote', revised.wrote);
+  if (revised.wrote) {
+    await inSpan('write file', {}, () => writeText(file, revised.written));
+    live.wrote(file, revised.written, kind, id);
   }
-  const spilled = spillOf(el, spill);
-  if (!spilled) {
-    span?.setAttribute('hrv.conflict', 'spill moved');
-    console.log(`${urlPath} — conflict on element ${id} (what its last save made changed on disk)`);
-    return sendJson(res, 412, { ok: false, error: 'what the last save made changed on disk' });
-  }
-  // A turn typed before a reply came in: the tab catches up and sends what's left after the reply.
-  const repliesNow = kind === 'directive' && replies !== undefined ? replyCount(el, author) : replies;
-  if (repliesNow !== replies) {
-    span?.setAttribute('hrv.conflict', 'replied since');
-    return sendJson(res, 412, { ok: false, error: 'a reply came in on that thread', replies: repliesNow });
-  }
-  let changed, answer = {}, ended = [];
-  if (kind === 'directive') {
-    inSpan('set directive', {}, () => setDirective(el, directive, author));
-    changed = around([el]);
-  } else if (kind === 'resolve') {
-    ended = threadOf(el, author);
-    inSpan('resolve', {}, () => removeThread(el, author));
-    changed = around([el]);
-  } else {
-    const saved = inSpan('set markdown', {}, () => saveMarkdown(el, markdown, spilled));
-    if (!saved) throw new HttpError(400, 'markdown edits need a scope under 4 KB and non-blank markdown');
-    const settled = inSpan('settle', {}, () => settle(document, saved));
-    document = settled.document;
-    const { nodes } = settled;
-    changed = around(nodes.filter((n) => n.nodeType === 1));
-    answer = inSpan('served html', {}, () => {
-      const holder = holderOf(nodes, id, new Set(scopeElements(document)));
-      return { html: servedHTML(nodes, author), id: holder, spill: spillIds(nodes, holder) };
-    });
-    if (answer.spill.length) span?.setAttribute('hrv.spill.made', answer.spill.length);
-  }
-  const written = inSpan('serialize', {}, () => serialize(document));
-  // A save the canonical file can't tell from what it holds writes nothing: a directive
-  // differing only in edge whitespace (it's trimmed), markdown differing only in a trailing space.
-  span?.setAttribute('hrv.wrote', written !== onDisk);
-  if (written !== onDisk) {
-    await inSpan('write file', {}, () => writeText(file, written));
-    live.wrote(file, written, kind, id);
-  }
-  resolved.note(file, id, ended);
-  const count = Object.keys(collectDirectives(document, author)).length;
-  // Bases and markdown as a reload would serve them: from the file in canonical layout.
-  const served = inSpan('reparse', {}, () => {
-    const doc = parse(written);
-    removeThreads(doc, author);
-    return doc;
-  });
-  const now = changed.map((e) => elementById(served, e.getAttribute(ID))).filter(Boolean);
-  answer.bases = inSpan('bases', { 'hrv.element.count': now.length }, () => basesOf(now, author));
-  if (kind === 'markdown') {
-    answer.markdowns = inSpan('markdowns', {}, (child) => {
-      const scopes = new Set(scopeElements(served));
-      const mine = now.filter((e) => scopes.has(e));
-      child.setAttribute('hrv.scope.count', mine.length);
-      // A scope the save grew past the limit loses its Content field: null tells the tab.
-      const grown = mine.filter((e) => e.hasAttribute(ID) && e.localName !== 'body' && !editable(e));
-      return { ...Object.fromEntries(grown.map((e) => [e.getAttribute(ID), null])), ...markdownsOf(mine) };
-    });
-  }
-  const body = JSON.stringify({ ok: true, count, ...answer, before: fingerprint(onDisk), after: fingerprint(written) });
-  span?.setAttributes({ 'hrv.directive.count': count, 'hrv.answer.bytes': body.length });
+  resolved.note(file, id, revised.ended);
+  const answer = answerOf(revised, author, step);
+  const body = JSON.stringify(answer);
+  span?.setAttributes({ 'hrv.directive.count': answer.count, 'hrv.answer.bytes': body.length });
   sendJson(res, 200, body);
+}
+
+// A conflict from domain/revision.mjs: 412, nothing written.
+function sendConflict(res, urlPath, { why, error, log, now }) {
+  trace.getActiveSpan()?.setAttribute('hrv.conflict', why);
+  if (log) console.log(`${urlPath} — ${log}`);
+  sendJson(res, 412, { ok: false, error, ...now });
 }
 
 // POST: Done, the box closed. The body is what the box opened with:
