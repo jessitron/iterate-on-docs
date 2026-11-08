@@ -20,6 +20,10 @@ through the one you choose.
 For HTML, each **HTML:** mark names a section of `html.md` to do at that point. Markdown needs
 nothing more.
 
+Other agents may run this loop on other files in the same repo at the same time. Stay inside
+your document: its `@AI:` directives are yours, and an `@AI:` in any other file belongs to
+another loop. Commit your file's path alone, and never take another loop's commit for the user's edits.
+
 ## Procedure
 
 0. Choose a git setup from `git.md` and begin it. **HTML:** Start. Commit the file.
@@ -30,10 +34,10 @@ nothing more.
 3. If the user says "good enough", "move on", or equivalent, stop. **HTML:** End. Then finish
    the git setup.
 4. Commit the user's edits as they are, before making any changes.
-5. Read the user's edits (`git diff HEAD~1` shows them). Treat each as normative but not
+5. Read the user's edits (`git log -1 -p -- <file>` shows them). Treat each as normative but not
    complete: apply it to every other step or situation in the document where it fits.
 6. Commit that generalization.
-7. Find every `@AI: <command>` directive in the document. **HTML:** Find directives.
+7. Find every `@AI: <command>` directive in your document. Search that file, never the repo. **HTML:** Find directives.
    Group commands that belong together into batches.
 8. For each batch: interpret and execute the commands, remove that batch's directives from the
    document, then commit the result.

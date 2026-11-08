@@ -1,6 +1,6 @@
 # Git setups
 
-The loop in `SKILL.md` commits at each turn, so `git diff HEAD~1` can separate the user's edits
+The loop in `SKILL.md` commits at each turn, so `git log -1 -p -- <file>` can separate the user's edits
 from the agent's. Where those commits go is up to the user's process. Pick one setup at the
 start, tell the user which one and why in a sentence, and switch if they ask.
 
@@ -32,6 +32,9 @@ branch. At the end, if every commit since the start is the loop's and none is pu
 document. Otherwise leave the commits and tell the user why.
 
 ## Branch and merge
+
+This switches the branch for everyone working in the checkout. If another agent works there,
+use **In place** instead.
 
 Record the current branch. Create a branch for the loop: `git switch -c iterate/<file-stem>`.
 Commit there. At the end, switch back and merge with a kept merge commit:
