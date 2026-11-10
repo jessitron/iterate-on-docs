@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html data-hrv-next="120" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor: concurrent changes</title>
+    <style>
+  :root { --ink: #222; --muted: #666; --line: #ddd; --page: #fafafa; --you: #c2255c; --agent: #2b8a3e; --server: #0969da; --danger: #d9480f; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #aaa; --line: #444; --page: #1d1e21; --you: #f06595; --agent: #51cf66; --server: #4493f8; --danger: #ff922b; } body { background: #141517; } }
+  body { margin: 0 auto; max-width: 900px; padding: 24px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  section { padding: 18px 0; }
+  .lede, .note { color: var(--muted); }
+  .note { font-size: 13px; }
+  code { font: 13px ui-monospace, Menlo, monospace; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td:first-child { width: 22%; font-weight: 600; }
+  .question { border-left: 3px solid var(--agent); padding: 6px 12px; margin: 12px 0; background: var(--page); }
+  .guess { color: var(--muted); font-size: 14px; }
+  svg { width: 100%; height: auto; display: block; background: var(--page); border: 1px solid var(--line); border-radius: 8px; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .muted { fill: var(--muted); }
+  svg .box { fill: none; stroke: var(--line); stroke-width: 2; }
+  svg .you-box { stroke: var(--you); }
+  svg .agent-box { stroke: var(--agent); }
+  svg .server-box { stroke: var(--server); }
+  svg .arrow { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+  svg .dashed { stroke-dasharray: 5 4; }
+  svg .danger { stroke: var(--danger); stroke-width: 2; }
+  svg .danger-text { fill: var(--danger); font-weight: 600; }
+  svg .lane { stroke: var(--line); stroke-width: 1; }
+  svg .think { stroke: var(--agent); stroke-width: 6; opacity: .45; }
+  svg .head { fill: var(--muted); }
+  svg .danger-head { fill: var(--danger); }
+</style>
+  </head>
+  <body data-hrv="1">
+    <h1 data-hrv="2">html-revisor: concurrent changes</h1>
+    <p data-hrv="3" class="lede">
+      What Claude understands so far about making the page hold up while you and an agent change it at once. A first draft to correct, not a design.
+    </p>
+    <section data-hrv="4" id="purpose">
+      <h2 data-hrv="5">What the project is for</h2>
+      <p data-hrv="6">
+        Your agents generate HTML documents. html-revisor makes the rendered page the place where you correct them: click an element, leave a directive or edit its content as markdown.
+      </p>
+      <p data-hrv="7">
+        Everything lands in the HTML file itself. No sidecar, no browser state. The agent reads the file, acts, and removes the directive.
+      </p>
+    </section>
+    <section data-hrv="8" id="change">
+      <h2 data-hrv="9">What this change is for</h2>
+      <p data-hrv="10">
+        Turn-taking makes you wait. Replies showed the better shape: many small threads at once, the page as the conversation. Run 01 had 16 directives on the page against one chat message.
+      </p>
+      <p data-hrv="11">
+        So two writers on one page is the main use. Today's design treats it as an exception.
+      </p>
+      <svg data-hrv="12" viewBox="0 0 900 270" role="img" aria-label="The tab saves through the server, which takes writes in turn. The agent reads and writes the file around the server.">
+        <defs data-hrv="13">
+          <marker data-hrv="14" id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="15" d="M0 0 L10 5 L0 10 z" class="head"></path>
+          </marker>
+          <marker data-hrv="16" id="danger-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path data-hrv="17" d="M0 0 L10 5 L0 10 z" class="danger-head"></path>
+          </marker>
+        </defs>
+        <rect data-hrv="18" class="box you-box" x="20" y="30" width="180" height="70" rx="8"></rect>
+        <text data-hrv="19" x="110" y="60" text-anchor="middle">You, in the tab</text>
+        <text data-hrv="20" x="110" y="80" text-anchor="middle" class="muted">one element at a time</text>
+        <rect data-hrv="21" class="box server-box" x="360" y="30" width="190" height="70" rx="8"></rect>
+        <text data-hrv="22" x="455" y="60" text-anchor="middle">Server</text>
+        <text data-hrv="23" x="455" y="80" text-anchor="middle" class="muted">takes its writes in turn</text>
+        <rect data-hrv="24" class="box" x="700" y="95" width="180" height="80" rx="8"></rect>
+        <text data-hrv="25" x="790" y="130" text-anchor="middle">The HTML file</text>
+        <text data-hrv="26" x="790" y="150" text-anchor="middle" class="muted">the only record</text>
+        <rect data-hrv="27" class="box agent-box" x="20" y="180" width="180" height="70" rx="8"></rect>
+        <text data-hrv="28" x="110" y="210" text-anchor="middle">Agent</text>
+        <text data-hrv="29" x="110" y="230" text-anchor="middle" class="muted">read, think a minute, write</text>
+        <path data-hrv="30" class="arrow" d="M200 55 L358 55" marker-end="url(#head)"></path>
+        <text data-hrv="31" x="279" y="46" text-anchor="middle">save, with a base</text>
+        <path data-hrv="32" class="arrow dashed" d="M358 80 L202 80" marker-end="url(#head)"></path>
+        <text data-hrv="33" x="279" y="97" text-anchor="middle" class="muted">live notice</text>
+        <path data-hrv="34" class="arrow" d="M550 65 L698 118" marker-end="url(#head)"></path>
+        <path data-hrv="35" class="arrow dashed" d="M200 195 L400 102" marker-end="url(#head)"></path>
+        <text data-hrv="36" x="225" y="150" class="muted">replies only</text>
+        <path data-hrv="37" class="arrow danger" d="M200 225 L698 158" marker-end="url(#danger-head)"></path>
+        <text data-hrv="38" x="450" y="215" text-anchor="middle" class="danger-text">content edits go around the server</text>
+      </svg>
+      <p data-hrv="39" class="note">
+        Three facts make the trouble: a save that meets a changed element is refused and asks for a reload; the tab can't show content it didn't save; the agent has no way to change content through the server.
+      </p>
+    </section>
+    <section data-hrv="40" id="symptoms">
+      <h2 data-hrv="41">What broke in run 01</h2>
+      <svg data-hrv="42" viewBox="0 0 900 230" role="img" aria-label="Timeline: the agent reads the file, you save a directive, the agent writes its old copy back, and the directive is gone.">
+        <text data-hrv="43" x="20" y="64">You</text>
+        <text data-hrv="44" x="20" y="124">File</text>
+        <text data-hrv="45" x="20" y="184">Agent</text>
+        <path data-hrv="46" class="lane" d="M90 60 L880 60"></path>
+        <path data-hrv="47" class="lane" d="M90 120 L880 120"></path>
+        <path data-hrv="48" class="lane" d="M90 180 L880 180"></path>
+        <path data-hrv="49" class="think" d="M200 180 L660 180"></path>
+        <path data-hrv="50" class="arrow" d="M200 120 L200 178" marker-end="url(#head)"></path>
+        <text data-hrv="51" x="210" y="155">reads the file</text>
+        <text data-hrv="52" x="430" y="200" text-anchor="middle" class="muted">rewrites the svg in its head</text>
+        <path data-hrv="53" class="arrow" d="M430 60 L430 118" marker-end="url(#head)"></path>
+        <text data-hrv="54" x="440" y="95">your directive saves</text>
+        <path data-hrv="55" class="arrow danger" d="M660 180 L660 122" marker-end="url(#danger-head)"></path>
+        <text data-hrv="56" x="670" y="155">writes its copy back</text>
+        <text data-hrv="57" x="670" y="110" class="danger-text">directive gone</text>
+      </svg>
+      <table data-hrv="58">
+        <tbody>
+          <tr>
+            <td data-hrv="59">Erased</td>
+            <td data-hrv="60">
+              Your directive saved between the agent's read and its write. The agent's write won. It was never in a commit.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="61">Lost in conflict</td>
+            <td data-hrv="62">
+              Your box was open on a paragraph the agent changed. 25 refused saves, and your directive never reached the file.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="63">Echo</td>
+            <td data-hrv="64">
+              A box opened before an agent edit announced the agent's text as your revision. Six times.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="65">No sign</td>
+            <td data-hrv="66">
+              A box open across an agent edit doesn't show that its element changed.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p data-hrv="67" class="note">
+        You said these are symptoms from one run, and the problems are much bigger.
+      </p>
+    </section>
+    <section data-hrv="68" id="different">
+      <h2 data-hrv="69">How this differs from concurrent editing out in the world</h2>
+      <table data-hrv="70">
+        <thead>
+          <tr>
+            <th data-hrv="71"></th>
+            <th data-hrv="72">Google Docs, CRDTs</th>
+            <th data-hrv="73">Here</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-hrv="74">The record</td>
+            <td data-hrv="75">The system owns the store and sees every operation.</td>
+            <td data-hrv="76">
+              A plain file. The agent's Edit tool, the formatter, and a checkout all write it. The server sees states, not operations, unless the agent goes through it.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="77">The writers</td>
+            <td data-hrv="78">Alike: people typing.</td>
+            <td data-hrv="79">
+              Unalike. You change one element through a box. The agent reads, thinks for a minute, and may rewrite a whole diagram, so its base is always old.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="80">A lost change</td>
+            <td data-hrv="81">Costs the same for anyone.</td>
+            <td data-hrv="82">
+              The agent can read again and redo. Your typed words can't be regenerated. The rule can be lopsided: the agent gives way, and you lose nothing.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="83">The grain</td>
+            <td data-hrv="84">Keystrokes and cursors.</td>
+            <td data-hrv="85">
+              Elements. The hard part is identity: an agent rewrite can drop or copy element IDs, and directives hang on them.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="86">Intent</td>
+            <td data-hrv="87">Edits are independent.</td>
+            <td data-hrv="88">
+              Edits answer each other: an agent edit is often the answer to a directive. Who made a change matters, and the echo is that going wrong.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="89">Awareness</td>
+            <td data-hrv="90">Cursors and presence.</td>
+            <td data-hrv="91">
+              The agent hears you through Announcements. You have nothing that shows what the agent changed.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="92">Size</td>
+            <td data-hrv="93">Many users, networks that split, offline.</td>
+            <td data-hrv="94">
+              One human, one machine, one server. A server that puts changes in order is enough; I doubt this needs a CRDT.
+            </td>
+          </tr>
+          <tr>
+            <td data-hrv="95">Instructions</td>
+            <td data-hrv="96">You can't tell users how to edit.</td>
+            <td data-hrv="97">
+              The skill tells the agent how to edit. It will still fumble now and then, so disk writes need a safety net.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section data-hrv="98" id="tension">
+      <h2 data-hrv="99">A tension in the docs</h2>
+      <p data-hrv="100">
+        REPLY-DESIGN decided that the server should be the only process that writes the live file. The yak “Rethink who edits the live file” lists that as one of three options. I count it as open.
+      </p>
+    </section>
+    <section data-hrv="101" id="questions">
+      <h2 data-hrv="102">Questions for you</h2>
+      <p data-hrv="103" class="note">
+        Answer on the question, or change my guess where it's wrong.
+      </p>
+      <div data-hrv="104" class="question">
+        <p data-hrv="105">
+          What is the bigger picture? The yak says the four symptoms aren't the scope of the fix.
+        </p>
+      </div>
+      <div data-hrv="106" class="question">
+        <p data-hrv="107">
+          May the agent keep editing the file with its own tools, or does every agent write go through the server?
+        </p>
+        <p data-hrv="108" class="guess">
+          My guess: through the server by rule, and the server still survives a write that goes around it.
+        </p>
+      </div>
+      <div data-hrv="109" class="question">
+        <p data-hrv="110">When you and the agent change one element at once, who gives way?</p>
+        <p data-hrv="111" class="guess">
+          My guess: the agent, every time. Its change is refused or rebased; your words never drop.
+        </p>
+      </div>
+      <div data-hrv="112" class="question">
+        <p data-hrv="113">
+          An agent edit lands on the element whose box you have open. What do you want to see?
+        </p>
+      </div>
+      <div data-hrv="114" class="question">
+        <p data-hrv="115">
+          How many writers? One of you and one agent, or several agents on one page, as in away mode?
+        </p>
+      </div>
+      <div data-hrv="116" class="question">
+        <p data-hrv="117">
+          How big may one agent change be? One element, or a whole diagram or section in one write?
+        </p>
+      </div>
+      <div data-hrv="118" class="question">
+        <p data-hrv="119">
+          Is this page one of the public docs, linked from OVERVIEW, or a working page that goes away?
+        </p>
+      </div>
+    </section>
+  </body>
+</html>

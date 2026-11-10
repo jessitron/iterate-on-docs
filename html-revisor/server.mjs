@@ -255,6 +255,7 @@ async function getState(res, file, urlPath, { author, inTurn }) {
 //     "replies": n, the replies the tab has seen on the element, makes it 412 if more came since
 //   {"id": "7", "base": "…", "markdown": "…"}       replaces a scope with what its markdown says
 //     "spill": ["8", "9"], the other elements the box's last save made, replaces them too
+//   {"id": "7", "base": "…", "checked": true}      ticks (or unticks) an <input type="checkbox" data-hrv-check>: sets or removes its checked attribute
 //   {"id": "7", "base": "…", "resolve": true}     Resolve: removes the element's thread; Done announces its turns
 // The directive is the element's open turn: after a reply, setting it adds a turn to the thread.
 // IDs come first, so elements an agent added since the last format have them. A base that
@@ -278,12 +279,12 @@ async function putChange(req, res, file, urlPath, config) {
     }
     return config.inTurn(file, () => putReply(res, file, urlPath, change, config));
   }
-  const { id, base, directive, markdown, resolve, replies, spill } = change ?? {};
-  const kinds = [typeof directive === 'string' && 'directive', typeof markdown === 'string' && 'markdown', resolve === true && 'resolve'].filter(Boolean);
+  const { id, base, directive, markdown, resolve, checked, replies, spill } = change ?? {};
+  const kinds = [typeof directive === 'string' && 'directive', typeof markdown === 'string' && 'markdown', resolve === true && 'resolve', typeof checked === 'boolean' && 'check'].filter(Boolean);
   const repliesOk = replies === undefined || (kinds[0] === 'directive' && Number.isInteger(replies) && replies >= 0);
   const spillOk = spill === undefined || (kinds[0] === 'markdown' && Array.isArray(spill) && spill.every((s) => typeof s === 'string' && s !== id));
   if (typeof id !== 'string' || typeof base !== 'string' || kinds.length !== 1 || !repliesOk || !spillOk) {
-    throw new HttpError(400, 'body must look like {"id": "<id>", "base": "<base>", "directive": "text", "replies"?: <n>}, or with "markdown": "…", "spill"?: ["<id>"], or "resolve": true instead');
+    throw new HttpError(400, 'body must look like {"id": "<id>", "base": "<base>", "directive": "text", "replies"?: <n>}, or with "markdown": "…", "spill"?: ["<id>"], "resolve": true, or "checked": true|false instead');
   }
   return config.inTurn(file, () => applyChange(res, file, urlPath, change, kinds[0], config));
 }

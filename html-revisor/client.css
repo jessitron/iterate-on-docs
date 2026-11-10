@@ -44,7 +44,7 @@
    data-no-revise, and all inside it, keeps the page's cursor: the second rule stops the copy
    cursor inheriting from a parent, and :where gives it no specificity, so any page rule wins.
    A link keeps its pointer. */
-html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise], [data-no-revise] *) { cursor: copy !important; }
+html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise], [data-no-revise] *, [data-hrv-check]) { cursor: copy !important; }
 :where(html:not([data-hrv-review="off"]) [data-no-revise]:not(:any-link)) { cursor: auto; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */

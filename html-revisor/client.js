@@ -101,7 +101,7 @@
 
   // The nearest element with an ID, never html or body, and none in a data-no-revise element.
   function targetElement(node) {
-    if (!(node instanceof Element) || noRevise(node)) return null;
+    if (!(node instanceof Element) || noRevise(node) || isCheck(node)) return null;
     var el = node.closest('[data-hrv]');
     if (!el || el === document.documentElement || el === document.body) return null;
     return el;
@@ -729,7 +729,7 @@
       a['hrv.html.before'] = capped(el.outerHTML);
       a['hrv.html.before.length'] = el.outerHTML.length;
     }
-    if (change.kind === 'resolve') return span;
+    if (change.kind === 'resolve' || change.kind === 'check') return span;
     var markdown = change.kind === 'markdown';
     if (markdown) a['hrv.reverted'] = !!change.reverted;
     var before = (markdown ? markdowns[change.id] : savedDirectives[change.id]) || '';
@@ -748,6 +748,7 @@
   function bodyFor(change) {
     var body = { id: change.id, base: bases[change.id] || '' };
     if (change.kind === 'resolve') body.resolve = true;
+    else if (change.kind === 'check') body.checked = !!(elementFor(change.id) || {}).checked;
     else body[change.kind] = change.kind === 'markdown' ? edits[change.id] : (directives[change.id] || '');
     if (change.kind === 'directive') body.replies = repliesSeen(change.id);
     var spill = spills[change.id];
@@ -1480,9 +1481,24 @@
     return url && url.hash && url.href.split('#')[0] === location.href.split('#')[0] ? url.href : null;
   }
 
+  // A checkbox the author marked data-hrv-check (or its label) is the page's to click. Ticking it
+  // saves the checked attribute into the file, a change like any other: it queues, one PUT at a time.
+  function isCheck(node) {
+    if (!(node instanceof Element)) return false;
+    var label = node.closest('label');
+    return !!node.closest('input[data-hrv-check]') || !!(label && label.querySelector('input[data-hrv-check]'));
+  }
+
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (inLayer(t) || !(t instanceof Element) || !t.matches('input[data-hrv-check]') || !t.hasAttribute('data-hrv')) return;
+    addUnsent('check', t.getAttribute('data-hrv'), null);
+    saveNow();
+  });
+
   // Capture phase on document, so page handlers and link navigation lose.
   document.addEventListener('click', function (e) {
-    if (inLayer(e.target) || !reviewing || noRevise(e.target)) return;
+    if (inLayer(e.target) || !reviewing || noRevise(e.target) || isCheck(e.target)) return;
     var place = placeInPage(e);
     if (place) {
       e.preventDefault();

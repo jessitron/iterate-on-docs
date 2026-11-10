@@ -134,7 +134,7 @@ test('each change goes through its steps, in order, and notes what the spans car
   const { id, base } = at(text, 'p');
   const directive = recorder();
   answerOf(revise(text, { id, base, directive: 'mine' }, 'directive', AI, directive.step), AI, directive.step);
-  assert.deepEqual(directive.steps, ['parse', 'set directive', 'serialize', 'reparse', 'bases']);
+  assert.deepEqual(directive.steps, ['parse', 'serialize', 'reparse', 'bases']);
   assert.ok(directive.notes.bases['hrv.element.count'] > 0);
 
   const resolve = recorder();

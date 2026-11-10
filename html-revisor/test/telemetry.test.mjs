@@ -151,7 +151,7 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
     assert.equal(put.attributes['hrv.scope.id'], id);
     assert.equal(put.attributes['hrv.directive.count'], 1);
     const putSteps = spans.filter((s) => s.parentSpanId === put.spanId).map((s) => s.name);
-    for (const step of ['read file', 'parse', 'set directive', 'serialize', 'write file', 'reparse', 'bases']) {
+    for (const step of ['read file', 'parse', 'serialize', 'write file', 'reparse', 'bases']) {
       assert.ok(putSteps.includes(step), `PUT has no ${step} step; it has ${putSteps}`);
     }
     const bases = spans.find((s) => s.parentSpanId === put.spanId && s.name === 'bases');

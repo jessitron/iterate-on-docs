@@ -276,7 +276,7 @@ test('data-no-revise: hovering the element shows no crop marks, and the cursor s
     hover('section a');
     assert.equal(marks(), 'none', 'one inside it shows none');
     const css = fs.readFileSync(path.join(here, '..', 'client.css'), 'utf8');
-    assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*\) \{ cursor: copy/, 'the copy cursor skips it');
+    assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*, \[data-hrv-check\]\) \{ cursor: copy/, 'the copy cursor skips it');
     assert.match(css, /:where\(.*\[data-no-revise\].*\{ cursor: auto; \}/, 'and does not inherit into it from a parent');
     tab.close();
   }));
@@ -458,5 +458,31 @@ test('a <p> typed in the Content box splits the paragraph; the next saves replac
     await until(() => shown()[0] === 'I edited a paragraph');
     assert.deepEqual(shown(), ['I edited a paragraph', 'Second bold paragraph'], 'and so does the tab');
     assert.ok(tab.box(), 'the box stays open');
+    tab.close();
+  }));
+
+const CHECKLIST = `<html><head><title>t</title></head><body>
+  <p>Words.</p>
+  <ul><li><label><input type="checkbox" data-hrv-check> Buy milk</label></li><li><label><input type="checkbox" data-hrv-check checked> Walk dog</label></li></ul>
+</body></html>`;
+
+test('data-hrv-check: ticking the box saves checked into the file, and a click opens no directive box', () =>
+  withServer(async (s) => {
+    s.write('list.html', CHECKLIST);
+    const tab = await openTab(s, 'list.html');
+    const [milk, dog] = [tab.el('li:nth-child(1) input'), tab.el('li:nth-child(2) input')];
+    const click = new tab.window.Event('click', { bubbles: true, cancelable: true });
+    milk.dispatchEvent(click);
+    assert.ok(!click.defaultPrevented, 'the click keeps its natural effect');
+    assert.equal(tab.box(), null, 'no box opens');
+    milk.checked = true;
+    milk.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+    await until(() => /<input[^>]*\bchecked\b[^>]*> Buy milk/.test(s.read('list.html')));
+    dog.checked = false;
+    dog.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+    await until(() => !/\bchecked\b[^>]*> Walk dog/.test(s.read('list.html')));
+    milk.checked = false;
+    milk.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+    await until(() => !/\bchecked\b/.test(s.read('list.html')), 3000);
     tab.close();
   }));

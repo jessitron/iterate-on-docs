@@ -750,3 +750,30 @@ test('given a file the formatter cannot handle, the server exits with its messag
     s.stop();
   }
 });
+
+const CHECKLIST = `<html><head><title>t</title></head><body>
+  <ul><li><label><input type="checkbox" data-hrv-check> Buy milk</label></li></ul>
+</body></html>`;
+
+test('data-hrv-check: only an input marked data-hrv-check takes a checked state', () =>
+  withServer(async (s) => {
+    const { bases, document } = await s.page('page.html');
+    const id = document.querySelector('h1').getAttribute('data-hrv');
+    const res = await s.put('page.html', { id, base: bases[id], checked: true });
+    assert.equal(res.status, 400);
+  }));
+
+test('data-hrv-check: a server PUT sets and removes checked, and a stale base is refused', () =>
+  withServer(async (s) => {
+    s.write('list.html', CHECKLIST);
+    const { bases, document } = await s.page('list.html');
+    const id = document.querySelector('li input').getAttribute('data-hrv');
+    const ok = await s.put('list.html', { id, base: bases[id], checked: true });
+    assert.equal(ok.status, 200);
+    assert.match(s.read('list.html'), /<input[^>]*\bchecked\b[^>]*> Buy milk/);
+    const stale = await s.put('list.html', { id, base: bases[id], checked: false });
+    assert.equal(stale.status, 412, 'the base moved with the attribute');
+    const off = await s.put('list.html', { id, base: (await ok.json()).bases[id], checked: false });
+    assert.equal(off.status, 200);
+    assert.doesNotMatch(s.read('list.html'), /\bchecked\b/);
+  }));

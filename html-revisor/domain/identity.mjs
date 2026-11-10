@@ -19,7 +19,7 @@ export function elementById(document, id) {
 // scopes did; commenting inside an SVG stays as it is (Jess, 2026-10-12).
 function identifiable(document) {
   const wanted = new Set(scopeElements(document));
-  for (const el of document.querySelectorAll('body hr, body svg, body svg *')) wanted.add(el);
+  for (const el of document.querySelectorAll('body hr, body svg, body svg *, body input[data-hrv-check]')) wanted.add(el);
   return wanted;
 }
 

@@ -61,7 +61,8 @@ function reviseMarkdown(document, el, { id, markdown }, spilled, author, step) {
 }
 
 // change: {id, base, directive, replies?} | {id, base, markdown, spill?} | {id, base}, by kind:
-// "directive", "markdown", or "resolve".
+// "directive", "markdown", "resolve", or "check" (change.checked: true or false, for an input
+// marked data-hrv-check).
 // Gives one of:
 //   {conflict}: see conflict above
 //   {refused}: why the change can't be made at all
@@ -73,8 +74,13 @@ export function revise(text, change, kind, author, step = justRun) {
   const checked = check(el, change, kind, author);
   if (checked.conflict) return checked;
   const ended = kind === 'resolve' ? threadOf(el, author) : [];
-  if (kind === 'directive') step('set directive', () => setDirective(el, change.directive, author));
+  if (kind === 'directive') setDirective(el, change.directive, author);
   if (kind === 'resolve') step('resolve', () => removeThread(el, author));
+  if (kind === 'check') {
+    if (!el.matches('input[data-hrv-check]')) return { refused: 'only an input marked data-hrv-check takes a checked state' };
+    if (change.checked) el.setAttribute('checked', '');
+    else el.removeAttribute('checked');
+  }
   const revised = kind === 'markdown' ? reviseMarkdown(document, el, change, checked.spilled, author, step) : { document, changed: around([el]), answer: {} };
   if (!revised) return { refused: 'markdown edits need a scope under 4 KB and non-blank markdown' };
   const written = step('serialize', () => serialize(revised.document));

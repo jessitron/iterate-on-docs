@@ -101,6 +101,7 @@ The skills and the README in iterate-on-docs run and describe this tool. They re
 | Loading a page reformats its file | each GET rewrites the file on disk into canonical formatting, with element IDs. The skill runs the formatter CLI before each commit, so the reformat lands in the agent's commit and doesn't show up as the user's next edit |
 | Element IDs | the formatter (GET, PUT, and the formatter CLI) writes `data-hrv="<n>"` on each element you can pick and `data-hrv-next="<n>"` on `<html>`. Agents leave both alone: don't change, copy, or remove them. A new element needs none; the next format gives it one |
 | No revise | an agent puts `data-no-revise` on an element, for a page with interaction of its own: that element and all inside it can't be picked. The tool ignores clicks there, so no box opens, and the page keeps its click behavior, focus, and cursor. A parent scope's markdown still holds its text: it can't be picked, and it isn't protected. The attribute stays through format and cleanup |
+| Checkbox | an agent writes `<input type="checkbox" data-hrv-check>` for a box the user can tick. The tool leaves clicks there, and on the label around it, to the page, and saves the tick into the file as the `checked` attribute (`checked` present or absent), so it shows in the next git diff. The formatter gives the input its own `data-hrv` ID. The agent sets the starting state with `checked`, as in HTML, and reads the user's ticks from the file. A tick made in the tab shows in the file, not in an agent's edit to a checkbox the tab has open: reload. The attribute stays through format and cleanup |
 | Browser behavior | click a block, link, image, or part of an SVG to leave a directive on it or change its wording; both save into the file as you type. If the element changed on disk since the page loaded, the save is refused with an error that suggests a reload; a change elsewhere in the file only brings a notice. Revert puts a scope's content back to the file's last commit, so in an iterate loop it goes back to the start of the turn. The box reopened on a directive holds it in the field to edit in place. The open tab hears of each change to the file without a reload: a directive added or removed on disk shows or takes away its marker, and a change to an element's content on disk brings the notice to reload |
 | Bug reports | an agent with a checkout at `~/code/jessitron/html-revisor` adds a yak there, with the moment, the page shape that caused it, and the commit `VENDORED.md` in the copy names (`CONTRIBUTING.md`). It files no GitHub issue. Anyone else offers the user an issue at `https://github.com/jessitron/html-revisor/issues` |
 | README | this README ships in the output and keeps its "Directive format" section; iterate-on-docs links to it |
@@ -169,6 +170,8 @@ them. New elements need none; the formatter adds them.
 On an element with interaction of its own, like input controls, add the HTML
 attribute data-no-revise to its tag: <div data-no-revise>. That element and all
 inside it can't be picked for a directive, and clicks there go to the page.
+For a checklist the user ticks, write <input type="checkbox" data-hrv-check>. The tick saves
+into the file as the checked attribute; read the user's ticks from the file.
 ```
 
 ## Manual client checklist
@@ -200,6 +203,7 @@ Open `SCOPES-DESIGN.html` in a browser (see [Try it](#try-it)).
 - [ ] Opening a second box commits and closes the first.
 - [ ] Plain click on a link opens a directive box. ⌘- or Ctrl-click on a link to a place in this page scrolls this tab there, and an open box stays open; on a link to another page, local or not, it opens a new tab. Shift- or ⌥-click goes to the browser.
 - [ ] Add `data-no-revise` to an element holding an input. Hovering it shows no marks and the page's cursor. Clicking the input puts the caret there, and no box opens; an open box stays open.
+- [ ] Add `<label><input type="checkbox" data-hrv-check> Item</label>` to a page. Hovering the box shows no marks. Clicking the box or its label ticks it and opens no directive box; the file gains `checked` on the input (`git diff`), and unticking removes it. Reload and the tick holds.
 - [ ] The page's own layout and styles look the same with the UI loaded, including while hovering: a card keeps its own box-shadow.
 - [ ] Stopping the server and typing shows `save failed: ...` on the docket; restarting and typing again saves and clears it.
 - [ ] Edit one element in the file on disk while the tab is open, then type a directive on that element: the docket says it wasn't saved and suggests a reload, the box's footer says `not saved`, the file stays untouched, and the box keeps your text.
