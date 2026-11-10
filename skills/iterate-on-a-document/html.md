@@ -40,6 +40,10 @@ On an element with interaction of its own, like input controls, add the HTML att
 `data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it can't be
 picked for a directive, and clicks there go to the page.
 
+For a checklist the user ticks, write `<input type="checkbox" data-hrv-check>`. A tick in the
+browser saves into the file as the `checked` attribute, so read the user's ticks from the file or
+`git diff`. Set a starting state with `checked`, as in HTML.
+
 ## Find directives
 
 Run `grep -n '<!-- *@AI:' <file>`. A page that talks about directives holds the bare `@AI:` in
