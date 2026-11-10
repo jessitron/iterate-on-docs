@@ -36,6 +36,10 @@ stderr and run it again.
 Leave `data-hrv` and `data-hrv-next` attributes alone: don't change, copy, or remove them. A new
 element needs none; the formatter gives it one. An open browser tab saves by these IDs.
 
+After the first Tidy, every pickable tag carries `data-hrv`, so a script that finds `<p><strong>…`
+finds nothing and changes nothing, silently. Match on text inside the tag, or assert the match before
+replacing.
+
 On an element with interaction of its own, like input controls, add the HTML attribute
 `data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it can't be
 picked for a directive, and clicks there go to the page.
