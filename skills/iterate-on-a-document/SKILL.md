@@ -41,7 +41,8 @@ another loop. Commit your file's path alone, and never take another loop's commi
    Group commands that belong together into batches.
 8. For each batch: interpret and execute the commands, remove that batch's directives from the
    document, then commit the result.
-9. Summarize the actions you took, in brief.
+9. Summarize the actions you took, in brief. Put every question for the user in the document,
+   never in chat alone: chat scrolls away, and the document is where they answer.
 10. Go to step 1.
 
 Edit the file in place. Never regenerate it from scratch while directives remain, or the
