@@ -40,13 +40,15 @@ After the first Tidy, every pickable tag carries `data-hrv`, so a script that fi
 finds nothing and changes nothing, silently. Match on text inside the tag, or assert the match before
 replacing.
 
-On an element with interaction of its own, like input controls, add the HTML attribute
-`data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it can't be
-picked for a directive, and clicks there go to the page.
+On an element with interaction of its own, like a widget your script drives, add the HTML
+attribute `data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it
+can't be picked for a directive, and clicks there go to the page.
 
-For a checklist the user ticks, write `<input type="checkbox" data-hrv-check>`. A tick in the
-browser saves into the file as the `checked` attribute, so read the user's ticks from the file or
-`git diff`. Set a starting state with `checked`, as in HTML.
+To ask the user for answers, write a form with plain fields: `<input>`, `<textarea>`, `<select>`,
+checkboxes, radios. Each change saves into the file: `checked` on a checkbox or radio, `value` on
+an input, a textarea's text, `selected` on an option. Each also prints a field Announcement on the
+server's stdout. Read the answers from the file or `git diff`. Set starting values as in HTML. A
+form submits nowhere, so it needs no `action` and no submit button.
 
 ## Find directives
 
