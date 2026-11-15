@@ -28,19 +28,15 @@ in markdown.
 project needs no context map; another needs a picture nobody else would draw.
 
 - **Purpose:** the problem this project solves
-- **Direction:** where it is headed: its goals, and what
-  a stable stopping point looks like. Draw it. A journey toward a destination works, or a picture that suits
-  the project better.
+- **Direction:** where it is headed: its goals, and what a stable stopping point looks like. Draw it. A journey toward a destination works, or a picture that suits the project better.
 - **What makes this hard:** the challenges and complexities that make the project non-trivial. At least one concrete example with pictures.
 - **Where it runs:** links to dashboards, traces, or deployments, when the project has them.
 - **Context map:** the parts of the domain and the language boundaries between them, when the
   project has more than one.
 - **Architecture:** the major pieces and how they depend on each other.
-- **Invariants:** properties that must stay true. Give them a section, or show them inside the
-  task list. Tag them as domain/architecture/design/code style.
+- **Invariants:** properties that must stay true. Give them a section, or show them inside the other views, whichever reads faster.
 - **Domain terms:** The top few terms that are central to understanding the project. Include technical terms that people might not intuitively guess. Like 2-6 key terms that clarify things. List term, bounded context, description, synonyms to avoid.
-- **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a
-  other views, whichever reads faster.
+- **Current work:** what is underway and the high-level plan for it. A sketch of the plan, not a task list. Tag them as domain/architecture/design/code style.
 
 Context map and architecture show **reality** first and **direction** second. Anything not yet true
 carries a visible **directional** label.
@@ -79,8 +75,7 @@ code. The overview summarizes what a human needs to see at a glance.
    to word vomit about their vision for the project.
 3. Read the sources. Find the direction, the major pieces, and what is underway. See how much lines up with the user's expressed vision. When the purpose or the goals are not clear, ask the user one question at a time until you can draw them.
 4. Write or update `OVERVIEW.html`.
-5. Refine it with the user using the `iterate-on-a-document` skill from this plugin, on
-   `OVERVIEW.html`. Its HTML steps let the user leave directives on the page in the browser.
+5. Refine it with the user using the `iterate-on-a-document` skill from this plugin. Its HTML steps let the user leave directives on the page in the browser.
 
 ## Keeping it current
 
