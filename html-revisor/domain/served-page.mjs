@@ -24,9 +24,10 @@ export function tabStateOf(document, author, step = justRun) {
 // directives: {id: text}, each element's open turn. threads: {id: [{prefix, text}]}, the settled
 // turns of each thread with a reply. bases: {id: base}, sent back with each change. markdowns:
 // {id: markdown}. committed: {id: markdown} at the last commit. css, js: the client assets.
+// notices: [{id, kind}], what changed since you last saw it (notices.mjs).
 // replies: an agent answers in the page, so a turn sent is the agent's to work on.
 // telemetry: the client records spans for its saves.
-export function injectClient(document, { directives, threads = {}, bases, markdowns = {}, committed = {}, replies = false, telemetry = false }, version, { css, js }) {
+export function injectClient(document, { directives, threads = {}, bases, markdowns = {}, committed = {}, notices = [], replies = false, telemetry = false }, version, { css, js }) {
   const head = document.querySelector('head') ?? document.documentElement;
   const body = document.querySelector('body') ?? document.documentElement;
 
@@ -67,7 +68,14 @@ export function injectClient(document, { directives, threads = {}, bases, markdo
   committedData.textContent = JSON.stringify(committed).replace(/</g, '\\u003c');
   body.appendChild(committedData);
 
+  const noticeData = document.createElement('script');
+  noticeData.setAttribute('type', 'application/json');
+  noticeData.setAttribute('id', 'hrv-notices');
+  noticeData.textContent = JSON.stringify(notices);
+  body.appendChild(noticeData);
+
   const script = document.createElement('script');
+  script.setAttribute('id', 'hrv-client');
   script.textContent = js;
   body.appendChild(script);
 }

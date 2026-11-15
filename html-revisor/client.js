@@ -14,26 +14,34 @@
   var markers = {};         // id -> marker element
   var box = null;           // the open directive box, if any
   var boxId = null;         // id of the element the open box is for
-  var boxOpened = null;     // what the open box opened with: {session, directive, markdown}; markdown only for a scope
+  var boxOpened = null;     // what the open box opened with: {session, directive}
   var boxSent = '';         // the open turn the box opened on: sent, so it shows in the thread, and the field adds to it
   var saveTimer = null;
   var saving = false;       // a PUT is in flight
   var unsent = [];          // changes not yet sent, oldest first: {kind: 'directive'|'markdown'|'done', id}
   var version = null;       // fingerprint of the file as this tab last saw it
-  var changedOnDisk = false; // a save found the file changed by someone else
+  var shown = null;         // the version of the file whose content the page shows; catching up starts from it
   var inFlight = null;      // the change the PUT in flight carries
   var savedDirectives = {}; // id -> directive text as the file on disk holds it
   var boxBehind = false;    // the file changed the open box's directive; it catches up when the box closes
+  var boxHeld = false;      // the file changed content the open box is on; it swaps in when the box closes
+  var heldBases = {};       // id -> true: elements whose base stays as the tab had it until the box closes
+  var boxMovedTo = null;    // the ID the open box's directive landed on, its own element being gone
+  var boxRefused = null;    // why the open box's saves of a kind stopped: {markdown?: text, directive?: text}
+  var notices = [];         // [{id, kind}]: what changed since you last saw it, in document order
+  var acking = {};          // id (or 'all') -> acks of it on their way to the server
 
   try {
     var data = document.getElementById('hrv-directives');
     directives = JSON.parse(data.textContent) || {};
     for (var d0 in directives) savedDirectives[d0] = directives[d0];
     version = data.getAttribute('data-version');
+    shown = version;
     threads = JSON.parse(document.getElementById('hrv-threads').textContent) || {};
     bases = JSON.parse(document.getElementById('hrv-bases').textContent) || {};
     markdowns = JSON.parse(document.getElementById('hrv-markdown').textContent) || {};
     committed = JSON.parse(document.getElementById('hrv-committed').textContent) || {};
+    notices = JSON.parse(document.getElementById('hrv-notices').textContent) || [];
   } catch (e) {
     directives = directives || {};
   }
@@ -100,9 +108,10 @@
   }
 
   // The nearest element with an ID, never html or body, and none in a data-no-revise element.
+  // A table row has an ID, for its notice, and is no scope: a click on it picks the table.
   function targetElement(node) {
-    if (!(node instanceof Element) || noRevise(node) || isCheck(node)) return null;
-    var el = node.closest('[data-hrv]');
+    if (!(node instanceof Element) || noRevise(node) || isField(node)) return null;
+    var el = node.closest('[data-hrv]:not(tr)');
     if (!el || el === document.documentElement || el === document.body) return null;
     return el;
   }
@@ -181,10 +190,10 @@
     positionHover();
   }
 
-  // Over a marker, its element shows crop marks too.
+  // Over a marker or a check tile, its element shows crop marks too.
   document.addEventListener('mouseover', function (e) {
     if (!inLayer(e.target)) { setHover(targetElement(e.target)); return; }
-    var marker = e.target.closest('.hrv-marker');
+    var marker = e.target.closest('.hrv-marker, .hrv-seen');
     setHover(marker ? elementFor(marker.getAttribute('data-for')) : null);
   }, true);
 
@@ -200,6 +209,7 @@
   // top-aligned with the element's first line; with no room there, above the top-left corner.
   // A marker that would land on one already placed steps outward, further left or further up.
   // Inner elements go first, so a section and its first paragraph show two markers side by side.
+  // A notice's check tile is one more such tile, next after its element's marker.
   var TILE = 20, STEP = TILE + 2;
 
   function overlaps(a, b) {
@@ -221,24 +231,30 @@
     return { x: Math.max(2, spot.x), y: Math.max(2, spot.y) };
   }
 
+  // A notice's check tile places the same way, as a marker: beside its element's marker, the
+  // marker nearest, or alone in the marker's spot.
   function positionMarkers() {
     var o = layerOrigin();
     var els = [];
-    for (var id in markers) {
+    function add(tile, id, second) {
       var el = elementFor(id);
       var rect = el && el.getBoundingClientRect();
-      if (!rect || isHidden(rect)) { markers[id].style.display = 'none'; continue; }
-      els.push({ id: id, el: el, rect: rect });
+      if (!rect || isHidden(rect)) { tile.style.display = 'none'; return; }
+      els.push({ tile: tile, el: el, rect: rect, second: second });
     }
-    // Later in the document first, so a child places before its parent.
+    for (var id in markers) add(markers[id], id, false);
+    for (var n in noticeMarks) add(noticeMarks[n].tile, n, true);
+    // Later in the document first, so a child places before its parent; an element's marker
+    // before its check tile.
     els.sort(function (a, b) {
+      if (a.el === b.el) return a.second ? 1 : -1;
       return a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1;
     });
     var placed = [];
     els.forEach(function (m) {
       var spot = markerSpot(m.rect, placed);
       placed.push(spot);
-      var marker = markers[m.id];
+      var marker = m.tile;
       marker.style.display = 'block';
       marker.style.left = spot.x - o.x + 'px';
       marker.style.top = spot.y - o.y + 'px';
@@ -252,9 +268,11 @@
   tip.style.display = 'none';
   layer.appendChild(tip);
   var tipId = null;
+  var tipOfNotice = false;   // the tip is beside a check tile, and says what the change is for
 
-  function showTip(id) {
+  function showTip(id, ofNotice) {
     tipId = id;
+    tipOfNotice = !!ofNotice;
     positionTip();
   }
 
@@ -263,13 +281,22 @@
     tip.style.display = 'none';
   }
 
+  var SEEN = 'Seen: take this mark off';
+
+  // What the agent said its change to the element is for, if it said.
+  function becauseOf(id) {
+    for (var i = 0; i < notices.length; i++) if (notices[i].id === id) return notices[i].because || '';
+    return '';
+  }
+
   // A tip from stepping stays until the next click.
   document.addEventListener('mousedown', hideTip, true);
 
   // Above the marker, left edges aligned; below it with no room above. Kept inside the window.
   function positionTip() {
-    var marker = tipId && markers[tipId];
-    var said = tipId && lastSaid(tipId);
+    var marker = tipId && (tipOfNotice ? noticeMarks[tipId] && noticeMarks[tipId].tile : markers[tipId]);
+    var because = tipId && tipOfNotice && becauseOf(tipId);
+    var said = tipId && (tipOfNotice ? because && { text: because, reply: true } : lastSaid(tipId));
     if (!marker || marker.style.display === 'none' || !said) { hideTip(); return; }
     tip.textContent = said.text;
     tip.className = 'hrv-tip' + (said.reply ? ' hrv-tip-reply' : '');
@@ -283,6 +310,121 @@
     if (top < 8) top = m.bottom + 6;
     tip.style.left = left + window.scrollX - o.x + 'px';
     tip.style.top = top + window.scrollY - o.y + 'px';
+  }
+
+  // ---- notices ----
+
+  // Content that changed since you last saw it wears green crop marks, and a check tile placed
+  // as a marker is (positionMarkers), beside the element's marker when it has one. Clicking the
+  // tile acks the notice:
+  // the mark goes at once, and the server's answer is the truth. An element the tab doesn't have
+  // (new on disk, shown after a reload) wears none; one whose content changed on disk wears its
+  // mark over what the tab still shows.
+  var noticeMarks = {};     // id -> {crop, tile}
+
+  // Take the server's notices, less any ack still on its way.
+  var heardNotices = notices;   // the server's last word
+  function syncNotices(list) {
+    heardNotices = list;
+    notices = acking.all ? [] : list.filter(function (n) { return !beingAcked(n.id); });
+    var wanted = {};
+    notices.forEach(function (n) { if (elementFor(n.id)) wanted[n.id] = true; });
+    for (var id in noticeMarks) {
+      if (wanted[id]) continue;
+      noticeMarks[id].crop.remove();
+      noticeMarks[id].tile.remove();
+      delete noticeMarks[id];
+    }
+    for (var w in wanted) {
+      if (!noticeMarks[w]) noticeMarks[w] = noticeMark(w);
+      // With the agent's words, our tip says both; the browser's own tooltip would cover it.
+      var because = becauseOf(w), tile = noticeMarks[w].tile;
+      tile.title = because ? '' : SEEN;
+      tile.setAttribute('aria-label', because ? because + ' ' + SEEN : SEEN);
+    }
+    positionNotices();
+    positionMarkers();
+    updateDocket();
+  }
+
+  function noticeMark(id) {
+    var tile = document.createElement('div');
+    tile.className = 'hrv-seen';
+    tile.setAttribute('data-for', id);
+    tile.addEventListener('mouseenter', function () { showTip(id, true); });
+    tile.addEventListener('mouseleave', hideTip);
+    tile.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      ackNotice(id);
+    });
+    layer.appendChild(tile);
+    return { crop: makeCrop('hrv-crop hrv-notice'), tile: tile };
+  }
+
+  // The crop marks; the tiles place with the markers (positionMarkers).
+  function positionNotices() {
+    for (var id in noticeMarks) positionCrop(noticeMarks[id].crop, elementFor(id));
+  }
+
+  // The marked elements the tab has, inner first: what the docket counts and steps through.
+  function noticeElements() {
+    return Object.keys(noticeMarks).map(elementFor).filter(Boolean)
+      .sort(function (a, b) { return innerFirst(a, b) ? -1 : 1; });
+  }
+
+  // Whether a comes before b among the changes: in document order, except an element comes after
+  // every element inside it. You read the changed parts, then the change around them.
+  function innerFirst(a, b) {
+    if (a.contains(b)) return false;
+    if (b.contains(a)) return true;
+    return follows(a, b);
+  }
+
+  // An ack takes its element's mark and every mark inside it.
+  function beingAcked(id) {
+    if (acking[id]) return true;
+    var el = elementFor(id);
+    return !!el && Object.keys(acking).some(function (a) {
+      var around = elementFor(a);
+      return !!around && around !== el && around.contains(el);
+    });
+  }
+
+  // Ack: you've seen it. id 'all' acks every notice. It takes its turn with the saves.
+  function ackNotice(id) {
+    acking[id] = (acking[id] || 0) + 1;
+    syncNotices(heardNotices);
+    unsent.push({ kind: 'ack', id: id });
+    saveNow();
+  }
+
+  function sendAck(change) {
+    var failed = false;
+    fetch(location.pathname, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ack: change.id })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      settleAck(change.id);
+      syncNotices(data.notices || []);
+    }).catch(function (err) {
+      // The mark comes back: the server hasn't seen the ack.
+      failed = 'ack failed: ' + (err && err.message ? err.message : err);
+      settleAck(change.id);
+      syncNotices(heardNotices);
+      showProblem(failed);
+    }).then(function () {
+      saving = false;
+      if (!failed) saveNow();
+    });
+  }
+
+  function settleAck(id) {
+    if (--acking[id] <= 0) delete acking[id];
   }
 
   // ---- directive box placement ----
@@ -421,6 +563,7 @@
 
   function positionAll() {
     positionMarkers();
+    positionNotices();
     positionBox();
     positionCrop(selectedCrop, box ? elementFor(boxId) : null);
     positionHover();
@@ -474,7 +617,8 @@
   // ---- the docket ----
 
   // Bottom right of the window. It counts the directives, steps through them in document order,
-  // and holds a save error or the stale-file warning. Its icon and count switch review mode.
+  // and holds a save error or the stale-file warning. Rows below it count new replies and
+  // changes (the notices). Its icon and count switch review mode.
   var current = null;       // id of the element last stepped to or clicked
   var problem = null;       // the save error or stale warning the docket shows, if any
   var flashTimer = null;
@@ -506,14 +650,39 @@
   docket.appendChild(repliesMain);
   docket.appendChild(stepButton('↑', 'Previous new reply', -1, isNewReply)).classList.add('hrv-row2');
   docket.appendChild(stepButton('↓', 'Next new reply', 1, isNewReply)).classList.add('hrv-row2');
+  // The third row counts the notices, content changed since you last saw it, steps through
+  // them, and acks them all with its check. It shows only when there is one.
+  var changesMain = document.createElement('div');
+  changesMain.className = 'hrv-docket-main hrv-row3';
+  var changesIcon = document.createElement('span');
+  changesIcon.className = 'hrv-icon-changes';
+  var changesCount = document.createElement('span');
+  var seenAll = document.createElement('div');
+  seenAll.className = 'hrv-seen-all';
+  seenAll.title = 'Seen all: take every mark off';
+  seenAll.addEventListener('click', function (e) {
+    e.stopPropagation();
+    ackNotice('all');
+  });
+  changesMain.appendChild(changesIcon);
+  changesMain.appendChild(changesCount);
+  changesMain.appendChild(seenAll);
+  changesMain.addEventListener('click', function () { setReviewing(!reviewing); });
+  docket.appendChild(changesMain);
+  docket.appendChild(stepButton('↑', 'Previous change', -1, null, noticeElements)).classList.add('hrv-row3');
+  docket.appendChild(stepButton('↓', 'Next change', 1, null, noticeElements)).classList.add('hrv-row3');
   layer.appendChild(docket);
 
-  function stepButton(arrow, title, dir, only) {
+  // source: the elements to step through, when not the directives'.
+  function stepButton(arrow, title, dir, only, source) {
     var b = document.createElement('div');
     b.className = 'hrv-step';
     b.textContent = arrow;
     b.title = title;
-    b.addEventListener('click', function () { step(dir, only); });
+    b.addEventListener('click', function () {
+      flipping = source === noticeElements;
+      step(dir, only, source);
+    });
     return b;
   }
 
@@ -522,14 +691,16 @@
   }
 
   function updateDocket() {
-    var n = directiveCount(), r = newReplyCount();
+    var n = directiveCount(), r = newReplyCount(), c = noticeElements().length;
     docketCount.textContent = n + (n === 1 ? ' directive' : ' directives') + (reviewing ? '' : ' · review off');
     repliesCount.textContent = r + (r === 1 ? ' new reply' : ' new replies');
+    changesCount.textContent = c + (c === 1 ? ' change' : ' changes');
     docketMsg.textContent = problem || '';
-    docketMain.title = repliesMain.title = reviewing
+    docketMain.title = repliesMain.title = changesMain.title = reviewing
       ? 'Review mode: click to hide the marks and read the page'
       : 'Review mode is off: click to leave directives again';
-    docket.className = 'hrv-docket' + (n === 0 ? ' hrv-none' : '') + (r > 0 ? ' hrv-stacked' : '') +
+    docket.className = 'hrv-docket' + (n === 0 ? ' hrv-none' : '') + (r > 0 || c > 0 ? ' hrv-stacked' : '') +
+      (r > 0 ? ' hrv-replying' : '') + (c > 0 ? ' hrv-changing' : '') +
       (reviewing ? '' : ' hrv-off') + (problem ? ' hrv-error' : '') + (arrived ? ' hrv-arrived' : '');
   }
 
@@ -554,10 +725,13 @@
     updateDocket();
   }
 
-  // What the docket says when the file changed under the tab: content it can't show without a
-  // reload, or a change on disk to the directive in the open box, which shows when the box closes.
+  // What the docket says when the file changed under the open box: its element's content, or its
+  // directive on disk. Either shows when the box closes, so nothing changes under your typing.
+  // A save of the box's that stopped says so first, and a directive that landed elsewhere next.
   function notice() {
-    if (changedOnDisk) return 'the page changed on disk; reload to see it';
+    if (boxRefused) return boxRefused.markdown || boxRefused.directive;
+    if (boxMovedTo && elementFor(boxMovedTo)) return 'this element is gone; your directive is on the ' + elementFor(boxMovedTo).localName + ' around it';
+    if (boxHeld) return 'this element changed; close the box to see it';
     if (boxBehind) return 'this directive changed on disk; close the box to see it';
     return null;
   }
@@ -585,25 +759,40 @@
   // Scroll the next (dir 1) or previous (dir -1) directive's element to the middle of the window
   // and show its crop marks for a moment. Its marker's tip shows what it says, until the next click,
   // so you can read through the directives without opening each one. Wraps around at the ends.
-  // only narrows the steps, to new replies for the docket's second row.
-  function step(dir, only) {
-    var els = directiveElements(only);
+  // only narrows the steps, to new replies for the docket's second row. source() gives other
+  // elements to step through, the notices' for the third row, whose tip is beside the check
+  // tile and says what the agent said the change is for, when it said.
+  // An element that fits the window scrolls to its middle. A taller one scrolls to its top, with
+  // room above for its crop marks, so you see where it starts and not its middle.
+  var SCROLL_ROOM = 48;
+  function scrollToShow(el) {
+    var rect = el.getBoundingClientRect();
+    if (rect.height <= window.innerHeight - 2 * SCROLL_ROOM) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    window.scrollTo({ top: rect.top + window.scrollY - SCROLL_ROOM, behavior: 'smooth' });
+  }
+
+  function step(dir, only, source) {
+    var els = source ? source() : directiveElements(only);
     if (!els.length) return;
+    var before = source === noticeElements ? innerFirst : follows;
     var from = current !== null && elementFor(current);
     var target = null;
     if (dir > 0) {
-      for (var i = 0; i < els.length && !target; i++) if (!from || follows(from, els[i])) target = els[i];
+      for (var i = 0; i < els.length && !target; i++) if (!from || before(from, els[i])) target = els[i];
       target = target || els[0];
     } else {
-      for (var j = els.length - 1; j >= 0 && !target; j--) if (!from || follows(els[j], from)) target = els[j];
+      for (var j = els.length - 1; j >= 0 && !target; j--) if (!from || before(els[j], from)) target = els[j];
       target = target || els[els.length - 1];
     }
     closeBox('step');
     current = target.getAttribute('data-hrv');
-    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    scrollToShow(target);
     flashed = target;
     positionHover();
-    showTip(current);
+    showTip(current, !!source);
     clearTimeout(flashTimer);
     flashTimer = setTimeout(function () {
       flashed = null;
@@ -633,6 +822,54 @@
     e.preventDefault();
     step(e.key === 'ArrowDown' ? 1 : -1);
   });
+
+  // Flipping through changes: a click on the changes row's arrows, or c, starts it. Then ↓ and n
+  // go to the next change, ↑ and p to the previous, space takes the mark off, and Enter takes it
+  // off and goes to the next. Escape, a click anywhere else, or no changes left ends it, and the
+  // page has its keys back. With no box open, c starts at the first change and d steps to the
+  // next directive. None of these with a modifier held, or while you type in the page.
+  var flipping = false;
+  document.addEventListener('click', function (e) {
+    if (!(e.target instanceof Element && e.target.closest('.hrv-step.hrv-row3'))) flipping = false;
+  }, true);
+
+  document.addEventListener('keydown', function (e) {
+    if (!reviewing || box || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    var t = e.target;
+    if (t instanceof Element && (t.isContentEditable || t.closest('input, textarea, select'))) return;
+    var changes = noticeElements().length > 0;
+    if (!changes) flipping = false;
+    var key = e.key;
+    if (key === 'c' && changes) {
+      flipping = true;
+      current = null;
+      step(1, null, noticeElements);
+    } else if (key === 'd' && directiveCount() > 0) {
+      flipping = false;
+      step(1);
+    } else if (!flipping) {
+      return;
+    } else if (key === 'Escape') {
+      flipping = false;
+      return;
+    } else if (key === 'ArrowDown' || key === 'n') {
+      step(1, null, noticeElements);
+    } else if (key === 'ArrowUp' || key === 'p') {
+      step(-1, null, noticeElements);
+    } else if (key === ' ') {
+      ackCurrent();
+    } else if (key === 'Enter') {
+      ackCurrent();
+      step(1, null, noticeElements);
+    } else {
+      return;
+    }
+    e.preventDefault();
+  });
+
+  function ackCurrent() {
+    if (current !== null && noticeMarks[current]) ackNotice(current);
+  }
 
   // ---- telemetry ----
 
@@ -729,7 +966,7 @@
       a['hrv.html.before'] = capped(el.outerHTML);
       a['hrv.html.before.length'] = el.outerHTML.length;
     }
-    if (change.kind === 'resolve' || change.kind === 'check') return span;
+    if (change.kind === 'resolve' || change.kind === 'field') return span;
     var markdown = change.kind === 'markdown';
     if (markdown) a['hrv.reverted'] = !!change.reverted;
     var before = (markdown ? markdowns[change.id] : savedDirectives[change.id]) || '';
@@ -744,16 +981,31 @@
   }
 
   // A directive save carries the replies the tab has seen on the element, so the server refuses
-  // one typed before a reply came in, instead of writing it again after the reply.
+  // one typed before a reply came in, instead of writing it again after the reply. It carries the
+  // element's ancestors too, for where it lands if the element is gone. A save from a box names
+  // its session, which Done names too.
   function bodyFor(change) {
     var body = { id: change.id, base: bases[change.id] || '' };
     if (change.kind === 'resolve') body.resolve = true;
-    else if (change.kind === 'check') body.checked = !!(elementFor(change.id) || {}).checked;
+    else if (change.kind === 'field') body.field = fieldValue(elementFor(change.id));
     else body[change.kind] = change.kind === 'markdown' ? edits[change.id] : (directives[change.id] || '');
-    if (change.kind === 'directive') body.replies = repliesSeen(change.id);
+    if (change.kind === 'directive') {
+      body.replies = repliesSeen(change.id);
+      body.ancestors = ancestorIds(change.id);
+    }
+    if (change.session && (change.kind === 'directive' || change.kind === 'markdown')) body.session = change.session;
     var spill = spills[change.id];
     if (change.kind === 'markdown' && spill && spill.session === change.session) body.spill = spill.ids;
     return body;
+  }
+
+  // The IDs of the element's ancestors, nearest first; not a table row, which is no scope.
+  function ancestorIds(id) {
+    var ids = [], el = elementFor(id);
+    for (var a = el && el.parentNode; a && a.nodeType === 1; a = a.parentNode) {
+      if (a.hasAttribute('data-hrv') && a.localName !== 'tr') ids.push(a.getAttribute('data-hrv'));
+    }
+    return ids;
   }
 
   function repliesSeen(id) {
@@ -842,7 +1094,8 @@
     var change = unsent.shift();
     if (change.kind === 'done') return sendDone(change);
     if (change.kind === 'refresh') return refresh(change);
-    var failed = false;
+    if (change.kind === 'ack') return sendAck(change);
+    var failed = false, unreachable = false;
     var fromBox = !!box;   // a save made while a box is open reports in the box
     inFlight = change;
     change.span = startSave(change);
@@ -870,22 +1123,26 @@
         return;
       }
       if (!data.ok) {
-        // A conflict: we weren't taking turns. Say so; the reload is up to the human.
         failed = 'conflict: ' + data.error;
-        boxStatus('not saved');
-        showProblem('not saved: ' + data.error + '. Copy what you wrote, then reload to see the page as it is now');
+        refused(change, data.error);
         return;
       }
-      for (var id in data.bases) bases[id] = data.bases[id];
+      // An element held for the open box keeps the base the box opened on, so no content save
+      // lands on content the box doesn't show.
+      for (var id in data.bases) if (!heldBases[id]) bases[id] = data.bases[id];
       if (change.kind === 'directive') savedDirectives[change.id] = body.directive;
+      if (change.kind === 'directive' && data.from) landedOn(change.id, data);
       if (change.kind === 'resolve') savedDirectives[change.id] = '';
       if (change.kind === 'markdown') applyScope(change.id, data, change.session, body.spill);
+      if (data.notices) syncNotices(data.notices);
       if (change.span && typeof data.html === 'string') {
         change.span.attributes['hrv.html.after'] = capped(data.html);
         change.span.attributes['hrv.html.after.length'] = data.html.length;
       }
-      // The file changed since this tab last saw it: catch up on what else changed.
+      // The file changed since this tab last saw it: catch up on what else changed. The page
+      // shows the save's file only when the save was the one change since what it showed.
       if (data.before !== version) addRefresh(null);
+      if (data.before === shown && !boxHeld) shown = data.after;
       version = data.after;
       showProblem(notice(), true);
       // A newer edit, waiting or queued, keeps the box at "saving…".
@@ -898,22 +1155,54 @@
       if (change.reverted) markReverted(change.id);
       boxStatus('');
       showProblem(failed);
+      unreachable = true;
     }).then(function () {
       endSpan(apply);
       endSpan(change.span, failed);
       saving = false;
       inFlight = null;
-      if (!failed) saveNow();
+      // No answer: the next edit tries again. A refusal is an answer: the queue goes on.
+      if (!unreachable) saveNow();
     });
   }
 
-  // Done: tell the server what the box opened with. It goes out after the box's changes, so the
-  // server compares it with what they left in the file, and announces what changed. Its span,
+  // A save the server refused can't land on a retry while the box stays open: the content it
+  // started from is held until the box closes. So the box's saves of that kind stop, the docket
+  // says why once, and what you typed stays in the field to copy. Your directive still saves.
+  // A save from no box (a field) says so and suggests a reload.
+  function refused(change, error) {
+    var inBox = box && change.session && boxOpened && change.session === boxOpened.session;
+    if (!inBox) {
+      boxStatus('not saved');
+      showProblem('not saved: ' + error + '. Reload to see the page as it is now');
+      return;
+    }
+    boxRefused = boxRefused || {};
+    boxRefused[change.kind] = change.kind === 'markdown'
+      ? 'this changed while your box was open, so your content edit didn\'t save: copy it, then close the box to see the change'
+      : 'this element is gone, and every one around it: your directive didn\'t save. Copy it, then reload';
+    unsent = unsent.filter(function (c) { return !(c.kind === change.kind && c.id === change.id); });
+    boxStatus('not saved');
+    showProblem(notice(), true);
+  }
+
+  // The open box's element is gone from the file, and its directive landed on the nearest element
+  // around it: its marker shows there, and the docket says where.
+  function landedOn(from, data) {
+    directives[data.id] = data.directive;
+    savedDirectives[data.id] = data.directive;
+    syncMarker(data.id);
+    if (box && boxId === from) boxMovedTo = data.id;
+    updateDocket();
+  }
+
+  // Done: tell the server the box session ended, with the directive the box opened with and the
+  // version of the element it showed. It goes out after the box's changes, so the server has
+  // every one of them, and announces what the session did. Its span,
   // started when the box closed, ends with whether the server announced.
   function sendDone(change) {
     var span = change.span;
-    var body = { id: change.id, directive: change.opened.directive };
-    if (typeof change.opened.markdown === 'string') body.markdown = change.opened.markdown;
+    var body = { id: change.id, session: change.opened.session, directive: change.opened.directive, saw: change.saw, ancestors: change.ancestors };
     var headers = { 'Content-Type': 'application/json' };
     if (span) headers.traceparent = '00-' + span.traceId + '-' + span.spanId + '-01';
     var failed = false;
@@ -955,6 +1244,12 @@
       addRefresh(heard.version);
       if (!saving && !saveTimer) saveNow();
     });
+    // An ack, from this tab or another: the notices now.
+    events.addEventListener('notices', function (e) {
+      var heard;
+      try { heard = JSON.parse(e.data); } catch (err) { return; }
+      syncNotices(heard.notices || []);
+    });
   }
 
   // Queue a catch-up to the version named, or to whatever the file holds when version is null.
@@ -978,13 +1273,15 @@
     var headers = { Accept: 'application/json' };
     if (span) headers.traceparent = '00-' + span.traceId + '-' + span.spanId + '-01';
     var failed = false;
-    fetch(location.pathname, { headers: headers, cache: 'no-store' }).then(function (res) {
+    // since: the version the page shows, so the answer carries what to swap in.
+    fetch(location.pathname + '?since=' + encodeURIComponent(shown || 'none'), { headers: headers, cache: 'no-store' }).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     }).then(function (state) {
       var caught = applyState(state, change.retry);
       if (span) {
-        span.attributes['hrv.changed'] = caught.changed;
+        span.attributes['hrv.swapped'] = caught.swapped;
+        span.attributes['hrv.held'] = caught.held;
         span.attributes['hrv.updated'] = caught.updated;
       }
     }).catch(function (err) {
@@ -999,18 +1296,19 @@
 
   // A change for id waits to go out: the state from the server doesn't have it yet.
   function waiting(id) {
-    return unsent.some(function (c) { return c.id === id && c.kind !== 'done'; });
+    return unsent.some(function (c) { return c.id === id && c.kind !== 'done' && c.kind !== 'ack'; });
   }
 
-  // Take the file's threads, so markers and the docket match it: a reply turns its marker to the
-  // bubble, a directive the agent removed takes its marker away. A thread that changed under
-  // the open box shows in the box, and the field keeps what you typed past what the file had
-  // (turnInBox). The box's directive changed on disk waits until the box closes, so nothing
-  // changes under the user's typing, and so does an element with a change of the tab's waiting
-  // to go out. Content the tab can't show (an element whose base changed) keeps its old base,
-  // so a save there is refused, and the docket says to reload. retry is a turn the server
-  // refused because a reply came in first: {id, text}.
+  // Take the file's content and threads, so the page, markers, and the docket match it. Content
+  // first: the swaps (swapIn) put in what changed, so a new element's directive finds it. A
+  // reply turns its marker to the bubble, a directive the agent removed takes its marker away. A
+  // thread that changed under the open box shows in the box, and the field keeps what you typed
+  // past what the file had (turnInBox). The box's directive changed on disk waits until the box
+  // closes, so nothing changes under the user's typing, and so does an element with a change of
+  // the tab's waiting to go out. retry is a turn the server refused because a reply came in
+  // first: {id, text}.
   function applyState(state, retry) {
+    var swapped = swapIn(state);
     var ids = {}, updated = 0, later = false, came = false;
     [directives, threads, state.directives, state.threads].forEach(function (m) {
       for (var k in m) ids[k] = true;
@@ -1025,7 +1323,7 @@
         if (threadNow) {
           turnInBox(thread, directive || '');
           updated++;
-        } else if ((directive || '') !== (savedDirectives[id] || '')) boxBehind = true;
+        } else if (!boxMovedTo && (directive || '') !== (savedDirectives[id] || '')) boxBehind = true;
         continue;
       }
       var retried = retry && retry.id === id;
@@ -1041,17 +1339,152 @@
       syncMarker(id);
       updated++;
     }
-    var changed = Array.prototype.some.call(document.querySelectorAll('[data-hrv]'), function (el) {
-      var k = el.getAttribute('data-hrv');
-      return !inLayer(el) && state.bases[k] !== bases[k];
-    });
-    if (changed) changedOnDisk = true;
     version = state.version;
+    if (state.notices) syncNotices(state.notices);
     if (later) addRefresh(null);
     if (came) replyArrived();
     updateDocket();
     showNotice();
-    return { changed: changed, updated: updated };
+    schedulePosition();
+    return { swapped: swapped.count, held: swapped.held, updated: updated };
+  }
+
+  // ---- swapping in content the tab didn't save ----
+
+  // The state's swaps: [{id, html}], the outermost elements whose content changed since the
+  // version the page shows. In each, <!--hrv-keep N--> stands for an element the tab already has
+  // unchanged, wherever it sits now: the tab puts that element itself there, so it stays the same
+  // node, with the open box on it. A swap that would change the open box's element, or take it
+  // out of the page, is held until the box closes; the docket says so. A swap the page already
+  // shows (its base is the tab's) is no change. Bases and markdowns come from the state, except
+  // for held elements and those around them, which keep the old: a content save there is
+  // refused, as it was. Gives {count, held}.
+  function swapIn(state) {
+    var swaps = state.swaps || [];
+    var kept = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-hrv]'), function (el) {
+      if (!inLayer(el)) kept[el.getAttribute('data-hrv')] = el;
+    });
+    var boxEl = box ? elementFor(boxId) : null;
+    var plans = [], held = [], lost = false;
+    swaps.forEach(function (s) {
+      var el = kept[s.id];
+      if (!el) { lost = true; return; }
+      if (bases[s.id] === state.bases[s.id]) return;
+      var made = fragmentFor(el, s.html);
+      var root = el === document.body ? bodyContent(made) : firstElement(made);
+      if (!root) { lost = true; return; }
+      if (boxEl && destroys(el, root, boxEl, kept)) { held.push(el); return; }
+      plans.push({ el: el, root: root });
+    });
+    plans.forEach(function (p) { swapOne(p.el, p.root, kept); });
+    // A page that lost track keeps its bases, so no save lands on content it doesn't show.
+    var stale = keepBasesOf(held);
+    for (var h in stale) heldBases[h] = true;
+    if (state.bases && !lost) for (var id in state.bases) if (!heldBases[id]) bases[id] = state.bases[id];
+    if (state.markdowns && !lost) for (var k in state.markdowns) if (!heldBases[k]) markdowns[k] = state.markdowns[k];
+    if (held.length) boxHeld = true;
+    else if (lost) shown = null;   // the page isn't the version it named: the next catch-up takes the whole body
+    else if (state.swaps) shown = state.version;
+    if (lost) addRefresh(null);
+    if (plans.length) {
+      if (hovered && !hovered.isConnected) hovered = null;
+      if (flashed && !flashed.isConnected) flashed = null;
+      if (box && boxEl) box.querySelector('.hrv-what').textContent = describe(boxEl);
+    }
+    return { count: plans.length, held: held.length };
+  }
+
+  function firstElement(fragment) {
+    for (var n = fragment.firstChild; n; n = n.nextSibling) if (n.nodeType === 1) return n;
+    return null;
+  }
+
+  // A browser's template drops a <body> tag and keeps what's in it; a parser that keeps it
+  // gives the body element.
+  function bodyContent(fragment) {
+    var only = firstElement(fragment);
+    return only && only.localName === 'body' ? only : fragment;
+  }
+
+  var KEEP = /^hrv-keep (\d+)$/;
+  function keepOf(node) {
+    var m = node.nodeType === 8 && KEEP.exec(node.data);
+    return m ? m[1] : null;
+  }
+
+  function keepsIn(root) {
+    var found = [];
+    (function walk(n) {
+      for (var c = n.firstChild; c; c = c.nextSibling) {
+        if (keepOf(c)) found.push(c);
+        else if (c.nodeType === 1) walk(c);
+      }
+    })(root);
+    return found;
+  }
+
+  // The swap would change the box's element, or something in it, or leave it out of the page.
+  function destroys(el, root, boxEl, kept) {
+    if (el === boxEl || boxEl.contains(el)) return true;
+    if (!el.contains(boxEl)) return false;
+    return !keepsIn(root).some(function (c) {
+      var k = kept[keepOf(c)];
+      return k && k.contains(boxEl);
+    });
+  }
+
+  // The swap's content goes in. Keeps become the tab's own elements. An element whose tag and
+  // attributes are the same keeps its node and takes new children, and children already in
+  // place don't move, so the page doesn't jump; body always does this.
+  function swapOne(el, root, kept) {
+    var children = root.nodeType === 1 && el !== document.body && !sameElement(el, root) ? null : Array.prototype.slice.call(root.childNodes);
+    keepsIn(root).forEach(function (c) {
+      if (children && c.parentNode === root) return;
+      var k = kept[keepOf(c)];
+      if (k) c.parentNode.replaceChild(k, c);
+      else c.parentNode.removeChild(c);
+    });
+    if (!children) return el.parentNode.replaceChild(root, el);
+    setChildren(el, children.map(function (c) { return keepOf(c) ? kept[keepOf(c)] : c; }).filter(Boolean));
+  }
+
+  // The tab's element a against the file's b. A tabindex the tab lent for focus (returnFocus)
+  // isn't the file's.
+  function sameElement(a, b) {
+    var lent = a === document.activeElement && a.getAttribute('tabindex') === '-1' && !b.hasAttribute('tabindex') ? 1 : 0;
+    if (a.localName !== b.localName || a.attributes.length - lent !== b.attributes.length) return false;
+    for (var i = 0; i < b.attributes.length; i++) {
+      if (a.getAttribute(b.attributes[i].name) !== b.attributes[i].value) return false;
+    }
+    return true;
+  }
+
+  // The tool's own nodes in the body: the layer, and the scripts the server added.
+  function isTool(node) {
+    return node === layer || (node.nodeType === 1 && /^hrv-/.test(node.id || ''));
+  }
+
+  function setChildren(parent, nodes) {
+    var wanted = new Set(nodes);
+    Array.prototype.slice.call(parent.childNodes).forEach(function (n) {
+      if (!wanted.has(n) && !isTool(n)) parent.removeChild(n);
+    });
+    var at = parent.firstChild;
+    nodes.forEach(function (n) {
+      if (at === n) { at = n.nextSibling; return; }
+      parent.insertBefore(n, at);
+    });
+  }
+
+  // The IDs whose base and markdown stay as the tab had them: in a held swap, and around it.
+  function keepBasesOf(held) {
+    var stale = {};
+    held.forEach(function (el) {
+      Array.prototype.forEach.call(el.querySelectorAll('[data-hrv]'), function (e) { stale[e.getAttribute('data-hrv')] = true; });
+      for (var a = el; a && a.nodeType === 1; a = a.parentNode) if (a.hasAttribute('data-hrv')) stale[a.getAttribute('data-hrv')] = true;
+    });
+    return stale;
   }
 
   // The thread changed under the open box. It shows in the box. A reply after the turns the file
@@ -1165,15 +1598,23 @@
     var span = startSpan('done', null, {
       'hrv.box.session': boxOpened.session, 'hrv.scope.id': id, 'hrv.close.by': by, 'hrv.queued': unsent.length
     }, 'client');
-    unsent.push({ kind: 'done', id: id, opened: boxOpened, span: span });
+    // saw: the version of the element the box showed, held or not. ancestors: where Done looks
+    // for the directive when the element is gone.
+    unsent.push({ kind: 'done', id: id, opened: boxOpened, saw: bases[id] || '', ancestors: ancestorIds(id), span: span });
     dropBox();
     if (by === 'done' || by === 'key' || by === 'resolve') returnFocus(elementFor(id));
     syncMarker(id);   // closed, a turn of yours is the agent's to work on
-    // The file changed this directive while the box was open: catch up, after the box's saves.
-    if (boxBehind) {
+    var told = boxRefused || boxMovedTo;
+    boxRefused = null;
+    boxMovedTo = null;
+    heldBases = {};
+    // The file changed this element while the box was open: catch up, after the box's saves.
+    if (boxBehind || boxHeld) {
       boxBehind = false;
+      boxHeld = false;
       addRefresh(null);
     }
+    if (told) showProblem(notice(), true);
     saveNow();
     if (inFlight) addEvent(inFlight.span, 'close box', { 'hrv.close.by': by, 'hrv.scope.id': id, 'hrv.pending': unsent.length });
   }
@@ -1280,7 +1721,6 @@
     boxId = id;
     boxSent = replying ? directives[id] || '' : '';
     boxOpened = { session: randomHex(8), directive: directives[id] || '' };
-    if (isScope(id)) boxOpened.markdown = markdowns[id];
     box = document.createElement('div');
     box.className = 'hrv-box';
     // A screen reader announces the box as a dialog named for its element, and each field by its label.
@@ -1315,6 +1755,7 @@
         syncActions();
         if (textArea.value.replace(SPACE, '') === '') return;
         edits[boxId] = textArea.value;
+        if (boxRefused && boxRefused.markdown) return boxStatus('not saved');
         scheduleSave('markdown', boxId);
       });
       revertButton = fieldAction('Revert', 'Put back the content this had at the last commit', function () {
@@ -1339,6 +1780,7 @@
       schedulePosition();
       syncActions();
       setDirective(boxId, joinTurn(boxSent, ta.value));
+      if (boxRefused && boxRefused.directive) return boxStatus('not saved');
       scheduleSave('directive', boxId);
     });
     var clearButton = fieldAction('Clear', '', function () {
@@ -1481,24 +1923,43 @@
     return url && url.hash && url.href.split('#')[0] === location.href.split('#')[0] ? url.href : null;
   }
 
-  // A checkbox the author marked data-hrv-check (or its label) is the page's to click. Ticking it
-  // saves the checked attribute into the file, a change like any other: it queues, one PUT at a time.
-  function isCheck(node) {
+  // A field (an input, textarea, or select; domain/fields.mjs says which) and its label are the
+  // page's to click. A change to it, which the browser fires when a checkbox ticks or a text
+  // field loses focus, saves its value into the file, a change like any other: it queues, one PUT
+  // at a time, and the server announces it.
+  var FIELD = 'input:not([type="button" i], [type="submit" i], [type="reset" i], [type="image" i], [type="hidden" i], [type="file" i], [type="password" i]), textarea, select';
+  function isField(node) {
     if (!(node instanceof Element)) return false;
     var label = node.closest('label');
-    return !!node.closest('input[data-hrv-check]') || !!(label && label.querySelector('input[data-hrv-check]'));
+    return !!node.closest(FIELD) || !!(label && label.querySelector(FIELD));
+  }
+
+  // The field's value, in the shape the server takes.
+  function fieldValue(el) {
+    var type = (el.getAttribute('type') || '').toLowerCase();
+    if (el.localName === 'input' && (type === 'checkbox' || type === 'radio')) return !!el.checked;
+    if (el.localName === 'select' && el.multiple) {
+      return Array.prototype.filter.call(el.options, function (o) { return o.selected; }).map(function (o) { return o.value; });
+    }
+    return el.value;
   }
 
   document.addEventListener('change', function (e) {
     var t = e.target;
-    if (inLayer(t) || !(t instanceof Element) || !t.matches('input[data-hrv-check]') || !t.hasAttribute('data-hrv')) return;
-    addUnsent('check', t.getAttribute('data-hrv'), null);
+    if (inLayer(t) || !(t instanceof Element) || !t.matches(FIELD) || !t.hasAttribute('data-hrv')) return;
+    addUnsent('field', t.getAttribute('data-hrv'), null);
     saveNow();
+  });
+
+  // A form's values go to the file, and nowhere else: Enter in a text field saves it, and the
+  // page stays.
+  document.addEventListener('submit', function (e) {
+    if (!inLayer(e.target)) e.preventDefault();
   });
 
   // Capture phase on document, so page handlers and link navigation lose.
   document.addEventListener('click', function (e) {
-    if (inLayer(e.target) || !reviewing || noRevise(e.target) || isCheck(e.target)) return;
+    if (inLayer(e.target) || !reviewing || noRevise(e.target) || isField(e.target)) return;
     var place = placeInPage(e);
     if (place) {
       e.preventDefault();
@@ -1522,6 +1983,7 @@
 
   for (var id in directives) syncMarker(id);
   for (var t in threads) syncMarker(t);
+  syncNotices(notices);
   updateDocket();
   listen();
 })();

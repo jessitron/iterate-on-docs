@@ -165,7 +165,7 @@ test('9b. injection: json script escapes <, client assets are last', () =>
     assert.ok(jsonScript.includes('\\u003c'));
     assert.equal(Object.values(directives)[0], '</script><b>hi</b>'); // reads back as typed
     assert.ok(html.indexOf('<style>') < html.indexOf('</head>'));
-    assert.ok(html.lastIndexOf('<script>') > html.indexOf('hrv-bases'));
+    assert.ok(html.lastIndexOf('<script id="hrv-client">') > html.indexOf('hrv-bases'));
     assert.match(html, /<\/script><\/body>\s*<\/html>\s*$/);
   }));
 
@@ -206,14 +206,14 @@ test('other files: assets, directory listing, 404', () =>
     assert.equal(put404.status, 404);
   }));
 
-test('conflict: a base that no longer matches, or an ID that is gone, writes nothing', () =>
+test('conflict: a content save on a base that no longer matches, or an ID that is gone, writes nothing', () =>
   withServer(async (s) => {
     const { document, bases } = await s.page('page.html');
     const li = idOf(document, 'li');
     // the agent rewords the item
     s.write('page.html', s.read('page.html').replace('>one</li>', '>uno</li>'));
     const before = s.read('page.html');
-    const stale = await s.put('page.html', { id: li, base: bases[li], directive: 'mine' });
+    const stale = await s.put('page.html', { id: li, base: bases[li], markdown: 'mine' });
     assert.equal(stale.status, 412);
     assert.deepEqual(await stale.json(), { ok: false, error: 'that element changed on disk' });
     assert.equal(s.read('page.html'), before);
@@ -222,6 +222,26 @@ test('conflict: a base that no longer matches, or an ID that is gone, writes not
     const gone = await s.put('page.html', { id: '9999', base: 'x', directive: 'mine' });
     assert.equal(gone.status, 412);
     assert.equal((await gone.json()).error, 'that element is gone from the file');
+  }));
+
+test('a directive lands on a base that no longer matches; on an element that is gone, on its nearest ancestor', () =>
+  withServer(async (s) => {
+    const { document, bases } = await s.page('page.html');
+    const [li, ul, body] = [idOf(document, 'li'), idOf(document, 'ul'), idOf(document, 'body')];
+    s.write('page.html', s.read('page.html').replace('>one</li>', '>uno</li>'));
+    const stale = await s.put('page.html', { id: li, base: bases[li], directive: 'mine' });
+    assert.equal(stale.status, 200);
+    assert.match(s.read('page.html'), /<!-- @AI: mine -->\s*uno/);
+
+    s.write('page.html', s.read('page.html').replace(/<ul[\s\S]*<\/ul>/, ''));
+    const moved = await s.put('page.html', { id: li, base: bases[li], directive: 'mine, still', ancestors: [ul, body], session: 'b1' });
+    assert.equal(moved.status, 200);
+    const answer = await moved.json();
+    assert.deepEqual([answer.id, answer.from, answer.directive], [body, li, 'mine, still']);
+    assert.match(s.read('page.html'), new RegExp(`<body data-hrv="${body}">\\s*<!-- @AI: mine, still -->`));
+    await s.put('page.html', { id: li, base: bases[li], directive: 'mine, again', ancestors: [ul, body], session: 'b1' });
+    assert.equal(s.read('page.html').match(/@AI/g).length, 1, 'the next draft replaces it');
+    assert.match(s.read('page.html'), /<!-- @AI: mine, again -->/);
   }));
 
 test('an agent edit elsewhere does not block a save; the answer says the file changed', () =>
@@ -250,7 +270,7 @@ test('bases: directives do not change them; a markdown edit returns new ones for
     const answer = await res.json();
     assert.ok([li, ul, body].every((id) => id in answer.bases));
     assert.notEqual(answer.bases[ul], bases[ul]);
-    assert.equal((await s.put('page.html', { id: ul, base: bases[ul], directive: 'x' })).status, 412);
+    assert.equal((await s.put('page.html', { id: ul, base: bases[ul], markdown: '- x' })).status, 412);
     assert.equal((await s.put('page.html', { id: ul, base: answer.bases[ul], directive: 'x' })).status, 200);
     assert.deepEqual((await s.page('page.html')).bases, { ...bases, ...answer.bases });
   }));
@@ -411,10 +431,11 @@ test('Done after a Resolve announces it once, with the turns that went; a Clear 
     await s.done('thread.html', { id: q, directive: 'five' });
     await s.waitForLog('\n\{', 2);
     assert.deepEqual(announcements(s.stdout), [
-      { page: '/thread.html', id: p, element: 'p', heading: 'Title', resolved: [{ prefix: '@AI', text: 'one' }, { prefix: '@Human', text: 'two' }] },
+      { page: '/thread.html', id: p, element: 'p', heading: 'Title', resolved: [{ prefix: '@AI', text: 'one' }, { prefix: '@Human', text: 'two' }], version: bases[p] },
       {
         page: '/thread.html', id: q, element: 'p', heading: 'Title', directive: { before: 'five', after: '' },
         resolved: [{ prefix: '@AI', text: 'three' }, { prefix: '@Human', text: 'four' }, { prefix: '@AI', text: 'five' }],
+        version: bases[q],
       },
     ]);
     assert.deepEqual(await (await s.done('thread.html', { id: p, directive: '' })).json(), { announced: false }, 'a Resolve announces once');
@@ -428,7 +449,7 @@ test('a Clear announces the directive gone, with no resolved', () =>
     await s.put('page.html', { id: p, base: typed.bases[p], directive: '' });
     await s.done('page.html', { id: p, directive: 'say more' });
     await s.waitForLog('\n\{', 1);
-    assert.deepEqual(announcements(s.stdout), [{ page: '/page.html', id: p, element: 'p', heading: 'Title', directive: { before: 'say more', after: '' } }]);
+    assert.deepEqual(announcements(s.stdout), [{ page: '/page.html', id: p, element: 'p', heading: 'Title', directive: { before: 'say more', after: '' }, version: bases[p] }]);
   }));
 
 test('a PUT body must be one change: id, base, and a directive, a markdown, or resolve', () =>
@@ -443,10 +464,10 @@ test('Done announces what the box changed: a revision and a directive, under its
   withServer(async (s) => {
     const { document, bases, markdowns } = await s.page('page.html');
     const p = idOf(document, 'p');
-    const opened = { id: p, directive: '', markdown: markdowns[p] };
-    const saved = await (await s.put('page.html', { id: p, base: bases[p], markdown: 'First *paragraph*' })).json();
-    await s.put('page.html', { id: p, base: saved.bases[p], directive: 'say more -- here' });
-    assert.deepEqual(await (await s.done('page.html', opened)).json(), { announced: true });
+    const session = 'b1';
+    const saved = await (await s.put('page.html', { id: p, base: bases[p], markdown: 'First *paragraph*', session })).json();
+    await s.put('page.html', { id: p, base: saved.bases[p], directive: 'say more -- here', session });
+    assert.deepEqual(await (await s.done('page.html', { id: p, session, directive: '', saw: saved.bases[p] })).json(), { announced: true });
     await s.waitForLog('\n\{', 1);
     const thread = announcements(s.stdout)[0]?.thread;
     assert.match(thread, /^[0-9a-f]{12}$/, 'the base a reply sends back');
@@ -458,7 +479,10 @@ test('Done announces what the box changed: a revision and a directive, under its
       directive: { before: '', after: 'say more - - here' },
       revision: { before: 'First paragraph', after: 'First *paragraph*' },
       thread,
+      saw: saved.bases[p],
+      version: saved.bases[p],
     }]);
+    assert.notEqual(saved.bases[p], bases[p], 'the version after the box session: the agent hands it to change.mjs');
     assert.doesNotMatch(s.stdout, /saved|pending/, 'saves print nothing');
   }));
 
@@ -474,7 +498,7 @@ test('Done with nothing changed announces nothing; a directive alone is no revis
     await s.waitForLog('\n\{', 1);
     const thread = announcements(s.stdout)[0]?.thread;
     assert.deepEqual(announcements(s.stdout), [{
-      page: '/page.html', id: img, element: 'img', heading: 'Title', directive: { before: '', after: 'bigger' }, thread,
+      page: '/page.html', id: img, element: 'img', heading: 'Title', directive: { before: '', after: 'bigger' }, thread, version: bases[img],
     }]);
   }));
 
@@ -616,9 +640,9 @@ test('reply CLI: usage, and a server that is not there', async () => {
   assert.match(away.stderr, /no server answers at http:\/\/localhost:1: is it running\?/);
 });
 
-test('a Done body must be an id, the directive, and for a scope the markdown', () =>
+test('a Done body must be an id and the directive, with a session, saw, and ancestors of the right types', () =>
   withServer(async (s) => {
-    for (const body of [{}, { id: '1' }, { id: 1, directive: '' }, { id: '1', directive: '', markdown: 3 }]) {
+    for (const body of [{}, { id: '1' }, { id: 1, directive: '' }, { id: '1', directive: '', session: 3 }, { id: '1', directive: '', saw: 3 }, { id: '1', directive: '', ancestors: '2' }, { id: '1', directive: '', ancestors: [2] }]) {
       assert.equal((await s.done('page.html', body)).status, 400, JSON.stringify(body));
     }
   }));
@@ -752,28 +776,61 @@ test('given a file the formatter cannot handle, the server exits with its messag
 });
 
 const CHECKLIST = `<html><head><title>t</title></head><body>
-  <ul><li><label><input type="checkbox" data-hrv-check> Buy milk</label></li></ul>
+  <h1>Groceries</h1>
+  <ul><li><label><input type="checkbox"> Buy milk</label></li></ul>
+  <form><label>Store <input name="store" value="Kroger"></label>
+  <input type="radio" name="when" value="am" checked><input type="radio" name="when" value="pm"></form>
 </body></html>`;
 
-test('data-hrv-check: only an input marked data-hrv-check takes a checked state', () =>
+test('fields: only an input, textarea, or select takes a field value, in its own shape', () =>
   withServer(async (s) => {
-    const { bases, document } = await s.page('page.html');
-    const id = document.querySelector('h1').getAttribute('data-hrv');
-    const res = await s.put('page.html', { id, base: bases[id], checked: true });
-    assert.equal(res.status, 400);
+    s.write('list.html', CHECKLIST);
+    const { bases, document } = await s.page('list.html');
+    const h1 = document.querySelector('h1').getAttribute('data-hrv');
+    assert.equal((await s.put('list.html', { id: h1, base: bases[h1], field: 'x' })).status, 400);
+    const box = document.querySelector('li input').getAttribute('data-hrv');
+    const wrong = await s.put('list.html', { id: box, base: bases[box], field: 'yes' });
+    assert.equal(wrong.status, 400);
+    assert.match(await wrong.text(), /checkbox field takes true or false/);
   }));
 
-test('data-hrv-check: a server PUT sets and removes checked, and a stale base is refused', () =>
+test('fields: a save writes the value into the file and announces it; a stale base is refused', () =>
   withServer(async (s) => {
     s.write('list.html', CHECKLIST);
     const { bases, document } = await s.page('list.html');
     const id = document.querySelector('li input').getAttribute('data-hrv');
-    const ok = await s.put('list.html', { id, base: bases[id], checked: true });
+    const ok = await s.put('list.html', { id, base: bases[id], field: true });
     assert.equal(ok.status, 200);
     assert.match(s.read('list.html'), /<input[^>]*\bchecked\b[^>]*> Buy milk/);
-    const stale = await s.put('list.html', { id, base: bases[id], checked: false });
+    const stale = await s.put('list.html', { id, base: bases[id], field: false });
     assert.equal(stale.status, 412, 'the base moved with the attribute');
-    const off = await s.put('list.html', { id, base: (await ok.json()).bases[id], checked: false });
+    const { bases: after } = await ok.json();
+    const off = await s.put('list.html', { id, base: after[id], field: false });
     assert.equal(off.status, 200);
-    assert.doesNotMatch(s.read('list.html'), /\bchecked\b/);
+    assert.doesNotMatch(s.read('list.html'), /\bchecked\b[^>]*> Buy milk/);
+    const store = document.querySelector('input[name=store]').getAttribute('data-hrv');
+    const typed = await s.put('list.html', { id: store, base: bases[store], field: 'Aldi' });
+    assert.equal(typed.status, 200);
+    assert.match(s.read('list.html'), /value="Aldi"/);
+    assert.equal((await s.put('list.html', { id: store, base: (await typed.json()).bases[store], field: 'Aldi' })).status, 200, 'the same value again');
+    assert.deepEqual(announcements(s.stdout), [
+      { page: '/list.html', id, element: 'input', heading: 'Groceries', field: { type: 'checkbox', label: 'Buy milk', before: false, after: true }, version: after[id] },
+      { page: '/list.html', id, element: 'input', heading: 'Groceries', field: { type: 'checkbox', label: 'Buy milk', before: true, after: false }, version: bases[id] },
+      { page: '/list.html', id: store, element: 'input', heading: 'Groceries', field: { type: 'text', name: 'store', label: 'Store', before: 'Kroger', after: 'Aldi' }, version: announcements(s.stdout)[2]?.version },
+    ], 'the same value again announces nothing');
+  }));
+
+test('fields: checking a radio unchecks its group, and the answer carries the group\'s new bases', () =>
+  withServer(async (s) => {
+    s.write('list.html', CHECKLIST);
+    const { bases, document } = await s.page('list.html');
+    const [am, pm] = [...document.querySelectorAll('input[name=when]')].map((r) => r.getAttribute('data-hrv'));
+    const res = await s.put('list.html', { id: pm, base: bases[pm], field: true });
+    assert.equal(res.status, 200);
+    const answer = await res.json();
+    assert.ok(answer.bases[am] && answer.bases[am] !== bases[am], 'the radio it unchecked has a new base');
+    assert.match(s.read('list.html'), /<input[^>]*value="am">/);
+    assert.match(s.read('list.html'), /<input[^>]*checked[^>]*value="pm">/);
+    const back = await s.put('list.html', { id: am, base: answer.bases[am], field: true });
+    assert.equal(back.status, 200, 'and that base lands');
   }));

@@ -43,7 +43,8 @@ export async function withServer(fn, args) {
       const markdowns = JSON.parse(document.querySelector('script#hrv-markdown').textContent);
       const committed = JSON.parse(document.querySelector('script#hrv-committed').textContent);
       const threads = JSON.parse(document.querySelector('script#hrv-threads').textContent);
-      return { res, html, document, bases, markdowns, committed, threads, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
+      const notices = JSON.parse(document.querySelector('script#hrv-notices').textContent);
+      return { res, html, document, bases, markdowns, committed, threads, notices, version: json.getAttribute('data-version'), directives: JSON.parse(json.textContent) };
     },
     // PUT one change, as the tab sends it: {id, base, directive} or {id, base, markdown}.
     put: (name, change) =>

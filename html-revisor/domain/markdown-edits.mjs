@@ -16,6 +16,16 @@ export function markdownsOf(scopes) {
   );
 }
 
+// The markdown of the scopes among these elements, by ID. A scope a change grew past the limit
+// loses its Content field: null tells the tab. note(attributes) is the step port's.
+export function markdownsNear(document, elements, note = () => {}) {
+  const scopes = new Set(scopeElements(document));
+  const mine = elements.filter((e) => scopes.has(e));
+  note({ 'hrv.scope.count': mine.length });
+  const grown = mine.filter((e) => e.hasAttribute(ID) && e.localName !== 'body' && !editable(e));
+  return { ...Object.fromEntries(grown.map((e) => [e.getAttribute(ID), null])), ...markdownsOf(mine) };
+}
+
 // Each scope's markdown in the committed copy of the page, by ID: what Revert puts back. A
 // commit made mid-loop holds IDs; one committed clean gets them from normalize, which numbers a
 // page the same way every time, so they match the page as first opened if it hasn't changed

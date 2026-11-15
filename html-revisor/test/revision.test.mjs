@@ -7,7 +7,7 @@ import { normalize } from '../domain/format.mjs';
 import { parse } from '../domain/canonical.mjs';
 import { elementById, ID } from '../domain/identity.mjs';
 import { baseOf, fingerprint, threadBaseOf } from '../domain/bases.mjs';
-import { readRevision, revise, answerOf, reviseThread } from '../domain/revision.mjs';
+import { readRevision, revise, answerOf, reviseThread, landed } from '../domain/revision.mjs';
 
 const AI = '@AI';
 const page = (body) => normalize(`<html><head></head><body>${body}</body></html>`);
@@ -37,13 +37,57 @@ test('a change to an element that is gone is a conflict', () => {
   });
 });
 
-test('a base that no longer matches is a conflict', () => {
-  const text = page('<p>one</p>');
+test('a base that no longer matches is a conflict, for a change to content', () => {
+  const text = page('<p>one</p><p><input type="checkbox"></p>');
   const { id, base } = at(text, 'p');
-  const outcome = revise(text.replace('one', 'uno'), { id, base, directive: 'mine' }, 'directive', AI);
+  const outcome = revise(text.replace('one', 'uno'), { id, base, markdown: 'mine' }, 'markdown', AI);
   assert.deepEqual(outcome, {
     conflict: { why: 'changed on disk', error: 'that element changed on disk', log: `conflict on element ${id} (it changed on disk)`, now: {} },
   });
+  const input = at(text, 'input');
+  assert.equal(revise(text.replace('type=', 'class="x" type='), { ...input, field: true }, 'field', AI).conflict?.why, 'changed on disk');
+});
+
+// A directive is a turn, not a change: it names the version its writer saw and moves none.
+test('a directive lands on a base that no longer matches, and leaves the changed content as it is', () => {
+  const text = page('<p>one</p>');
+  const { id, base } = at(text, 'p');
+  const revised = revise(text.replace('one', 'uno'), { id, base, directive: 'mine' }, 'directive', AI);
+  assert.ok(!revised.conflict, 'no conflict');
+  assert.match(revised.written, /<!-- @AI: mine -->\s*uno/);
+  const answer = answerOf(revised, AI);
+  assert.equal(answer.id, undefined, 'it landed where it was typed');
+  assert.notEqual(answer.bases[id], base, 'the answer carries the base now');
+});
+
+test('a directive on an element that is gone lands on the nearest ancestor the page holds', () => {
+  const text = page('<section><h2>Zones</h2><div><p>one</p></div></section>');
+  const p = at(text, 'p').id, div = at(text, 'div').id, section = at(text, 'section').id;
+  const gone = text.replace(/<div[^>]*>\s*<p[^>]*>one<\/p>\s*<\/div>/, '');
+  const revised = revise(gone, { id: p, base: 'x', directive: 'say more', ancestors: [div, section] }, 'directive', AI);
+  assert.match(revised.written, new RegExp(`<section data-hrv="${section}">\\s*<!-- @AI: say more -->`));
+  assert.deepEqual(answerOf(revised, AI).id, section);
+  assert.deepEqual([answerOf(revised, AI).from, answerOf(revised, AI).directive], [p, 'say more']);
+  assert.equal(revise(gone, { id: p, base: 'x', directive: 'x', ancestors: [div] }, 'directive', AI).conflict.why, 'no such element', 'nowhere to land');
+});
+
+test('a moved directive joins after the one there, and the next draft replaces the last, as said', () => {
+  const text = page('<section><!-- @AI: tighten this --><h2>Zones</h2></section>');
+  const section = at(text, 'section').id;
+  const first = revise(text, { id: '99', base: 'x', directive: 'say more', ancestors: [section] }, 'directive', AI);
+  assert.equal(answerOf(first, AI).directive, 'tighten this\nsay more');
+  const second = revise(first.written, { id: '99', base: 'x', directive: 'say more -- please', ancestors: [section] }, 'directive', AI, undefined, landed('say more'));
+  assert.equal(answerOf(second, AI).directive, 'tighten this\nsay more - - please', 'the draft before it came off');
+  assert.equal(second.written.match(/@AI/g).length, 1, 'the open turn writes back as one directive');
+  const cleared = revise(second.written, { id: '99', base: 'x', directive: '', ancestors: [section] }, 'directive', AI, undefined, landed('say more -- please'));
+  assert.equal(answerOf(cleared, AI).directive, 'tighten this', 'emptied, hers comes off and the one there stays');
+});
+
+test('a markdown save hands back the scope\'s markdown before it, threads left out', () => {
+  const text = page('<p><!-- @AI: hi -->one <strong>two</strong></p>');
+  const { id, base } = at(text, 'p');
+  assert.equal(revise(text, { id, base, markdown: 'uno' }, 'markdown', AI).contentBefore, 'one **two**');
+  assert.equal(revise(text, { id, base, directive: 'x' }, 'directive', AI).contentBefore, undefined);
 });
 
 test('a spill that moved is a conflict, for a markdown save', () => {
@@ -147,7 +191,7 @@ test('each change goes through its steps, in order, and notes what the spans car
   assert.equal(markdown.notes.markdowns['hrv.scope.count'], 2, 'the paragraph and the body around it');
 
   const stale = recorder();
-  revise(text, { id, base: 'x', directive: 'mine' }, 'directive', AI, stale.step);
+  revise(text, { id, base: 'x', markdown: 'mine' }, 'markdown', AI, stale.step);
   assert.deepEqual(stale.steps, ['parse']);
 });
 

@@ -17,7 +17,8 @@ import { here, withServer, idOf, directAndAnnounce } from './acceptance-lib.mjs'
 const NO_NOTICE_MS = 250;
 
 // Open a page's event stream, as the tab's EventSource does. next() resolves to the next
-// notice, the data of a change event; none() checks that nothing more comes.
+// notice, the data of a change event (next('notices'): of a notices event); none() checks that
+// nothing more comes.
 async function listen(s, name) {
   const abort = new AbortController();
   const res = await fetch(s.base + name, { headers: { Accept: 'text/event-stream' }, signal: abort.signal });
@@ -42,14 +43,14 @@ async function listen(s, name) {
   })().catch(() => {});
   let read = 0;
   const stream = {
-    async next(ms = 2000) {
+    async next(kind = 'change', ms = 2000) {
       const until = Date.now() + ms;
       while (read >= notices.length) {
         if (Date.now() > until) assert.fail(`no notice in ${ms} ms; had ${JSON.stringify(notices)}`);
         await new Promise((r) => { wake = r; setTimeout(r, 20); });
       }
       const { event, ...notice } = notices[read++];
-      assert.equal(event, 'change');
+      assert.equal(event, kind);
       return notice;
     },
     async none() {
@@ -103,7 +104,7 @@ test('live notice: a reply goes to the tab, and the state it fetches holds the t
     assert.deepEqual(await tab.next(), { version: answer.after, cause: 'reply', id });
     const state = await stateOf(s, 'page.html');
     const page = await s.page('page.html');
-    assert.deepEqual(state, { version: page.version, directives: page.directives, threads: page.threads, bases: page.bases });
+    assert.deepEqual(state, { version: page.version, directives: page.directives, threads: page.threads, bases: page.bases, notices: page.notices });
     assert.deepEqual(state.threads[id], [{ prefix: '@AI', text: 'add a diagram' }, { prefix: '@Human', text: 'Added one.' }]);
     await tab.none();
     tab.close();
@@ -172,4 +173,73 @@ test('live notice: closing the server ends the streams and the watchers', async 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---- Notices: what changed since you last saw it ----
+
+const postAck = (s, name, body) =>
+  fetch(s.base + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+test('notices: an agent edit on disk is a notice in the state and the page, until an ack, which every tab hears', () =>
+  withServer(async (s) => {
+    const first = await s.page('page.html');
+    assert.deepEqual(first.notices, [], 'the first load is what you saw');
+    const p = idOf(first.document, 'p');
+    const tabs = [await listen(s, 'page.html'), await listen(s, 'page.html')];
+    for (const tab of tabs) await tab.next();
+    s.write('page.html', s.read('page.html').replace('First paragraph', 'First paragraph, edited'));
+    for (const tab of tabs) assert.equal((await tab.next()).cause, 'disk');
+    assert.deepEqual((await stateOf(s, 'page.html')).notices, [{ id: p, kind: 'changed' }]);
+    assert.deepEqual((await s.page('page.html')).notices, [{ id: p, kind: 'changed' }], 'a reload shows it');
+    const onDisk = s.read('page.html');
+    const res = await postAck(s, 'page.html', { ack: p });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { notices: [] });
+    assert.equal(s.read('page.html'), onDisk, 'an ack writes nothing');
+    for (const tab of tabs) assert.deepEqual(await tab.next('notices'), { notices: [] });
+    assert.deepEqual((await stateOf(s, 'page.html')).notices, []);
+    await Promise.all(tabs.map((tab) => tab.none()));
+    tabs.forEach((tab) => tab.close());
+  }));
+
+test('notices: ack all sees the page; a body that is neither ack nor Done is refused', () =>
+  withServer(async (s) => {
+    await s.page('page.html');
+    s.write('page.html', s.read('page.html').replace('First paragraph', 'Uno').replace('>Title<', '>Heading<').replace('</ul>', '<li>three</li></ul>'));
+    const { notices } = await stateOf(s, 'page.html');
+    assert.deepEqual(notices.map((n) => n.kind), ['changed', 'changed', 'new']);
+    assert.deepEqual(await (await postAck(s, 'page.html', { ack: 'all' })).json(), { notices: [] });
+    assert.equal((await postAck(s, 'page.html', { ack: 7 })).status, 400);
+    assert.equal((await postAck(s, 'page.html', { ack: '1', id: '1' })).status, 400);
+  }));
+
+test('notices: your directive takes the mark off its element and those around it; clearing one, or one written on disk, does not', () =>
+  withServer(async (s) => {
+    await s.page('page.html');
+    s.write('page.html', s.read('page.html').replace('First paragraph', 'Uno').replace('>Title<', '>Heading<').replace('>one<', '>uno<'));
+    const page = await s.page('page.html');
+    const [h1, p, li] = ['h1', 'p', 'li'].map((sel) => idOf(page.document, sel));
+    assert.deepEqual(page.notices.map((n) => n.id), [h1, p, li]);
+    const cleared = await (await s.put('page.html', { id: p, base: page.bases[p], directive: '' })).json();
+    assert.equal(cleared.notices, undefined, 'clearing a directive is no ack');
+    s.write('page.html', s.read('page.html').replace(`<li data-hrv="${li}">`, `<li data-hrv="${li}"><!-- @AI: on disk -->`));
+    assert.deepEqual((await stateOf(s, 'page.html')).notices.map((n) => n.id), [h1, p, li], 'a directive written on disk is no ack');
+    const answer = await (await s.put('page.html', { id: p, base: page.bases[p], directive: 'shorter' })).json();
+    assert.deepEqual(answer.notices.map((n) => n.id), [h1, li]);
+    assert.deepEqual((await stateOf(s, 'page.html')).notices.map((n) => n.id), [h1, li]);
+  }));
+
+test('notices: your markdown save is no notice, and takes the mark off the scope you edited', () =>
+  withServer(async (s) => {
+    await s.page('page.html');
+    s.write('page.html', s.read('page.html').replace('First paragraph', 'Uno').replace('>Title<', '>Heading<'));
+    const page = await s.page('page.html');
+    const [h1, p] = ['h1', 'p'].map((sel) => idOf(page.document, sel));
+    assert.deepEqual(page.notices, [{ id: h1, kind: 'changed' }, { id: p, kind: 'changed' }]);
+    const answer = await (await s.put('page.html', { id: p, base: page.bases[p], markdown: 'Mine now.' })).json();
+    assert.deepEqual(answer.notices, [{ id: h1, kind: 'changed' }]);
+    const li = idOf(page.document, 'li');
+    const more = await (await s.put('page.html', { id: li, base: page.bases[li], markdown: 'one, more' })).json();
+    assert.deepEqual(more.notices, [{ id: h1, kind: 'changed' }], 'an edit on an unmarked scope makes no notice');
+    assert.deepEqual((await stateOf(s, 'page.html')).notices, [{ id: h1, kind: 'changed' }]);
+  }));
 

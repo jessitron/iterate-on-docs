@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Showing changes to a rendered document: removals and moves</title>
+    <style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; line-height: 1.5; color: #222; }
+  h1 { font-size: 1.7em; margin-bottom: 0.2em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+  h3 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.93em; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f3f3f3; }
+  .lede { color: #555; }
+  .box { background: #f7f7f2; border-left: 4px solid #2a8a4a; padding: 0.6em 1em; margin: 1em 0; }
+  .q { background: #f4f0fa; border-left: 4px solid #b0309a; padding: 0.6em 1em; margin: 1em 0; }
+  figure { margin: 1.5em 0; }
+  figcaption { font-size: 0.9em; color: #555; margin-top: 0.4em; }
+  svg { max-width: 100%; height: auto; }
+  code { background: #f1f1f1; padding: 0 3px; }
+  .ok { color: #2a7a3a; font-weight: 600; }
+  .meh { color: #a06a00; font-weight: 600; }
+  .bad { color: #b02020; font-weight: 600; }
+  ol li, ul li { margin: 0.3em 0; }
+</style>
+  </head>
+  <body>
+    <h1>Showing changes to a rendered document</h1>
+    <p class="lede">
+      How others show removals and moves, and what fits html-revisor. Research for Jess, 2026-11-12.
+    </p>
+    <div class="box">
+      <strong>The short version.</strong> The field has three places to put a removal: <em>in place</em> (the old content, struck or faded), <em>a marker</em> where it was (a small glyph you hover to see what went), and <em>the margin</em> (a note beside the line). Word, Google Docs, and Wikipedia's visual diff show removals in place. Ink &amp; Switch's lab liked a marker best for prose and a ghost for drawings. Moves are a pair everywhere they are handled: a "from" spot and a "to" spot, linked by a name. The "from" spot is the deleted spot you asked for; Word's file format and Wikipedia both have one.<br><br>My recommendation: a <strong>tombstone</strong> as the lasting mark for a removal, drawn in the overlay, and a <strong>peek</strong> that puts the original back in place, grayed, only while you look at it. A move is a tombstone that points to where the element went. Details and drawings in <a href="#recs">Recommendations</a>.
+    </div>
+    <p>
+      Contents: <a href="#vocab">Vocabulary</a> · <a href="#systems">What each system chose</a> · <a href="#research">Change awareness research</a> · <a href="#a11y">Accessibility</a> · <a href="#ack">Acknowledging</a> · <a href="#general">What generalizes</a> · <a href="#recs">Recommendations</a> · <a href="#questions">Open questions</a> · <a href="#sources">Sources</a>
+    </p>
+    <!-- ============================================================ -->
+    <h2 id="vocab">The vocabulary the field uses</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Word</th>
+          <th>Meaning</th>
+          <th>Where you'll see it</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Edit script</strong> / <strong>delta</strong></td>
+          <td>
+            The list of operations that turns the old version into the new one. For trees the standard set is <em>insert, delete, update, move</em>.
+          </td>
+          <td>Tree diff papers (Chawathe et al.), XyDiff, GumTree, DeltaXML</td>
+        </tr>
+        <tr>
+          <td><strong>Change awareness</strong></td>
+          <td>
+            "The ability of individuals to track the asynchronous changes made to a collaborative document or surface by other participants over time."
+          </td>
+          <td>Tam &amp; Greenberg 2004</td>
+        </tr>
+        <tr>
+          <td><strong>Workspace awareness</strong></td>
+          <td>
+            Knowing who is in the shared space, where, and doing what, in real time. Change awareness extends it to the past.
+          </td>
+          <td>Gutwin &amp; Greenberg 2002</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Highlighting</strong> vs <strong>annotation</strong> vs <strong>overview</strong>
+          </td>
+          <td>
+            Three ways to show a change. Highlighting marks the content in place. Annotation is a note that points to it, often in a margin. Overview is a whole-document picture (a minimap, marks in the scroll bar).
+          </td>
+          <td>Tam &amp; Greenberg's survey of tools</td>
+        </tr>
+        <tr>
+          <td><strong>Inline</strong> vs <strong>side-by-side</strong></td>
+          <td>One view with both versions merged into it, or two views next to each other.</td>
+          <td>diff2html, Figma branch review, every code review tool</td>
+        </tr>
+        <tr>
+          <td><strong>Markup</strong> / <strong>redline</strong></td>
+          <td>
+            The visible marks of track changes: underline for inserted, strikethrough for deleted.
+          </td>
+          <td>Word, legal review</td>
+        </tr>
+        <tr>
+          <td><strong>Balloon</strong> / <strong>margin note</strong> / <strong>card</strong></td>
+          <td>A box in the margin that holds a deletion or a comment, with a line to its spot.</td>
+          <td>Word, Google Docs</td>
+        </tr>
+        <tr>
+          <td><strong>Change bar</strong> / <strong>changed line</strong></td>
+          <td>
+            A vertical line in the margin next to any line that changed. Says "something here" and nothing more.
+          </td>
+          <td>Word's Simple Markup, printed standards documents</td>
+        </tr>
+        <tr>
+          <td><strong>Move from / move to</strong></td>
+          <td>
+            The two halves of a move: the spot it left and the spot it arrived. Linked by a shared name.
+          </td>
+          <td>Word (OOXML <code>moveFrom</code>/<code>moveTo</code>)</td>
+        </tr>
+        <tr>
+          <td><strong>Ghost</strong></td>
+          <td>A deleted object drawn faded where it was.</td>
+          <td>Ink &amp; Switch's diagram diff</td>
+        </tr>
+        <tr>
+          <td><strong>Tombstone</strong></td>
+          <td>
+            A marker that stands where a deleted thing was. In CRDTs (the data structures behind live co-editing) it is the record that keeps a deleted item's position so other edits can refer to it.
+          </td>
+          <td>CRDT literature; I use it here for a visible marker</td>
+        </tr>
+        <tr>
+          <td><strong>Persistent IDs</strong> (XIDs)</td>
+          <td>
+            IDs that stay on a node across versions, so matching old to new is a lookup, not a guess.
+          </td>
+          <td>
+            XyDiff (Cobéna, Abiteboul, Marian 2002). html-revisor's <code>data-hrv</code> is this.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Change blindness</strong></td>
+          <td>
+            People miss large changes to a scene when the change happens out of view or during a flicker. Removals are the hardest to notice: nothing is there to draw the eye.
+          </td>
+          <td>Rensink, O'Regan &amp; Clark 1997</td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- ============================================================ -->
+    <h2 id="systems">What each system chose, and why</h2>
+    <h3>Word track changes</h3>
+    <ul>
+      <li>
+        Defaults: insertions underlined, deletions struck through, both in the author's color. A change bar sits in the margin ("Changed lines: Outside border").
+      </li>
+      <li>
+        <strong>Moves are tracked by default.</strong> "Moved from" is double strikethrough; "moved to" is double underline. In the file format, the two halves are linked by a shared <code>w:name</code> on <code>moveFromRangeStart</code> and <code>moveToRangeStart</code>. A "move to" with no matching "move from" "shall be treated as inserted, rather than moved." So a move is a deletion and an insertion that know about each other.
+      </li>
+      <li>
+        <strong>Tables get cell colors</strong>, not text marks: inserted cells light blue, deleted pink, merged yellow, split orange. Word did not try to make strikethrough work for structure.
+      </li>
+      <li>
+        Three levels of display. <em>Simple Markup</em> hides the marks and leaves only the red change bar in the margin; click the bar to see all. <em>All Markup</em> shows everything inline. <em>Show revisions in balloons</em> moves deletions out of the text into margin notes ("Deleted: Monday") and keeps insertions inline.
+      </li>
+      <li>
+        Why: Word's job is review before acceptance. The old text has to stay visible until someone accepts.
+      </li>
+    </ul>
+    <h3>Google Docs suggestion mode</h3>
+    <ul>
+      <li>
+        Deleted text stays in place, struck through in the suggester's color, until accepted. Each suggestion also gets a card in the right margin with a check (accept) and an X (reject).
+      </li>
+      <li>
+        Tools &gt; Review suggested edits steps through them one at a time, or accepts or rejects all.
+      </li>
+      <li>No move tracking. A move is a deletion here and an insertion there.</li>
+      <li>
+        For "what changed since I last looked", Docs once had "See new changes" in the File menu, which highlighted changes since your last visit with a count to step through. New comments get a blue dot. Drive's newer "Catch me up" summarizes changes in words.
+      </li>
+    </ul>
+    <h3>Wikipedia: the visual diff (VisualEditor)</h3>
+    <p>
+      This is the closest match to html-revisor: a diff of a rendered, structured document, in the browser, built for non-programmers.
+    </p>
+    <ul>
+      <li>
+        <strong>Removed content stays in place, as itself</strong>: red background, line-through. The CSS marks the element with <code>data-diff-action="remove"</code>; it does not wrap it. So a removed table, image, or list item is still a table, image, or list item, in its own parent. Captions get their own rule because they draw outside the parent's box.
+      </li>
+      <li>
+        Inserted: green background. Changed (attributes, a resized image): blue, with the old version hidden and a <strong>sidebar note</strong> that describes the change in words.
+      </li>
+      <li>
+        <strong>Moves</strong>: the moved element gets a gray background and an arrow, ↑ or ↓, at its left edge. Since 2020 the sidebar labels it "Moved up" or "Moved down". The algorithm keeps "the maximum possible number of nodes unmoved" by a longest increasing subsequence: the same idea as recommendation 4 in CONCURRENCY.html.
+      </li>
+      <li>Moves are detected only among siblings, "not within a node yet."</li>
+      <li>
+        Known gaps, from its bug tracker: "the move indicator is really tiny" and "the place from where it was moved is not shown." That second one is your deleted-spot point. Wikipedia users asked for it and it is still open as a design task.
+      </li>
+      <li>
+        The text diff (wikidiff2) added a move indicator with a tooltip, "Paragraph was moved," and requests to draw an arrow linking the two spots.
+      </li>
+      <li>
+        Why visual: editors "can see changes without needing to understand wikitext," and moves read as moves, not as a delete plus an add. The page also admits visual diffs "have issues with complex changes to tables."
+      </li>
+    </ul>
+    <h3>HTML diff libraries: W3C htmldiff, htmldiff.js, DaisyDiff, lxml, visual-dom-diff</h3>
+    <ul>
+      <li>
+        All of them show removals in place. Most wrap removed text in <code>&lt;del&gt;</code> and added text in <code>&lt;ins&gt;</code>. DaisyDiff uses spans with classes (<code>diff-html-removed</code>, red with line-through) and Dojo tooltips that step back and forth between changes. visual-dom-diff wraps text in <code>del</code>/<code>ins</code> and puts a class (<code>vdd-removed</code>, <code>vdd-added</code>) on removed or added <em>elements</em>; an attribute change is <code>vdd-modified</code>, showing only the new attributes.
+      </li>
+      <li>
+        The trap they all meet: a wrapper element is not valid everywhere. You can't put a <code>&lt;del&gt;</code> around a <code>&lt;tr&gt;</code> or an <code>&lt;li&gt;</code>. Tools that diff by text tokens break on tables. Tools that diff the tree mark the element itself, as VisualEditor and visual-dom-diff do.
+      </li>
+      <li>
+        None handle moves. A W3C wiki comment notes that attribute-only changes may not show at all in a rendered view.
+      </li>
+    </ul>
+    <h3>Tree and XML diff</h3>
+    <ul>
+      <li>
+        The theory has had moves since Chawathe et al. (1996): an edit script of insert, delete, update, and move over an ordered tree. GumTree (code ASTs) and DeltaXML use the same four.
+      </li>
+      <li>
+        Finding a move without IDs is the hard part: you guess which old node is which new node. XyDiff gives each node a persistent ID (an XID), and then a move is a node whose ID now has a different parent or position. html-revisor has this already. Its moves are a lookup.
+      </li>
+      <li>
+        Presentation in XML tools is plain: color the tree view, often side by side. Nothing there beats VisualEditor for a rendered page.
+      </li>
+    </ul>
+    <h3>Code review: GitHub, git, Beyond Compare, diff2html</h3>
+    <ul>
+      <li>
+        Removed lines are red rows in the gutter view. Code review never hides a removal; code has no "final rendering" to protect.
+      </li>
+      <li>
+        <code>git diff --color-moved</code> colors moved lines in their own colors on both ends: <code>oldMoved</code> where they left, <code>newMoved</code> where they arrived. <code>zebra</code> alternates colors so two adjacent moved blocks can be told apart; <code>dimmed-zebra</code> dims the middle of a moved block, since only its edges are interesting. A block must be 20 alphanumeric characters to count.
+      </li>
+      <li>
+        GitHub, Bitbucket, and Beyond Compare do not detect moves. GitLab has an open proposal to use git's. Beyond Compare's answer is manual "Align With".
+      </li>
+      <li>diff2html renders unified diffs as HTML, line by line or side by side. No moves.</li>
+      <li>
+        Lesson for us: moves are shown at both ends, in a color that is neither add nor remove.
+      </li>
+    </ul>
+    <h3>Design tools: Figma, Ink &amp; Switch, Notion</h3>
+    <ul>
+      <li>
+        <strong>Figma branch review</strong> lists added, edited, and removed layers by page, and shows each one side by side (before, after) or as an overlay with an opacity slider. A list beside the canvas, not marks on it. Users complain they can't pick out the exact property that changed.
+      </li>
+      <li>
+        <strong>Ink &amp; Switch, Patchwork</strong> (2024 lab notebook): for prose, deletions as a backspace glyph; "Hover over the deletion glyph to see the removed text." This hover view was their favorite for a full document. A margin view showing replacements as "before → after" was also promising, since strikethrough gets noisy for replacements. For an overview, a minibar of where changes are. For diagrams: "a green glow for added shapes, and a translucent/ghost effect for deleted shapes." Their conclusion: "Diff visualization varies a lot more by document type."
+      </li>
+      <li>
+        <strong>Notion</strong> shows an agent's edits in a light blue track-change overlay you can show or hide. Its version history (2026) highlights edits and says whether a person or an agent made each one. I could not confirm how it draws a deletion.
+      </li>
+    </ul>
+    <figure>
+      <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif" font-size="13">
+        <text x="10" y="20" font-weight="600">Three places to put a removal</text>
+        <!-- in place -->
+        <g transform="translate(10,40)">
+          <text x="0" y="0" font-weight="600">1. In place</text>
+          <text x="0" y="16" fill="#666" font-size="11">Word, Docs, VisualEditor, htmldiff</text>
+          <rect x="0" y="28" width="250" height="230" fill="#fff" stroke="#bbb"></rect>
+          <rect x="15" y="45" width="220" height="10" fill="#999"></rect>
+          <rect x="15" y="60" width="180" height="10" fill="#999"></rect>
+          <rect x="15" y="85" width="220" height="10" fill="#e8a3a3"></rect>
+          <line x1="15" y1="90" x2="235" y2="90" stroke="#b02020"></line>
+          <rect x="15" y="100" width="150" height="10" fill="#e8a3a3"></rect>
+          <line x1="15" y1="105" x2="165" y2="105" stroke="#b02020"></line>
+          <rect x="15" y="130" width="220" height="10" fill="#999"></rect>
+          <rect x="15" y="145" width="200" height="10" fill="#999"></rect>
+          <text x="15" y="185" font-size="11" fill="#333">The old text is there.</text>
+          <text x="15" y="200" font-size="11" fill="#333">You read what went without</text>
+          <text x="15" y="215" font-size="11" fill="#333">a click. Layout grows.</text>
+        </g>
+        <!-- marker -->
+        <g transform="translate(300,40)">
+          <text x="0" y="0" font-weight="600">2. A marker where it was</text>
+          <text x="0" y="16" fill="#666" font-size="11">Ink &amp; Switch prose, wikidiff2 arrow</text>
+          <rect x="0" y="28" width="250" height="230" fill="#fff" stroke="#bbb"></rect>
+          <rect x="15" y="45" width="220" height="10" fill="#999"></rect>
+          <rect x="15" y="60" width="180" height="10" fill="#999"></rect>
+          <line x1="15" y1="80" x2="235" y2="80" stroke="#2a8a4a" stroke-width="2"></line>
+          <rect x="110" y="72" width="16" height="16" fill="#fff" stroke="#2a8a4a"></rect>
+          <text x="113" y="85" fill="#2a8a4a" font-size="12">⌫</text>
+          <rect x="15" y="95" width="220" height="10" fill="#999"></rect>
+          <rect x="15" y="110" width="200" height="10" fill="#999"></rect>
+          <rect x="135" y="125" width="110" height="34" fill="#fffbe6" stroke="#c9b75a"></rect>
+          <text x="141" y="140" font-size="10">hover: “Beside the</text>
+          <text x="141" y="152" font-size="10">trail, to build…”</text>
+          <text x="15" y="185" font-size="11" fill="#333">The page stays as it is now.</text>
+          <text x="15" y="200" font-size="11" fill="#333">You see where; hover for what.</text>
+        </g>
+        <!-- margin -->
+        <g transform="translate(590,40)">
+          <text x="0" y="0" font-weight="600">3. In the margin</text>
+          <text x="0" y="16" fill="#666" font-size="11">Word balloons and change bar, Docs cards</text>
+          <rect x="0" y="28" width="170" height="230" fill="#fff" stroke="#bbb"></rect>
+          <rect x="15" y="45" width="140" height="10" fill="#999"></rect>
+          <rect x="15" y="60" width="120" height="10" fill="#999"></rect>
+          <rect x="15" y="80" width="140" height="10" fill="#999"></rect>
+          <rect x="15" y="95" width="130" height="10" fill="#999"></rect>
+          <line x1="6" y1="70" x2="6" y2="84" stroke="#b02020" stroke-width="3"></line>
+          <rect x="180" y="58" width="80" height="44" fill="#fde9e9" stroke="#b02020"></rect>
+          <text x="185" y="73" font-size="10">Deleted:</text>
+          <text x="185" y="86" font-size="10">“Beside the</text>
+          <text x="185" y="98" font-size="10">trail…”</text>
+          <line x1="160" y1="75" x2="180" y2="75" stroke="#b02020" stroke-dasharray="2 2"></line>
+          <text x="15" y="185" font-size="11" fill="#333">Text untouched. Needs a</text>
+          <text x="15" y="200" font-size="11" fill="#333">margin. Points at a line,</text>
+          <text x="15" y="215" font-size="11" fill="#333">not at a spot in a table.</text>
+        </g>
+      </svg>
+      <figcaption>
+        The three placements. Most systems pick one as the default and offer another as a setting (Word offers all three).
+      </figcaption>
+    </figure>
+    <!-- ============================================================ -->
+    <h2 id="research">Change awareness research</h2>
+    <ul>
+      <li>
+        <strong>Gutwin &amp; Greenberg (2002)</strong> broke workspace awareness into who, what, and where, for the present, plus a short list for the past: action history, artifact history, location history.
+      </li>
+      <li>
+        <strong>Tam &amp; Greenberg (2004, 2006)</strong> extended the past part into a change awareness framework. Six questions: where, who, what, how, when, why. Three views: by artifact, by person, by workspace.
+        <ul>
+          <li>
+            The first question is "Is anything different since I last looked at the work?" and it must be answered "in a very lightweight fashion." Then the person probes for detail. html-revisor's docket count answers the first question; the marks answer the probe.
+          </li>
+          <li>
+            For an artifact, their "where" questions are: "Where was this artifact (when I left)?", "Where is the artifact now?", "Where has this artifact been during the time that I have been away?" A removal answers the first and not the second. A move answers both. A tombstone is how you answer "where was it" once it's gone.
+          </li>
+          <li>
+            They sort display methods into diffs, annotations (margin notes), highlighting (in place), and overviews (scroll bar marks, miniatures). They note that showing everything overwhelms; the design job is choosing what matters.
+          </li>
+          <li>"Why" is one of the six: html-revisor's <code>--because</code> is the why.</li>
+          <li>
+            Readership history: who has seen what. They note that someone seeing a change without objecting is an implicit acceptance. html-revisor's ack is an explicit readership record.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <strong>Change blindness</strong> (Rensink et al. 1997): people miss changes that happen during a flicker or out of view. A swap into a page you are not looking at is that. A removal is the worst case: the eye has nothing new to land on. This is the case for marking removals at all, and for marking them where they were.
+      </li>
+      <li>
+        <strong>Edit wear and read wear</strong> (Hill et al. 1992): marks in the scroll bar where a document has been edited. An overview that fits beside html-revisor's docket, for later.
+      </li>
+    </ul>
+    <!-- ============================================================ -->
+    <h2 id="a11y">Accessibility of change markup</h2>
+    <ul>
+      <li>
+        <code>&lt;del&gt;</code> and <code>&lt;ins&gt;</code> carry the ARIA roles <code>deletion</code> and <code>insertion</code>, with <code>cite</code> and <code>datetime</code> attributes. But most screen readers don't announce them. Adrian Roselli: "with the recent exception of &lt;del&gt; in NVDA with Chrome," these elements "are not announced by screen readers."
+      </li>
+      <li>
+        The common fix is text: <code>del::before { content: " [deletion start] "; }</code>, hidden from sight with a clip pattern so it stays in the accessibility tree. JAWS in Chrome has been reported to skip pseudo-element text, so real text in the DOM is safer.
+      </li>
+      <li>
+        ARIA 1.3 (draft) adds <code>role="suggestion"</code>, which groups an insertion and a deletion into one change, with <code>aria-details</code> pointing at who made it and why. That maps onto a change plus its <code>--because</code>.
+      </li>
+      <li>
+        Color alone fails (WCAG 1.4.1). Atlassian has an open bug on Confluence page history for this. html-revisor's rule, a glyph or a word behind every color, already meets it.
+      </li>
+      <li>
+        For html-revisor: marks live in an overlay, invisible to a screen reader. A ghost in place would be real DOM; give it <code>aria-hidden</code> or an explicit "removed:" label, so a reader doesn't read old text as current.
+      </li>
+    </ul>
+    <!-- ============================================================ -->
+    <h2 id="ack">How "mark as seen" works elsewhere</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>System</th>
+          <th>Acknowledge</th>
+          <th>Scope</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Word</td>
+          <td>Accept or reject each change; accept all. An accepted deletion vanishes.</td>
+          <td>Per change, all</td>
+        </tr>
+        <tr>
+          <td>Google Docs</td>
+          <td>
+            Check or X on each card; Review suggested edits steps through them; accept all. Comments: blue dot until seen.
+          </td>
+          <td>Per change, all</td>
+        </tr>
+        <tr>
+          <td>GitHub PR</td>
+          <td>
+            "Viewed" checkbox per file. When the file changes again, it unchecks and says it changed since you viewed it.
+          </td>
+          <td>Per file</td>
+        </tr>
+        <tr>
+          <td>Notion AI</td>
+          <td>Show or hide the change overlay.</td>
+          <td>All</td>
+        </tr>
+        <tr>
+          <td>VisualEditor, htmldiff, git</td>
+          <td>None. A diff is between two versions you pick; there is no "seen".</td>
+          <td>n/a</td>
+        </tr>
+        <tr>
+          <td>Tam &amp; Greenberg</td>
+          <td>
+            Readership history: a record of who saw what, which can stand for implicit acceptance.
+          </td>
+          <td>Per artifact</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Two points carry over. First, a deletion mark is the one mark whose ack removes something from the page, not only a decoration. Word and Docs treat accepting a deletion as making it final. Second, GitHub's "changed since you viewed" is the same rule as html-revisor's: an ack holds until the content changes again.
+    </p>
+    <!-- ============================================================ -->
+    <h2 id="general">What generalizes across element kinds</h2>
+    <p>
+      Your worry was right. The gap line in CONCURRENCY.html is drawn for a list of blocks stacked down the page. Here is each placement against the element kinds html-revisor pages hold.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Removed element</th>
+          <th>Ghost in place</th>
+          <th>Tombstone line in the gap</th>
+          <th>Margin note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Paragraph in a section</td>
+          <td class="ok">Works</td>
+          <td class="ok">Works: horizontal line</td>
+          <td class="ok">Works</td>
+        </tr>
+        <tr>
+          <td>List item in an <code>ol</code></td>
+          <td class="meh">
+            Works; the ghost takes a number unless CSS stops it (<code>counter-increment: list-item 0</code>)
+          </td>
+          <td class="ok">Works</td>
+          <td class="ok">Works</td>
+        </tr>
+        <tr>
+          <td>Table row</td>
+          <td class="ok">
+            Works: a <code>tr</code> is valid in its <code>tbody</code>; fade it and strike it
+          </td>
+          <td class="ok">Works: line across the table</td>
+          <td class="meh">Points at the line, not the row</td>
+        </tr>
+        <tr>
+          <td>Table column (a cell in each row)</td>
+          <td class="ok">Works: ghost cells</td>
+          <td class="meh">A vertical line per row, or one line down the table</td>
+          <td class="bad">No line to point at</td>
+        </tr>
+        <tr>
+          <td>Card in a grid or flex row</td>
+          <td class="meh">Works; the others reflow while it shows</td>
+          <td class="meh">Line runs across or down, depending on where the neighbors sit</td>
+          <td class="bad">Weak</td>
+        </tr>
+        <tr>
+          <td>Shape in an <code>svg</code></td>
+          <td class="ok">
+            Works: the Ink &amp; Switch ghost. Opacity and a dashed stroke are valid on any svg element.
+          </td>
+          <td class="bad">
+            No "gap" in a drawing. Needs the shape's old box instead: a dashed outline where it was.
+          </td>
+          <td class="bad">No</td>
+        </tr>
+        <tr>
+          <td>A whole section, many screens long</td>
+          <td class="bad">A long gray block shoves the page down</td>
+          <td class="ok">Works: one line, tip says "removed: § Steps (12 paragraphs)"</td>
+          <td class="ok">Works</td>
+        </tr>
+        <tr>
+          <td>Last child, or all children</td>
+          <td class="ok">Works</td>
+          <td class="meh">Line at the end of the parent, or inside an empty one</td>
+          <td class="ok">Works</td>
+        </tr>
+        <tr>
+          <td>Inline (a word, a link, a span)</td>
+          <td class="ok">Works as <code>&lt;del&gt;</code> text, if you want word-level diffs</td>
+          <td class="ok">A caret mark in the text</td>
+          <td class="meh">Points at the line</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Three patterns come out of this.</p>
+    <ol>
+      <li>
+        <strong>Mark the element; don't wrap it.</strong> The ghost generalizes when it is the original element, same tag, in its own parent, with a class on it. That is what VisualEditor and visual-dom-diff do. Wrappers like <code>&lt;del&gt;</code> break in tables, lists, and svg.
+      </li>
+      <li>
+        <strong>A line in the gap generalizes in position but not in shape.</strong> "After sibling X in parent P" is a fine address for any element. Drawing it needs the layout: horizontal between stacked blocks, vertical between side-by-side ones, and the old box for svg or absolute positions.
+      </li>
+      <li>
+        <strong>The old box is the fallback that fits every kind.</strong> Where the element was on screen, captured before it left, works for a paragraph, a row, a card, and an svg shape. The client has it: <code>setChildren</code> in client.js removes the nodes the swap drops, and it can measure them first.
+      </li>
+    </ol>
+    <!-- ============================================================ -->
+    <h2 id="recs">Recommendations for html-revisor</h2>
+    <p>
+      What html-revisor has that most of these tools lack: persistent IDs on every unit, a server that saw each change go through it, and a client that holds the old DOM at the moment of the swap. Moves are a lookup, not a guess. The old HTML and the old box are both in hand at swap time.
+    </p>
+    <h3>Option A: Ghost in place</h3>
+    <p>
+      The removed element stays in the page, grayed, struck or dashed, inert, wearing the green crop marks and a check tile. Ack takes the ghost out. A move leaves a ghost at the old spot with "moved ↓" and marks the element at its new spot "moved here ↑".
+    </p>
+    <figure>
+      <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif" font-size="12">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2a8a4a"></path>
+          </marker>
+        </defs>
+        <text x="10" y="18" font-weight="600" font-size="13">A. Ghost in place: a removed row, and a moved list item</text>
+        <!-- table -->
+        <g transform="translate(10,35)">
+          <text x="0" y="0">Steps</text>
+          <rect x="0" y="10" width="360" height="26" fill="#eee" stroke="#bbb"></rect>
+          <text x="8" y="28">1 · Lay out the zones</text>
+          <rect x="0" y="36" width="360" height="26" fill="#f6f6f6" stroke="#ccc" stroke-dasharray="4 3" opacity="0.8"></rect>
+          <text x="8" y="54" fill="#999">2 · Beside the trail, to build…</text>
+          <line x1="8" y1="50" x2="195" y2="50" stroke="#999"></line>
+          <rect x="0" y="62" width="360" height="26" fill="#fff" stroke="#bbb"></rect>
+          <text x="8" y="80">3 · Plant the hedge</text>
+          <!-- crop marks around ghost -->
+          <g stroke="#2a8a4a" stroke-width="2" fill="none">
+            <path d="M-5,45 V31 H9"></path>
+            <path d="M351,31 H365 V45"></path>
+            <path d="M-5,53 V67 H9"></path>
+            <path d="M351,67 H365 V53"></path>
+          </g>
+          <rect x="370" y="38" width="22" height="22" fill="#222"></rect>
+          <path d="M374,49 l4,4 l9,-9" stroke="#3fbf6a" stroke-width="2.4" fill="none"></path>
+          <text x="0" y="115" fill="#555">The row stays, grayed and dashed, until ack.</text>
+          <text x="0" y="131" fill="#555">Ack removes the ghost and the mark together.</text>
+        </g>
+        <!-- list move -->
+        <g transform="translate(470,35)">
+          <text x="0" y="0">A list that was A, B, C; now A, C, B</text>
+          <text x="0" y="30">• A</text>
+          <rect x="-4" y="38" width="180" height="20" fill="#f6f6f6" stroke="#ccc" stroke-dasharray="4 3"></rect>
+          <text x="0" y="52" fill="#999">• B</text>
+          <text x="70" y="52" fill="#2a8a4a">moved ↓</text>
+          <text x="0" y="78">• C</text>
+          <rect x="-4" y="88" width="180" height="20" fill="none" stroke="none"></rect>
+          <text x="0" y="102">• B</text>
+          <text x="70" y="102" fill="#2a8a4a">moved here ↑</text>
+          <g stroke="#2a8a4a" stroke-width="2" fill="none">
+            <path d="M-9,97 V86 H2"></path>
+            <path d="M175,86 H186 V97"></path>
+            <path d="M-9,100 V111 H2"></path>
+            <path d="M175,111 H186 V100"></path>
+          </g>
+          <path d="M190,48 C240,55 240,90 192,98" stroke="#2a8a4a" fill="none" stroke-dasharray="3 3" marker-end="url(#arr)"></path>
+          <text x="0" y="135" fill="#555">The old spot holds a ghost; the new spot wears</text>
+          <text x="0" y="151" fill="#555">the mark. One ack takes both.</text>
+        </g>
+        <g transform="translate(10,215)" font-size="12">
+          <text x="0" y="0" font-weight="600">Good:</text>
+          <text x="45" y="0">you read what went with no click. Works for every element kind (it is the element itself).</text>
+          <text x="0" y="20" font-weight="600">Costs:</text>
+          <text x="45" y="20">the page is not the file while ghosts stand. Layout shifts. Each ghost must be left out of saves, scope picking,</text>
+          <text x="45" y="38">markdown, fingerprints, IDs, ol numbering, :nth-child styles, and screen readers, and survive the next swap.</text>
+        </g>
+      </svg>
+      <figcaption>
+        Option A. VisualEditor's choice. Your "display the original but grayed out".
+      </figcaption>
+    </figure>
+    <p>
+      <strong>Build cost: high.</strong> The client today draws every mark in its overlay layer and never adds content to the page. A ghost is page content that isn't in the file. It needs: the removed HTML (the client has it at swap time; after a reload the server must send it, so the "seen" snapshot must keep HTML, not only fingerprints); a ghost marker that every DOM walk skips (client.js's <code>isTool</code> keeps nodes with an <code>hrv-</code> id through a swap, but <code>setChildren</code> would slide a kept ghost to the end of its parent, so it needs an anchor); its <code>data-hrv</code> stripped so IDs don't collide; and the server's domain modules must never see it, since a save or a markdown edit of the parent would carry it in. Every future feature that walks the page pays this tax.
+    </p>
+    <h3>Option B: Tombstone in the overlay, with a peek</h3>
+    <p>
+      A tombstone is a thin green mark at the spot where the element was, drawn in the overlay like the crop marks today, with its own check tile. Its tip says what went: "removed: Beside the trail, to build…" from the first words, or "removed: § Steps (12 paragraphs)". <strong>Peek</strong> (click the tombstone, or flip to it from the docket) puts the original back in place, grayed, for as long as you look; the next flip or Escape takes it out. A move is a tombstone that says "moved ↓" and points to the element at its new spot, which wears a "moved here" mark. Clicking either end scrolls to the other.
+    </p>
+    <figure>
+      <svg viewBox="0 0 860 360" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif" font-size="12">
+        <defs>
+          <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2a8a4a"></path>
+          </marker>
+        </defs>
+        <text x="10" y="18" font-weight="600" font-size="13">B. Tombstone in the overlay; peek shows the ghost</text>
+        <!-- resting -->
+        <g transform="translate(10,40)">
+          <text x="0" y="0" font-weight="600">Resting</text>
+          <rect x="0" y="12" width="230" height="26" fill="#eee" stroke="#bbb"></rect>
+          <text x="8" y="30">1 · Lay out the zones</text>
+          <line x1="0" y1="43" x2="230" y2="43" stroke="#2a8a4a" stroke-width="3"></line>
+          <rect x="236" y="33" width="20" height="20" fill="#222"></rect>
+          <path d="M240,43 l4,4 l8,-8" stroke="#3fbf6a" stroke-width="2.2" fill="none"></path>
+          <rect x="0" y="48" width="230" height="26" fill="#fff" stroke="#bbb"></rect>
+          <text x="8" y="66">3 · Plant the hedge</text>
+          <rect x="20" y="85" width="210" height="22" fill="#222"></rect>
+          <text x="27" y="100" fill="#eee" font-size="11">removed: Beside the trail, to build…</text>
+          <text x="0" y="130" fill="#555">A line in the gap. The page is the file.</text>
+        </g>
+        <!-- peek -->
+        <g transform="translate(300,40)">
+          <text x="0" y="0" font-weight="600">Peek (click, or flip to it)</text>
+          <rect x="0" y="12" width="230" height="26" fill="#eee" stroke="#bbb"></rect>
+          <text x="8" y="30">1 · Lay out the zones</text>
+          <rect x="0" y="38" width="230" height="26" fill="#f6f6f6" stroke="#ccc" stroke-dasharray="4 3"></rect>
+          <text x="8" y="56" fill="#999">2 · Beside the trail, to build…</text>
+          <line x1="8" y1="52" x2="180" y2="52" stroke="#999"></line>
+          <rect x="0" y="64" width="230" height="26" fill="#fff" stroke="#bbb"></rect>
+          <text x="8" y="82">3 · Plant the hedge</text>
+          <text x="0" y="130" fill="#555">The original, in place, grayed, while you look.</text>
+          <text x="0" y="146" fill="#555">Gone again on the next flip or Escape.</text>
+        </g>
+        <!-- svg / side by side -->
+        <g transform="translate(590,40)">
+          <text x="0" y="0" font-weight="600">Where there's no gap</text>
+          <rect x="0" y="12" width="250" height="110" fill="#fff" stroke="#bbb"></rect>
+          <circle cx="50" cy="60" r="22" fill="#9cc"></circle>
+          <rect x="110" y="40" width="50" height="40" fill="none" stroke="#2a8a4a" stroke-width="2" stroke-dasharray="5 3"></rect>
+          <rect x="196" y="40" width="40" height="40" fill="#cc9"></rect>
+          <rect x="164" y="30" width="18" height="18" fill="#222"></rect>
+          <path d="M167,39 l3,3 l7,-7" stroke="#3fbf6a" stroke-width="2" fill="none"></path>
+          <text x="0" y="145" fill="#555">An svg shape, or a card in a grid: a dashed</text>
+          <text x="0" y="161" fill="#555">outline of the old box, measured before the swap.</text>
+        </g>
+        <!-- move -->
+        <g transform="translate(10,215)">
+          <text x="0" y="0" font-weight="600">A move: the tombstone is the deleted spot it points from</text>
+          <text x="0" y="25">• A</text>
+          <line x1="0" y1="35" x2="160" y2="35" stroke="#2a8a4a" stroke-width="3"></line>
+          <text x="170" y="39" fill="#2a8a4a">moved ↓ (B)</text>
+          <text x="0" y="57">• C</text>
+          <text x="0" y="82">• B</text>
+          <g stroke="#2a8a4a" stroke-width="2" fill="none">
+            <path d="M-6,78 V68 H4"></path>
+            <path d="M150,68 H160 V78"></path>
+            <path d="M-6,81 V91 H4"></path>
+            <path d="M150,91 H160 V81"></path>
+          </g>
+          <text x="170" y="86" fill="#2a8a4a">moved here ↑ (was after A)</text>
+          <path d="M255,38 C300,45 300,72 330,80" stroke="#2a8a4a" fill="none" stroke-dasharray="3 3" marker-end="url(#arr2)"></path>
+          <text x="0" y="115" fill="#555">One change, two ends, one ack. Click either end to go to the other. Word's moveFrom/moveTo, drawn.</text>
+        </g>
+      </svg>
+      <figcaption>
+        Option B. The tombstone is the "deleted spot". The peek is the "original, grayed out", for as long as you look.
+      </figcaption>
+    </figure>
+    <p>
+      <strong>Build cost: medium.</strong> It fits how the client works: marks in the overlay, sized from boxes in the page. Pieces:
+    </p>
+    <ul>
+      <li>
+        <strong>Domain.</strong> Two notice kinds, <code>removed</code> and <code>moved</code>, from the snapshot you saw and the page now. Removed: an ID in <code>seen</code> that is gone from the page, outermost only (a removed section covers what was in it). Its address: parent ID plus the ID of the nearest sibling before it that is still there. Moved: an ID whose parent changed, or which falls outside the longest increasing subsequence of its siblings' old order (what VisualEditor does). Its address: where it was, as for a removal. The parent stops wearing a mark for these, as in recommendation 2 of CONCURRENCY.html.
+      </li>
+      <li>
+        <strong>What went.</strong> For the tip, the first words of the unit you saw. For the peek, its HTML. The snapshot holds fingerprints today; keeping each unit's HTML (or the HTML of removed ones only, captured when the change lands) gives both. The server already plans a "view previous", which needs the same thing.
+      </li>
+      <li>
+        <strong>Drawing.</strong> Find the gap from the neighbors' boxes: if the sibling after sits below, a horizontal line; beside, a vertical line; none, the end of the parent. For an svg descendant, or when the client measured the element just before it left, a dashed outline of the old box. The old box only survives until layout changes, so it is the fallback, not the rule.
+      </li>
+      <li>
+        <strong>Peek.</strong> Insert a clone of the old HTML at the address, with an <code>hrv-</code> marker, <code>inert</code>, <code>aria-hidden</code>, and no <code>data-hrv</code>. Remove it on the next flip, Escape, or any swap. Because it never outlives one look, it never meets a save.
+      </li>
+    </ul>
+    <h3>Option C: Margin notes</h3>
+    <p>
+      A change bar in the page's left margin at the height of the gap, like Word's Simple Markup, with a note on hover. Cheapest: a tile in the overlay at a y position. It can't point inside a table row or an svg, and a page whose content runs edge to edge has no margin. Good as a second channel (an overview strip by the docket, à la edit wear and Ink &amp; Switch's minibar), not as the mark.
+    </p>
+    <figure>
+      <svg viewBox="0 0 860 170" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif" font-size="12">
+        <text x="10" y="18" font-weight="600" font-size="13">C. Margin note</text>
+        <g transform="translate(60,35)">
+          <rect x="0" y="0" width="300" height="10" fill="#999"></rect>
+          <rect x="0" y="16" width="260" height="10" fill="#999"></rect>
+          <rect x="0" y="40" width="300" height="10" fill="#999"></rect>
+          <rect x="0" y="56" width="280" height="10" fill="#999"></rect>
+          <line x1="-14" y1="26" x2="-14" y2="40" stroke="#2a8a4a" stroke-width="4"></line>
+          <rect x="-50" y="22" width="30" height="20" fill="#222"></rect>
+          <text x="-44" y="36" fill="#3fbf6a" font-size="11">−1</text>
+        </g>
+        <g transform="translate(470,35)" font-size="12" fill="#333">
+          <text x="0" y="10">Good: never touches the page; cheapest to build.</text>
+          <text x="0" y="30">Bad: says "near this line", not "between these two rows".</text>
+          <text x="0" y="50">No help for svg, grids, or side-by-side content.</text>
+          <text x="0" y="70">Needs room in the margin.</text>
+          <text x="0" y="100">Best as an overview beside the docket, not as the mark.</text>
+        </g>
+      </svg>
+      <figcaption>
+        Option C. Word's Simple Markup and Tam &amp; Greenberg's "overview".
+      </figcaption>
+    </figure>
+    <h3>Side by side</h3>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>A. Ghost in place</th>
+          <th>B. Tombstone + peek</th>
+          <th>C. Margin</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>See what went</td>
+          <td class="ok">At a glance</td>
+          <td class="meh">Tip at a glance; peek for the whole</td>
+          <td class="meh">Hover</td>
+        </tr>
+        <tr>
+          <td>See where it was</td>
+          <td class="ok">Exact</td>
+          <td class="ok">Exact (gap or old box)</td>
+          <td class="bad">Line only</td>
+        </tr>
+        <tr>
+          <td>Page equals the file</td>
+          <td class="bad">No, while ghosts stand</td>
+          <td class="ok">Yes, except during a peek</td>
+          <td class="ok">Yes</td>
+        </tr>
+        <tr>
+          <td>Every element kind</td>
+          <td class="ok">Yes</td>
+          <td class="meh">Yes, with a gap rule and an old-box fallback</td>
+          <td class="bad">No</td>
+        </tr>
+        <tr>
+          <td>Big removals (a section)</td>
+          <td class="bad">Shoves the page</td>
+          <td class="ok">One line</td>
+          <td class="ok">One bar</td>
+        </tr>
+        <tr>
+          <td>Moves</td>
+          <td class="ok">Ghost at old spot</td>
+          <td class="ok">Tombstone at old spot, linked</td>
+          <td class="meh">Two bars</td>
+        </tr>
+        <tr>
+          <td>Fits the overlay design</td>
+          <td class="bad">No</td>
+          <td class="ok">Yes</td>
+          <td class="ok">Yes</td>
+        </tr>
+        <tr>
+          <td>Build</td>
+          <td class="bad">High, plus a tax on later work</td>
+          <td class="meh">Medium</td>
+          <td class="ok">Low</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="box">
+      <strong>Recommendation: B.</strong>
+      <ol>
+        <li>
+          Tombstone for a removal: placed by parent and previous sibling, drawn as a line in the gap, or as a dashed old box where there's no gap. Tip: the first words of what went. One check tile. Ack deletes the tombstone and its stored HTML.
+        </li>
+        <li>
+          Peek: the original in place, grayed, inert, for one look. This is "view previous" for a removal, so build it once for both.
+        </li>
+        <li>
+          Move: a tombstone at the old spot ("moved ↓") paired with a mark at the new one ("moved here ↑, was after A"). One notice, two ends, one ack. Flipping lands on the new spot and draws a dashed link to the tombstone.
+        </li>
+        <li>
+          A move whose old spot can't be drawn (its old parent is gone too) shows as new at its new spot. Word's file format makes the same rule: a move-to with no move-from "shall be treated as inserted."
+        </li>
+        <li>
+          Later, an overview strip by the docket (option C's good half), when pages get long.
+        </li>
+      </ol>
+    </div>
+    <!-- ============================================================ -->
+    <h2 id="questions">Open questions for Jess</h2>
+    <ol>
+      <li>
+        Is the peek enough of "the original grayed out", or do you want ghosts to stand until ack (option A) despite the cost?
+      </li>
+      <li>
+        Should a tombstone survive a reload and a server restart? Today a restart forgets what you saw. A tombstone is the one mark whose loss loses information: after a restart, you'd never learn that something went.
+      </li>
+      <li>
+        Where should the removed HTML live: in the seen snapshot for every unit (simple, more memory), or captured only when a change removes something (smaller, but a removal by editing the file on disk has no change to capture it)?
+      </li>
+      <li>
+        A removed section: one tombstone for the section, or one per scope that was in it? I'd say one, with a count in the tip.
+      </li>
+      <li>
+        Should flip order put a move's two ends next to each other, or treat the move as one stop that shows both?
+      </li>
+      <li>
+        Word-level change inside a paragraph (struck words, <code>&lt;del&gt;</code> style) is out of scope here; the paragraph wears the mark. Is that still the line you want, or does the peek also want to show a paragraph's old words?
+      </li>
+      <li>
+        For svg: is "a dashed outline of the old box" right for a drawing, or should a removed shape peek as itself, faded, the way Ink &amp; Switch drew it?
+      </li>
+    </ol>
+    <!-- ============================================================ -->
+    <h2 id="sources">Sources</h2>
+    <h3>html-revisor</h3>
+    <ul>
+      <li>CONCURRENCY.html: #where-marks, #ack, #lifecycle (local, read for grounding)</li>
+      <li>
+        domain/notices.mjs, client.css, client.js (<code>swapOne</code>, <code>setChildren</code>, <code>isTool</code>)
+      </li>
+    </ul>
+    <h3>Track changes</h3>
+    <ul>
+      <li>
+        <a href="https://support.microsoft.com/en-au/office/advanced-track-changes-options-in-word-2580cd04-1ea2-461b-98b3-c2f9c365f1f2">Microsoft: Advanced track changes options in Word</a>
+      </li>
+      <li>
+        <a href="https://support.microsoft.com/en-gb/word/training/track-changes-in-word">Microsoft: Track changes in Word</a>
+      </li>
+      <li>
+        <a href="https://webapp.docx4java.org/OnlineDemo/ecma376/WordML/moveTo_2.html">ECMA-376 (OOXML): moveTo and the move range name</a>
+      </li>
+      <li>
+        <a href="https://edu.gcfglobal.org/en/googledocuments/using-suggestion-mode-to-track-changes/1">GCFGlobal: Google Docs suggestion mode</a>
+      </li>
+      <li>
+        <a href="https://openstax.org/books/workplace-software-skills/pages/3-8-collaborative-editing-and-reviewing-in-google-docs">OpenStax: Collaborative editing and reviewing in Google Docs</a>
+      </li>
+      <li>
+        <a href="https://www.howtogeek.com/394447/how-to-see-recent-changes-to-your-google-docs-file/">How-To Geek: See recent changes to a Google Docs file</a>
+      </li>
+      <li>
+        <a href="https://workspaceupdates.googleblog.com/2021/02/improvements-for-locating-new-comments-important-conversations-google-docs.html">Google Workspace Updates: locating new comments (blue dot)</a>
+      </li>
+      <li>
+        <a href="https://mspoweruser.com/heres-how-you-can-track-document-changes-with-google-drives-new-catch-me-up-feature">Google Drive "Catch me up"</a>
+      </li>
+    </ul>
+    <h3>Visual and HTML diff</h3>
+    <ul>
+      <li>
+        <a href="https://www.mediawiki.org/wiki/VisualEditor/Diffs">MediaWiki: VisualEditor/Diffs</a>
+      </li>
+      <li>
+        <a href="https://doc.wikimedia.org/visualeditor-standalone/master/ve.dm.VisualDiff.html">ve.dm.VisualDiff API docs (tree diff, move detection)</a>
+      </li>
+      <li>
+        <a href="https://www.cazypedia.org/extensions/VisualEditor/lib/ve/src/ui/styles/elements/ve.ui.DiffElement.css">ve.ui.DiffElement.css (remove, insert, moved-up/down)</a>
+      </li>
+      <li>
+        <a href="https://phabricator.wikimedia.org/T186974">Phabricator T186974: move indicator tiny; moved-from place not shown</a>
+      </li>
+      <li>
+        <a href="https://phabricator.wikimedia.org/T166882">Phabricator T166882: wikidiff2 move indicator</a>, <a href="https://phabricator.wikimedia.org/T143422">T143422</a>, <a href="https://phabricator.wikimedia.org/T140340">T140340</a>
+      </li>
+      <li>
+        <a href="https://www.w3.org/wiki/HtmlDiff">W3C wiki: HtmlDiff</a>, <a href="https://www.w3.org/blog/2007/online-htmldiff-service">W3C: Online htmldiff service</a>
+      </li>
+      <li>
+        <a href="https://daisydiff.github.io/CustomizingHtmlOutput">DaisyDiff: HTML presentation</a>
+      </li>
+      <li><a href="https://github.com/Teamwork/visual-dom-diff">visual-dom-diff</a></li>
+      <li>
+        <a href="https://github.com/Rohland/htmldiff.net/blob/master/readme.md">htmldiff.net</a>
+      </li>
+      <li><a href="https://github.com/rtfpessoa/diff2html">diff2html</a></li>
+    </ul>
+    <h3>Tree diff</h3>
+    <ul>
+      <li>
+        <a href="http://ilpubs.stanford.edu:8090/115/">Chawathe, Rajaraman, Garcia-Molina, Widom (1996): Change detection in hierarchically structured information</a>
+      </li>
+      <li>
+        <a href="https://www.csd.uoc.gr/~hy561/Data/Papers/detecting.pdf">Cobéna, Abiteboul, Marian (2002): Detecting changes in XML documents (XyDiff, XIDs)</a>
+      </li>
+      <li><a href="https://github.com/GumTreeDiff/gumtree">GumTree</a></li>
+      <li>
+        <a href="https://balisage.net/Proceedings/vol13/html/LaFontaine01/BalisageVol13-LaFontaine01.html">La Fontaine, Balisage vol. 13 (DeltaXML)</a>
+      </li>
+    </ul>
+    <h3>Code review</h3>
+    <ul>
+      <li><a href="https://git-scm.com/docs/git-diff">git diff: --color-moved</a></li>
+      <li>
+        <a href="https://gitlab.com/gitlab-org/gitlab/-/issues/517156">GitLab proposal: display moved lines</a>
+      </li>
+      <li>
+        <a href="https://www.scootersoftware.com/kb/externalconversion">Beyond Compare KB: moved text</a>, <a href="https://scootersoftware.com/v5help/sessiontextalignment.html">alignment</a>
+      </li>
+      <li>
+        <a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request">GitHub: reviewing proposed changes ("Viewed")</a>
+      </li>
+    </ul>
+    <h3>Design tools</h3>
+    <ul>
+      <li>
+        <a href="https://help.figma.com/hc/en-us/articles/5691189138839/">Figma: merge branch into main file (branch review)</a>
+      </li>
+      <li>
+        <a href="https://www.inkandswitch.com/patchwork/notebook/2024-version-control/04/">Ink &amp; Switch Patchwork notebook 04: diff visualizations</a>
+      </li>
+      <li>
+        <a href="https://www.inkandswitch.com/patchwork/notebook/2024-version-control/10/">Ink &amp; Switch Patchwork notebook 10: beyond prose</a>
+      </li>
+      <li>
+        <a href="https://www.notion.com/releases/2026-10-13">Notion release 3.8 (version history)</a>, <a href="https://matthiasfrank.de/en/notion-updates/notion-ai-show-hide-changes/">Notion AI show/hide changes</a>
+      </li>
+    </ul>
+    <h3>Awareness research</h3>
+    <ul>
+      <li>
+        <a href="https://grouplab.cpsc.ucalgary.ca/grouplab/uploads/Publications/Publications/2004-ChangeAwareness.CRIWG.pdf">Tam &amp; Greenberg (2004): A framework for asynchronous change awareness in collaboratively-constructed documents</a>
+      </li>
+      <li>
+        <a href="https://cspages.ucalgary.ca/~tam/research/2006/ChangeAwareness-IJHCS06.pdf">Tam &amp; Greenberg (2006), IJHCS, the extended framework</a>
+      </li>
+      <li>
+        <a href="https://collablab.northwestern.edu/CollabolabDistro/nucmc/GutwinGreenberg_FrameworkWorkspaceAwareness.pdf">Gutwin &amp; Greenberg (2002): A descriptive framework of workspace awareness for real-time groupware</a>
+      </li>
+      <li>
+        <a href="https://doi.org/10.1111/j.1467-9280.1997.tb00427.x">Rensink, O'Regan, Clark (1997): To see or not to see (change blindness)</a>
+      </li>
+      <li>
+        <a href="https://doi.org/10.1145/142750.142751">Hill, Hollan, Wroblewski, McCandless (1992): Edit wear and read wear</a>
+      </li>
+    </ul>
+    <h3>Accessibility</h3>
+    <ul>
+      <li>
+        <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/del">MDN: &lt;del&gt;</a>
+      </li>
+      <li>
+        <a href="https://adrianroselli.com/2019/02/f87-css-generated-content-and-wcag-conformance.html">Roselli: F87, CSS generated content and WCAG</a>, <a href="https://adrianroselli.com/2017/12/tweaking-text-level-styles.html">Tweaking text level styles</a>
+      </li>
+      <li>
+        <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/suggestion_role">MDN: ARIA suggestion role</a>, <a href="https://www.w3.org/WAI/news/2024-01-23/for-review-wai-aria-1-3-FPWD">WAI-ARIA 1.3 draft</a>
+      </li>
+      <li>
+        <a href="https://jira.atlassian.com/browse/CONFSERVER-104486">Atlassian: page history uses color alone</a>
+      </li>
+    </ul>
+    <p style="color:#777;font-size:0.85em">
+      Not verified: how Notion draws a deletion; whether Google Docs still offers "See new changes"; the current form of W3C's htmldiff service.
+    </p>
+  </body>
+</html>

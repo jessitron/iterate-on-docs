@@ -123,6 +123,13 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
         body: JSON.stringify({ id, base: put.base, directive: 'make it shorter ' }),
       });
       assert.equal(again.status, 200);
+      // The agent's change, landed and then stale.
+      const scope = await (await fetch(`${base}page.html?scope=${id}`, { headers: { Accept: 'application/json' } })).json();
+      const agentPut = (version) => fetch(base + 'page.html', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ change: 'replace', id, version, html: '<p>agent</p>' }),
+      });
+      assert.equal((await agentPut(scope.version)).status, 200);
+      assert.equal((await agentPut(scope.version)).status, 412);
     });
     assert.ok(collector.bodies.every((b) => b.url === '/v1/traces'));
     const spans = collector.spans();
@@ -162,6 +169,17 @@ test('with HRV_TELEMETRY, a GET and a PUT send spans for their steps', () =>
     for (let i = 1; i < starts.length; i++) assert.ok(starts[i] > starts[i - 1], `two PUT steps start at ${starts[i]} ns`);
     assert.ok(starts.some((t) => t % 1_000_000n !== 0n), 'PUT step starts fall on whole milliseconds');
     assert.ok(BigInt(put.startTimeUnixNano) <= starts[0] && BigInt(put.endTimeUnixNano) >= starts.at(-1), 'the steps lie inside the PUT');
+
+    const [landed, stale] = named('PUT agent change').sort((a, b) => (BigInt(a.startTimeUnixNano) < BigInt(b.startTimeUnixNano) ? -1 : 1));
+    assert.equal(landed.attributes['hrv.change.kind'], 'replace');
+    assert.equal(landed.attributes['hrv.scope.id'], id);
+    assert.equal(landed.attributes['hrv.wrote'], true);
+    const agentSteps = spans.filter((s) => s.parentSpanId === landed.spanId).map((s) => s.name);
+    for (const step of ['read file', 'parse', 'replace', 'serialize', 'reparse', 'write file']) {
+      assert.ok(agentSteps.includes(step), `PUT agent change has no ${step} step; it has ${agentSteps}`);
+    }
+    assert.equal(stale.attributes['hrv.conflict'], 'changed since');
+    assert.ok(named('GET scope').length === 1, 'read is GET scope');
   }));
 
 test('the span clock has a fraction of a millisecond and follows the wall clock', async () => {

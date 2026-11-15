@@ -5,6 +5,7 @@ import { ID, NEXT_ID } from './id-attribute.mjs';
 import { canonicalHTML, hasAttrs } from './canonical.mjs';
 import { scopeElements, isBlock } from './scopes.mjs';
 import { likeness } from './likeness.mjs';
+import { fieldsIn } from './fields.mjs';
 
 export { ID, NEXT_ID };
 const ID_VALUE = /^(0|[1-9]\d*)$/;
@@ -16,10 +17,13 @@ export function elementById(document, id) {
 // ---- Assigning IDs ------------------------------------------------------
 
 // Every scope gets an ID. So do hr and every element of an svg, which took directives before
-// scopes did; commenting inside an SVG stays as it is (Jess, 2026-10-12).
+// scopes did; commenting inside an SVG stays as it is (Jess, 2026-10-12). A table row gets one
+// to be a unit of its own for notices (notices.mjs): a new row wears one mark. It is no scope;
+// you pick a cell or the table. A field (fields.mjs) gets one, for the save of its value.
 function identifiable(document) {
   const wanted = new Set(scopeElements(document));
-  for (const el of document.querySelectorAll('body hr, body svg, body svg *, body input[data-hrv-check]')) wanted.add(el);
+  for (const el of document.querySelectorAll('body hr, body svg, body svg *, body tr')) wanted.add(el);
+  for (const el of fieldsIn(document.body)) wanted.add(el);
   return wanted;
 }
 

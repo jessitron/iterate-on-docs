@@ -31,6 +31,7 @@
   --hrv-reply: #51cf66;
   --hrv-dots: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='0' y='5.75' width='4.5' height='4.5'/><rect x='5.75' y='5.75' width='4.5' height='4.5'/><rect x='11.5' y='5.75' width='4.5' height='4.5'/></svg>");
   --hrv-bubble: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M1 2h14v9h-3l1.5 3.5L8.5 11H1z'/></svg>");
+  --hrv-check: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M1.5 8.5l4 4L14.5 3.5' fill='none' stroke='black' stroke-width='2.6'/></svg>");
   --hrv-pencil: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><g transform='rotate(40 8 8)'><rect x='0' y='5.6' width='2.6' height='4.8'/><rect x='3.6' y='5.6' width='7.4' height='4.8'/><path d='M12 5.6L16 8l-4 2.4z'/></g></svg>");
 }
 
@@ -43,8 +44,8 @@
    the one mark the tool puts on the page, and only this rule reads it. An element an agent marks
    data-no-revise, and all inside it, keeps the page's cursor: the second rule stops the copy
    cursor inheriting from a parent, and :where gives it no specificity, so any page rule wins.
-   A link keeps its pointer. */
-html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise], [data-no-revise] *, [data-hrv-check]) { cursor: copy !important; }
+   A link keeps its pointer. A field and its label are the page's to click, and keep their cursors. */
+html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise], [data-no-revise] *, input, textarea, select, label:has(input, textarea, select)) { cursor: copy !important; }
 :where(html:not([data-hrv-review="off"]) [data-no-revise]:not(:any-link)) { cursor: auto; }
 
 /* Reset everything inside the layer so the page's CSS cannot leak in. */
@@ -102,6 +103,7 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise
   pointer-events: none; z-index: 2;
 }
 :is(#hrv-layer, .hrv-layer) .hrv-tip.hrv-tip-reply { border-left: 2px solid var(--hrv-reply); }
+/* On a check tile's tip, under what the agent said its change is for: what a click does. */
 
 /* Crop marks: four square corners just outside an element. The client sizes .hrv-crop to the
    element's box plus --hrv-crop-gap on each side, so the marks never touch what they mark.
@@ -121,6 +123,21 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise
   --arm: 16px; --w: 3px; --len: min(var(--arm), 30%);
   border: 1px solid var(--hrv-accent); background-origin: border-box;
 }
+
+/* A notice: content that changed since you last saw it. Green crop marks, the agent's color,
+   longer than hover's, and a check tile placed as a marker is: left of the first line, beside
+   the element's marker when it has one, or alone in the marker's spot. The tile acks it:
+   "seen", and the mark goes. Every green here is --hrv-reply, the agent's one green. */
+:is(#hrv-layer, .hrv-layer) .hrv-crop.hrv-notice { --arm: 14px; --ink: linear-gradient(var(--hrv-reply), var(--hrv-reply)); }
+:is(#hrv-layer, .hrv-layer) .hrv-seen {
+  position: absolute; width: 20px; height: 20px; padding: 3px;
+  background: var(--hrv-surface); box-shadow: var(--hrv-material); cursor: pointer; z-index: 1;
+}
+:is(#hrv-layer, .hrv-layer) :is(.hrv-seen, .hrv-seen-all)::before {
+  content: ""; display: block; width: 14px; height: 14px; background: var(--hrv-reply);
+  -webkit-mask: var(--hrv-check) center / contain no-repeat; mask: var(--hrv-check) center / contain no-repeat;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-seen:hover { box-shadow: 0 0 0 1px var(--hrv-reply), 0 4px 16px rgba(0, 0, 0, 0.45); }
 
 /* The directive box opens beside its element; data-side says which side the box is on.
    The notch, a square of the material turned 45 degrees, sits on the edge facing the element,
@@ -216,17 +233,32 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise
   cursor: pointer; user-select: none;
 }
 :is(#hrv-layer, .hrv-layer) :is(.hrv-docket-main, .hrv-step):hover { background: var(--hrv-button-hover); }
-:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-none .hrv-step { display: none; }
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-none .hrv-step:not(.hrv-row3) { display: none; }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-none .hrv-docket-main { color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-off .hrv-docket-main { color: var(--hrv-muted); }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-off .hrv-icon { background: var(--hrv-muted); }
 /* The second row: new replies, threads where the agent spoke last, with the bubble and its own
-   arrows. With none it hides, and the docket is one row. Stacked, the docket is a grid, so each
-   row's count takes the width the wider one needs. */
-:is(#hrv-layer, .hrv-layer) .hrv-docket .hrv-row2 { display: none; }
+   arrows. The third: changes, the notices, with green crop marks for an icon, a check that acks
+   them all, and its own arrows. A row with none hides, and the docket is one row. Stacked, the
+   docket is a grid, so each row's count takes the width the widest one needs. */
+:is(#hrv-layer, .hrv-layer) .hrv-docket :is(.hrv-row2, .hrv-row3) { display: none; }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-stacked { display: grid; grid-template-columns: auto 28px 28px; }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-stacked .hrv-docket-msg { grid-column: 1 / -1; }
-:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-stacked .hrv-row2 { display: flex; border-top: 1px solid var(--hrv-line); }
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-stacked .hrv-docket-main { grid-column: 1; }
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-replying .hrv-row2,
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-changing .hrv-row3 { display: flex; border-top: 1px solid var(--hrv-line); }
+:is(#hrv-layer, .hrv-layer) .hrv-icon-changes {
+  --ink: linear-gradient(var(--hrv-reply), var(--hrv-reply));
+  display: inline-block; flex: none; width: 14px; height: 14px;
+  background:
+    var(--ink) left top / 5px 2px, var(--ink) left top / 2px 5px, var(--ink) right top / 5px 2px, var(--ink) right top / 2px 5px,
+    var(--ink) left bottom / 5px 2px, var(--ink) left bottom / 2px 5px, var(--ink) right bottom / 5px 2px, var(--ink) right bottom / 2px 5px;
+  background-repeat: no-repeat;
+}
+:is(#hrv-layer, .hrv-layer) .hrv-seen-all { display: block; flex: none; width: 20px; height: 20px; padding: 3px; margin: -3px -4px -3px auto; cursor: pointer; }
+:is(#hrv-layer, .hrv-layer) .hrv-seen-all:hover { box-shadow: 0 0 0 1px var(--hrv-reply); }
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-off .hrv-icon-changes { --ink: linear-gradient(var(--hrv-muted), var(--hrv-muted)); }
+:is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-off .hrv-seen-all { display: none; }
 :is(#hrv-layer, .hrv-layer) .hrv-icon-reply {
   display: inline-block; flex: none; width: 14px; height: 14px; vertical-align: -2px; background: var(--hrv-reply);
   -webkit-mask: var(--hrv-bubble) center / contain no-repeat; mask: var(--hrv-bubble) center / contain no-repeat;
@@ -240,5 +272,5 @@ html:not([data-hrv-review="off"]) [data-hrv]:not(html, body):not([data-no-revise
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-error { box-shadow: 0 0 0 1px var(--hrv-error), 0 4px 16px rgba(0, 0, 0, 0.45); }
 :is(#hrv-layer, .hrv-layer) .hrv-docket.hrv-error .hrv-docket-msg { display: block; }
 
-/* Review mode off: the markers go too. */
-:is(#hrv-layer, .hrv-layer).hrv-reading .hrv-marker { display: none !important; }
+/* Review mode off: the markers go too, and the notices' marks. */
+:is(#hrv-layer, .hrv-layer).hrv-reading :is(.hrv-marker, .hrv-notice, .hrv-seen) { display: none !important; }

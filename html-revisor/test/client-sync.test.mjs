@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { withServer, openTab, until } from './client-lib.mjs';
 
-const RELOAD = 'the page changed on disk; reload to see it';
+const HELD = 'this element changed; close the box to see it';
 
 // Make the server's root a repository and commit everything in it, as it stands.
 function commitAll(dir) {
@@ -68,43 +68,47 @@ test('a list typed into a sentence: the box, the directive, and the next save fo
     tab.close();
   }));
 
-// Checklist: "Edit one element in the file on disk while the tab is open, then type a directive
-// on that element: the docket says it wasn't saved and suggests a reload, the box's footer says
-// `not saved`, the file stays untouched, and the box keeps your text."
-test('412: a directive on an element changed on disk is not saved, and the box keeps its text', () =>
+// Checklist: "With a box open on an element, edit that element in the file on disk: the docket
+// says to close the box to see it, and the page holds still. Type a directive: it saves, and the
+// content on disk stays. Edit the Content: the docket says it wasn't saved, the box's footer says
+// `not saved`, and the box keeps your text. Close the box: the change shows."
+test('the open box\'s element changed on disk: the swap waits for the box; a directive saves, a content edit is refused', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');
-    s.write('page.html', s.read('page.html').replace('First paragraph', 'First paragraph, from an editor'));
-    await until(() => tab.message() === RELOAD);
-    assert.equal(tab.el('p').textContent, 'First paragraph', 'the tab can\'t show it without a reload');
-    const onDisk = s.read('page.html');
     tab.open('p');
+    const p = tab.el('p');
+    s.write('page.html', s.read('page.html').replace('First paragraph', 'First paragraph, from an editor'));
+    await until(() => tab.message() === HELD);
+    assert.equal(tab.el('p').textContent, 'First paragraph', 'nothing changes under the box');
     tab.type('say more');
+    await until(() => s.read('page.html').includes('<!-- @AI: say more -->'));
+    assert.match(s.read('page.html'), /<!-- @AI: say more -->\s*First paragraph, from an editor/, 'the content on disk stays');
+    const onDisk = s.read('page.html');
+    tab.type('First paragraph, mine', tab.content());
     await until(() => tab.hint() === 'not saved');
-    assert.match(tab.message(), /^not saved: .+\. Copy what you wrote, then reload to see the page as it is now$/);
+    assert.match(tab.message(), /^this changed while your box was open/);
     assert.equal(s.read('page.html'), onDisk, 'the file is untouched');
-    assert.equal(tab.field().value, 'say more');
-    assert.ok(tab.marker('p'), 'the marker shows what you typed');
-    tab.type('say more, again');
-    await until(() => tab.hint() === 'not saved');
-    assert.equal(s.read('page.html'), onDisk, 'each try is refused');
+    assert.equal(tab.content().value, 'First paragraph, mine');
+    tab.done();
+    await until(() => tab.el('p').textContent === 'First paragraph, from an editor');
+    assert.ok(tab.el('p') === p, 'the same element: only its content changed');
     tab.close();
   }));
 
-// Checklist: "Edit a different element on disk: without typing, the docket says the page changed
-// on disk. Type a directive: it saves."
-test('another element changed on disk: the docket says the page changed, and a directive still saves', () =>
+// Checklist: "Edit a different element on disk: it shows without a reload. Type a directive on
+// it: it saves."
+test('another element changed on disk shows without a reload, and a directive on it saves', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');
+    const p = tab.el('p');
     s.write('page.html', s.read('page.html').replace('Title', 'Title, from an editor'));
-    await until(() => tab.message() === RELOAD);
-    tab.open('p');
+    await until(() => tab.el('h1').textContent === 'Title, from an editor');
+    assert.equal(tab.message(), '');
+    assert.ok(tab.el('p') === p, 'the rest of the page stays as it was');
+    tab.open('h1');
     tab.type('say more');
     await until(() => tab.hint() === 'saved');
-    assert.ok(s.read('page.html').includes('<!-- @AI: say more -->'));
-    assert.ok(s.read('page.html').includes('Title, from an editor'), 'the save keeps the other edit');
-    assert.equal(tab.message(), RELOAD, 'the notice stays');
-    assert.equal(tab.el('h1').textContent, 'Title', 'the heading shows after a reload');
+    assert.match(s.read('page.html'), /<!-- @AI: say more -->\s*Title, from an editor/);
     tab.close();
   }));
 
@@ -309,22 +313,21 @@ test('two tabs: a directive typed in one shows its marker in the other, and the 
     two.close();
   }));
 
-// A markdown save in one tab is content the other can't show: it says to reload, as for an
-// edit on disk, and a save there on that element is refused.
-test('two tabs: a markdown save in one asks the other to reload', () =>
+// A markdown save in one tab shows in the other, as an edit on disk does, and a save there on
+// that element lands.
+test('two tabs: a markdown save in one shows in the other, which can save on it', () =>
   withServer(async (s) => {
     const one = await openTab(s, 'page.html');
     const two = await openTab(s, 'page.html');
     one.open('p');
     one.type('First paragraph, edited', one.content());
-    await until(() => two.message() === RELOAD);
-    assert.equal(two.el('p').textContent, 'First paragraph');
+    await until(() => two.el('p').textContent === 'First paragraph, edited');
+    assert.equal(two.message(), '');
     two.open('p');
+    assert.equal(two.content().value, 'First paragraph, edited', 'its markdown came too');
     two.type('say more');
-    await until(() => two.hint() === 'not saved');
-    two.open('h1');
-    two.type('a better title');   // an element the other tab left alone saves
-    await until(() => s.read('page.html').includes('<!-- @AI: a better title -->'));
+    await until(() => two.hint() === 'saved');
+    assert.match(s.read('page.html'), /<!-- @AI: say more -->\s*First paragraph, edited/);
     one.close();
     two.close();
   }));

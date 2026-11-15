@@ -22,6 +22,19 @@ test('the tab: typing in the box saves the directive into the file', () =>
     tab.close();
   }));
 
+test('the tab: a click on a table row, between its cells, picks the table; a row has an ID and is no scope', () =>
+  withServer(async (s) => {
+    const tab = await openTab(s, 'demo.html');
+    assert.ok(tab.idOf('tbody tr'), 'the row has an ID');
+    tab.open('tbody tr');
+    tab.type('on the table');
+    await until(() => s.read('demo.html').includes('<!-- @AI: on the table -->'));
+    tab.done();
+    assert.ok(tab.marker('table'), 'the table has the marker');
+    assert.equal(tab.marker('tbody tr'), null, 'the row has none');
+    tab.close();
+  }));
+
 test('the tab: a reply to a closed box turns its marker to the bubble, without a reload', () =>
   withServer(async (s) => {
     const tab = await openTab(s, 'page.html');
@@ -276,7 +289,7 @@ test('data-no-revise: hovering the element shows no crop marks, and the cursor s
     hover('section a');
     assert.equal(marks(), 'none', 'one inside it shows none');
     const css = fs.readFileSync(path.join(here, '..', 'client.css'), 'utf8');
-    assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*, \[data-hrv-check\]\) \{ cursor: copy/, 'the copy cursor skips it');
+    assert.match(css, /:not\(\[data-no-revise\], \[data-no-revise\] \*, input, textarea, select, label:has\(input, textarea, select\)\) \{ cursor: copy/, 'the copy cursor skips it');
     assert.match(css, /:where\(.*\[data-no-revise\].*\{ cursor: auto; \}/, 'and does not inherit into it from a parent');
     tab.close();
   }));
@@ -463,10 +476,32 @@ test('a <p> typed in the Content box splits the paragraph; the next saves replac
 
 const CHECKLIST = `<html><head><title>t</title></head><body>
   <p>Words.</p>
-  <ul><li><label><input type="checkbox" data-hrv-check> Buy milk</label></li><li><label><input type="checkbox" data-hrv-check checked> Walk dog</label></li></ul>
+  <ul><li><label><input type="checkbox"> Buy milk</label></li><li><label><input type="checkbox" checked> Walk dog</label></li></ul>
+  <form><input name="store" value="Kroger"><textarea name="why"></textarea></form>
 </body></html>`;
 
-test('data-hrv-check: ticking the box saves checked into the file, and a click opens no directive box', () =>
+test('fields: a text field and a textarea save their values when they change, and a form submits nowhere', () =>
+  withServer(async (s) => {
+    s.write('list.html', CHECKLIST);
+    const tab = await openTab(s, 'list.html');
+    const [store, why] = [tab.el('input[name=store]'), tab.el('textarea')];
+    const click = new tab.window.Event('click', { bubbles: true, cancelable: true });
+    store.dispatchEvent(click);
+    assert.ok(!click.defaultPrevented, 'the click keeps its natural effect');
+    assert.equal(tab.box(), null, 'no box opens');
+    store.value = 'Aldi';
+    store.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+    await until(() => /name="store" value="Aldi"/.test(s.read('list.html')));
+    why.value = 'out of <milk>';
+    why.dispatchEvent(new tab.window.Event('change', { bubbles: true }));
+    await until(() => /<textarea[^>]*>out of &lt;milk><\/textarea>/.test(s.read('list.html')));
+    const submit = new tab.window.Event('submit', { bubbles: true, cancelable: true });
+    tab.el('form').dispatchEvent(submit);
+    assert.ok(submit.defaultPrevented, 'the page stays');
+    tab.close();
+  }));
+
+test('fields: ticking a checkbox saves checked into the file, and a click opens no directive box', () =>
   withServer(async (s) => {
     s.write('list.html', CHECKLIST);
     const tab = await openTab(s, 'list.html');

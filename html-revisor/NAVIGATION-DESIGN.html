@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor: moving through a page's changes and directives</title>
+    <style>
+  :root { --ink: #222; --muted: #666; --line: #ddd; --page: #fafafa; --you: #c2255c; --agent: #2b8a3e; --server: #0969da; --dock: #1f2023; --dock-ink: #f1f1f1; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #aaa; --line: #444; --page: #1d1e21; --you: #f06595; --agent: #51cf66; --server: #4493f8; } body { background: #141517; } }
+  body { margin: 0 auto; max-width: 900px; padding: 24px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  h3 { font-size: 15px; margin: 16px 0 6px; }
+  section { padding: 18px 0; }
+  .lede, .note { color: var(--muted); }
+  .note { font-size: 13px; }
+  code, kbd { font: 13px ui-monospace, Menlo, monospace; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--page); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td:first-child { width: 24%; font-weight: 600; }
+  .question { border-left: 3px solid var(--agent); padding: 6px 12px; margin: 12px 0; background: var(--page); }
+  .guess { color: var(--muted); font-size: 14px; }
+  .state-done { color: var(--agent); font-weight: 600; }
+  svg { width: 100%; height: auto; display: block; background: var(--page); border: 1px solid var(--line); border-radius: 8px; }
+  svg text { fill: var(--ink); font: 13px system-ui, sans-serif; }
+  svg .name { font-weight: 600; }
+  svg .muted { fill: var(--muted); font-size: 12px; }
+  svg .dock { fill: var(--dock); }
+  svg .dock-text { fill: var(--dock-ink); }
+  svg .rule { stroke: #444; stroke-width: 1; }
+  svg .you { fill: var(--you); }
+  svg .agent { fill: var(--agent); }
+  svg .key { fill: var(--dock-ink); text-decoration: underline; font-weight: 700; }
+  svg .cross { stroke: var(--you); stroke-width: 2; }
+</style>
+  </head>
+  <body>
+    <h1>Moving through a page's changes and directives</h1>
+    <p class="lede">
+      How you move through what the agent changed and what you asked, from the keyboard, and how the docket shows it. A UI design: the Contract with iterate-on-docs is for agents and doesn't cover it. This page started from <a href="CONCURRENCY.html#steps">CONCURRENCY.html</a>, where flipping by key grew past a side note. The yak “Moving through changes and directives: build NAVIGATION-DESIGN” builds it.
+    </p>
+    <section id="why">
+      <h2>What it's for</h2>
+      <p>
+        The agent changes the page while you read it. You want to go through each change, see it, take its mark off, and move on, without reaching for the mouse each time. The same for your own directives. And moving through the page should not switch review mode by accident.
+      </p>
+    </section>
+    <section id="decided">
+      <h2>Decided</h2>
+      <p class="note">
+        Your words from CONCURRENCY.html, 2026-11-12, in mine. Correct any I bent.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Answer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>What starts flipping through changes?</td>
+            <td>
+              <kbd>c</kbd>. The c in the docket's changes row is underlined, so the docket teaches the key.
+            </td>
+          </tr>
+          <tr>
+            <td>What moves?</td>
+            <td>
+              <kbd>n</kbd> and <kbd>p</kbd>, next and previous. Also <kbd>→</kbd> and <kbd>←</kbd>: a page might scroll sideways, but that's rare.
+            </td>
+          </tr>
+          <tr>
+            <td>What about ↑ and ↓?</td>
+            <td>Left to the page. They scroll it, and flipping doesn't take them.</td>
+          </tr>
+          <tr>
+            <td>What acks?</td>
+            <td>
+              One easy key that acks the change and moves on to the next. It never takes a key from a field or any other control on the page. Which key: <a href="#ack-key">open</a>.
+            </td>
+          </tr>
+          <tr>
+            <td>What stops flipping?</td>
+            <td><kbd>Escape</kbd>.</td>
+          </tr>
+          <tr>
+            <td>Review mode</td>
+            <td>
+              Its own row on the docket, “Review on”, with the r underlined. <kbd>r</kbd> turns review off and on. Clicking the directives or changes row moves through them and no longer switches review mode.
+            </td>
+          </tr>
+          <tr>
+            <td>Order of changes</td>
+            <td>Inner ones first, then the one around them.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section id="docket">
+      <h2>The docket</h2>
+      <svg viewBox="0 0 900 230" role="img" aria-label="The docket today and proposed. Today: a directives row and a changes row, each with up and down arrows; clicking a count switches review mode. Proposed: a Review on row with r underlined, a directives row with d underlined, a changes row with c underlined, and n and p in place of the arrows.">
+        <text x="30" y="30" class="name">Today, on main</text>
+        <rect x="30" y="44" width="300" height="80" rx="8" class="dock"></rect>
+        <circle cx="50" cy="66" r="5" class="you"></circle>
+        <text x="64" y="71" class="dock-text">3 directives</text>
+        <text x="262" y="71" class="dock-text">↑</text>
+        <text x="296" y="71" class="dock-text">↓</text>
+        <path d="M30 84 L330 84" class="rule"></path>
+        <rect x="45" y="97" width="10" height="10" class="agent"></rect>
+        <text x="64" y="107" class="dock-text">2 changes ✓</text>
+        <text x="262" y="107" class="dock-text">↑</text>
+        <text x="296" y="107" class="dock-text">↓</text>
+        <text x="30" y="150" class="muted">A click on a count switches review mode.</text>
+        <text x="30" y="168" class="muted">↑ ↓ flip while flipping; they also scroll the page.</text>
+        <text x="460" y="30" class="name">Proposed</text>
+        <rect x="460" y="44" width="300" height="116" rx="8" class="dock"></rect>
+        <text x="480" y="71" class="dock-text"><tspan class="key">R</tspan>eview on</text>
+        <path d="M460 84 L760 84" class="rule"></path>
+        <circle cx="480" cy="102" r="5" class="you"></circle>
+        <text x="494" y="107" class="dock-text">3 <tspan class="key">d</tspan>irectives</text>
+        <text x="692" y="107" class="dock-text">p</text>
+        <text x="726" y="107" class="dock-text">n</text>
+        <path d="M460 120 L760 120" class="rule"></path>
+        <rect x="475" y="133" width="10" height="10" class="agent"></rect>
+        <text x="494" y="143" class="dock-text">2 <tspan class="key">c</tspan>hanges ✓</text>
+        <text x="692" y="143" class="dock-text">p</text>
+        <text x="726" y="143" class="dock-text">n</text>
+        <text x="460" y="186" class="muted">Each row's key is underlined in its label. A click on a row starts</text>
+        <text x="460" y="204" class="muted">moving through it. Review mode has its own row, and r.</text>
+      </svg>
+      <p class="note">
+        A sketch in SVG, not the real stylesheet. Whether the arrows' buttons show p and n, or ← and →, is open.
+      </p>
+    </section>
+    <section id="today">
+      <h2>What's on main now</h2>
+      <p class="note">
+        Built 2026-11-12, before the design moved here. A reload picks it up; the server reads <code>client.js</code> on each request, so no restart.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>On main</th>
+            <th>Change to make</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><kbd>c</kbd></td>
+            <td>Starts flipping at the first change.</td>
+            <td>Underline the c in the docket.</td>
+          </tr>
+          <tr>
+            <td><kbd>↓</kbd> <kbd>↑</kbd></td>
+            <td>Next and previous change, while flipping.</td>
+            <td>Take them out.</td>
+          </tr>
+          <tr>
+            <td><kbd>n</kbd> <kbd>p</kbd></td>
+            <td>Next and previous change, while flipping.</td>
+            <td>Keep. Add <kbd>→</kbd> and <kbd>←</kbd>.</td>
+          </tr>
+          <tr>
+            <td><kbd>Space</kbd></td>
+            <td>Acks and stays.</td>
+            <td>Take it out: it scrolls the page.</td>
+          </tr>
+          <tr>
+            <td><kbd>Enter</kbd></td>
+            <td>Acks and moves to the next, even with a link or button focused.</td>
+            <td>Depends on <a href="#ack-key">the ack key</a>.</td>
+          </tr>
+          <tr>
+            <td><kbd>Escape</kbd></td>
+            <td>Stops flipping.</td>
+            <td>Keep.</td>
+          </tr>
+          <tr>
+            <td><kbd>d</kbd></td>
+            <td>Steps to the next directive.</td>
+            <td>
+              Underline the d. Whether n and p then move through directives: <a href="#directives">open</a>.
+            </td>
+          </tr>
+          <tr>
+            <td><kbd>r</kbd></td>
+            <td>Nothing. A click on a docket count switches review mode.</td>
+            <td>The Review row, and <kbd>r</kbd>.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        The keys stay with the page while a directive box is open, while focus is in a field, and with ⌘, Ctrl, ⌥, or Shift held, so ⌥↑ and ⌥↓ still step directives.
+      </p>
+    </section>
+    <section id="questions">
+      <h2>Questions for you</h2>
+      <div class="question" id="ack-key">
+        <p>
+          Which key acks and moves on? You want it easy, and you don't want to take Enter or space from any field or other control.
+        </p>
+        <p class="guess">
+          My guess: Enter, taken only when nothing on the page has focus. Starting to flip takes focus off whatever had it, so while you flip, Enter acks and moves on. Once you Tab to a link or a field, that control has Enter back. A letter is the other choice: <kbd>a</kbd> for ack, or <kbd>y</kbd>. It never collides, but it's one more key to learn, and Enter is the one your hand goes to.
+        </p>
+      </div>
+      <div class="question" id="directives">
+        <p>
+          After <kbd>d</kbd>, do <kbd>n</kbd> and <kbd>p</kbd> move through directives? And what does the ack key do on a directive: open its box?
+        </p>
+        <p class="guess">
+          My guess: yes, one mode with two kinds. <kbd>c</kbd> or <kbd>d</kbd> picks the kind, the underline in the docket shows which one you're in, and n and p move within it. On a directive, Enter opens its box; Escape closes the box and leaves you flipping.
+        </p>
+      </div>
+      <div class="question">
+        <p>
+          A click on a docket row: does it start moving through that row, the same as its key?
+        </p>
+        <p class="guess">
+          My guess: yes. That's what frees the click from review mode, which moves to its own row.
+        </p>
+      </div>
+    </section>
+  </body>
+</html>

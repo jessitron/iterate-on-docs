@@ -21,6 +21,9 @@ export function decodeRequestPath(rawUrl) {
   }
 }
 
+// The request's query, as URLSearchParams.
+export const queryOf = (rawUrl) => new URL(rawUrl, 'http://localhost').searchParams;
+
 export function resolveUnderRoot(root, urlPath) {
   const resolved = path.resolve(root, '.' + path.posix.sep + urlPath);
   if (resolved !== root && !resolved.startsWith(root + path.sep)) {
@@ -130,9 +133,18 @@ export function sendError(res, err) {
 // The other end: PUT a JSON body to a running server. Resolves to the status and the body as
 // text; a server that isn't there is an Error that says so.
 export async function putJson(url, body) {
+  return ask(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+// The other end: GET a page's JSON from a running server, as putJson does.
+export async function getJson(url) {
+  return ask(url, { headers: { Accept: 'application/json' } });
+}
+
+async function ask(url, options) {
   let res;
   try {
-    res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    res = await fetch(url, options);
   } catch (err) {
     throw new Error(`no server answers at ${new URL(url).origin}: is it running? (${err.cause?.code ?? err.message})`);
   }

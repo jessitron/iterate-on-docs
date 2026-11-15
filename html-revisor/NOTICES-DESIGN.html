@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>html-revisor: notices, how you see what the agent changed</title>
+    <style>
+  :root { --ink: #222; --muted: #666; --line: #ddd; --page: #fafafa; --you: #c2255c; --agent: #2b8a3e; --server: #0969da; --danger: #d9480f; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #aaa; --line: #444; --page: #1d1e21; --you: #f06595; --agent: #51cf66; --server: #4493f8; --danger: #ff922b; } body { background: #141517; } }
+  body { margin: 0 auto; max-width: 900px; padding: 24px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  h3 { font-size: 15px; margin: 16px 0 6px; }
+  section { padding: 18px 0; }
+  .lede, .note { color: var(--muted); }
+  .note { font-size: 13px; }
+  code { font: 13px ui-monospace, Menlo, monospace; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td:first-child { width: 24%; font-weight: 600; }
+  .question { border-left: 3px solid var(--agent); padding: 6px 12px; margin: 12px 0; background: var(--page); }
+  .guess { color: var(--muted); font-size: 14px; }
+  .state-done { color: var(--agent); font-weight: 600; }
+  svg { width: 100%; height: auto; display: block; background: var(--page); border: 1px solid var(--line); border-radius: 8px; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .muted { fill: var(--muted); }
+  svg .name { font-weight: 600; font-size: 13px; }
+  svg .box { fill: none; stroke: var(--line); stroke-width: 2; }
+  svg .agent-box { stroke: var(--agent); }
+  svg .server-box { stroke: var(--server); }
+  svg .arrow { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+  svg .dashed { stroke-dasharray: 5 4; }
+  svg .danger { stroke: var(--danger); stroke-width: 2; }
+  svg .danger-text { fill: var(--danger); font-weight: 600; }
+  svg .you-text { fill: var(--you); font-weight: 600; }
+  svg .agent-text { fill: var(--agent); font-weight: 600; }
+  svg .lane { stroke: var(--line); stroke-width: 1; }
+  svg .think { stroke: var(--agent); stroke-width: 6; opacity: .45; }
+  svg .head { fill: var(--muted); }
+  svg .danger-head { fill: var(--danger); }
+  svg .crop { fill: none; stroke: var(--agent); stroke-width: 2.5; }
+  svg .tile-agent { fill: var(--agent); }
+</style>
+  </head>
+  <body>
+    <h1>Notices: how you see what the agent changed</h1>
+    <p class="lede">
+      A notice is a mark on an element whose content changed since you last saw it, and a count in the docket. This page holds what a notice is, which element wears one, what takes one off, and the open design for removals and moves. <a href="DESIGN.html">DESIGN.html</a> draws how a notice looks, with the real stylesheet. <a href="NAVIGATION-DESIGN.html">NAVIGATION-DESIGN.html</a> is moving through notices by key. <a href="CONCURRENCY.html">CONCURRENCY.html</a> is the plan this is part of.
+    </p>
+    <section id="decided">
+      <h2>Decided</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Answer</th>
+            <th>Built</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>What do you call the agent's change reaching you?</td>
+            <td>
+              A notice: green crop marks on the element, a check tile beside it, and a count in the docket. The agent hears of your changes another way, through an Announcement. The words you see say “change”; “notice” is the code's word.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>Which element wears the mark?</td>
+            <td>
+              The innermost one whose own content changed: a reworded paragraph marks the paragraph and not its section. A new element wears one mark around the whole of it. <a href="#where">Where a change shows</a> has every shape.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>Where does the ack sit?</td>
+            <td>
+              Beside the directive's marker, near where the directive box opens: the check tile. The docket has a check for all of them.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>What does a check take off?</td>
+            <td>
+              Its element's mark and every mark inside it. Flipping through the changes shows the inner ones first, then the one around them.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>What does leaving a directive do to a mark?</td>
+            <td>
+              It takes off the mark on that element and on each element around it, and not the marks inside it. You wrote on it, so you saw it. A new element a cleared mark covered counts as seen with it, so no mark appears where none showed.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>What does your own edit do?</td>
+            <td>
+              What your change made counts as seen. Your edit on a marked element takes its mark off.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>What has the server seen you see, after a restart?</td>
+            <td>Everything. A restart leaves no marks.</td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>Does a notice say why?</td>
+            <td>
+              When the agent sent <code>--because</code> with its change, the words show as the tip on the check tile, and when you flip through the changes. A change without words shows “Seen: take this mark off”.
+            </td>
+            <td>✓</td>
+          </tr>
+          <tr>
+            <td>Does an agent change move the page under you?</td>
+            <td>
+              Today, yes: it shows as it lands, marked. The plan is that nothing moves under you: <a href="#not-shown">marked, not shown</a>.
+            </td>
+            <td>step 5</td>
+          </tr>
+          <tr>
+            <td>Does a move wear a mark?</td>
+            <td>It can have its own marker. What that looks like is <a href="#recs">open</a>.</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Reject, and view previous?</td>
+            <td>
+              Reject is for later. Seeing before and after matters, and comes with <a href="#not-shown">marked, not shown</a>.
+            </td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section id="seen">
+      <h2>What counts as seen</h2>
+      <p class="note">
+        The server keeps, per page, each element's content as you last saw it. Content that differs wears a notice.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>What the server counts as seen by you</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>You open the page for the first time since the server started</td>
+            <td>The whole page. No marks.</td>
+          </tr>
+          <tr>
+            <td>You save content in the directive box, or change a form field</td>
+            <td>What your change made. Your edit on a marked scope takes its mark off.</td>
+          </tr>
+          <tr>
+            <td>You click a check</td>
+            <td>That element and everything inside it. The docket's check: the whole page.</td>
+          </tr>
+          <tr>
+            <td>You leave a directive</td>
+            <td>
+              The element you wrote on and each element around it, and not the marks inside it. Clearing a directive doesn't count.
+            </td>
+          </tr>
+          <tr>
+            <td>You open the directive box and close it</td>
+            <td>Nothing new. The mark stays.</td>
+          </tr>
+          <tr>
+            <td>You reload</td>
+            <td>Nothing new. The marks are still there.</td>
+          </tr>
+          <tr>
+            <td>The server restarts</td>
+            <td>It forgets: the next open counts the whole page as seen.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section id="where">
+      <h2>Where a change shows</h2>
+      <p class="note">
+        The problem: a change can happen outside any one element, and then the mark it gets can be far bigger than the change.
+      </p>
+      <h3>The rule today</h3>
+      <p>
+        A mark goes on an element with an ID. Every <a href="SCOPES-DESIGN.html#decided">scope</a> has one: what you can pick, leave a directive on, and edit as markdown. A few elements that are not scopes have one too: an <code>hr</code>, a table row, each element of an svg, and a form field. The code calls any element with an ID a <strong>unit</strong>, and so does this page; <a href="#questions">a question below</a> asks whether that word should stand. Each unit's own content is its tag, its attributes, its text, and the order of the units in it. When that differs from what you saw, the unit wears a mark. An element without an ID, such as a <code>strong</code>, belongs to the unit around it.
+      </p>
+      <p>
+        The agent's command (<code>replace</code>, <code>add</code>, <code>remove</code>, <code>move</code>) takes any unit.
+      </p>
+      <p>
+        New content is always one element or a run of them: <code>add</code> takes HTML, and <code>replace</code> can bring new elements in. New text or a new <code>strong</code> inside a paragraph is a change to that paragraph, and the paragraph is the right size for its mark. The trouble is content that <em>went away</em> or <em>moved</em>: there is nothing left to put a mark on, so the mark goes on the parent, whole.
+      </p>
+      <svg viewBox="0 0 900 520" role="img" aria-label="Four drawings. Today, a note removed from the Steps section marks the whole section. Proposed, a green line where it was, with its own check. Built, a table row with an ID, so a new row wears one mark. Proposed, a move marks the element that moved, not the list.">
+        <text x="30" y="34" class="name">Today: a note removed from Steps</text>
+        <rect x="50" y="50" width="360" height="170" class="box"></rect>
+        <text x="62" y="72" class="name">Steps</text>
+        <rect x="62" y="82" width="336" height="22" class="box"></rect>
+        <rect x="62" y="114" width="336" height="96" class="box"></rect>
+        <path d="M62 138 L398 138 M62 162 L398 162 M62 186 L398 186" class="lane"></path>
+        <path d="M44 56 L44 44 L56 44 M404 44 L416 44 L416 56 M416 214 L416 226 L404 226 M56 226 L44 226 L44 214" class="crop"></path>
+        <rect x="24" y="44" width="14" height="14" class="tile-agent"></rect>
+        <text x="30" y="246" class="muted">The whole section wears one mark. What went?</text>
+        <text x="480" y="34" class="name">Proposed: a gap mark where it was</text>
+        <rect x="500" y="50" width="360" height="170" class="box"></rect>
+        <text x="512" y="72" class="name">Steps</text>
+        <rect x="512" y="82" width="336" height="22" class="box"></rect>
+        <path d="M512 113 L848 113" class="think"></path>
+        <rect x="490" y="106" width="14" height="14" class="tile-agent"></rect>
+        <rect x="512" y="122" width="336" height="88" class="box"></rect>
+        <path d="M512 144 L848 144 M512 166 L848 166 M512 188 L848 188" class="lane"></path>
+        <text x="480" y="246" class="muted">A green line between what's left, with its own check.</text>
+        <text x="480" y="262" class="muted">Hover: “removed: Beside the trail, to build…”</text>
+        <text x="30" y="300" class="name">Built: a row has an ID; a new row wears one mark</text>
+        <rect x="50" y="316" width="360" height="150" class="box"></rect>
+        <path d="M50 346 L410 346 M50 376 L410 376 M50 406 L410 406 M50 436 L410 436" class="lane"></path>
+        <text x="62" y="336" class="name">Step</text>
+        <text x="62" y="426" class="agent-text">Alongside: flip by key</text>
+        <path d="M44 414 L44 402 L56 402 M404 402 L416 402 L416 414 M416 428 L416 440 L404 440 M56 440 L44 440 L44 428" class="crop"></path>
+        <rect x="24" y="402" width="14" height="14" class="tile-agent"></rect>
+        <text x="30" y="490" class="muted">A row is a unit for notices and not a scope:</text>
+        <text x="30" y="506" class="muted">a click on it picks the table.</text>
+        <text x="480" y="300" class="name">Proposed: a move marks what moved</text>
+        <rect x="500" y="320" width="360" height="30" class="box"></rect>
+        <text x="512" y="340">A</text>
+        <rect x="500" y="360" width="360" height="30" class="box"></rect>
+        <text x="512" y="380">C</text>
+        <rect x="500" y="400" width="360" height="30" class="box"></rect>
+        <text x="512" y="420" class="agent-text">B</text>
+        <path d="M494 406 L494 394 L506 394 M854 394 L866 394 L866 406 M866 424 L866 436 L854 436 M506 436 L494 436 L494 424" class="crop"></path>
+        <rect x="474" y="394" width="14" height="14" class="tile-agent"></rect>
+        <path d="M872 355 C 892 355 892 415 872 415" class="arrow dashed"></path>
+        <text x="480" y="490" class="muted">Was A, B, C. Today the list wears the mark. Proposed:</text>
+        <text x="480" y="506" class="muted">B, which moved, and hover says “moved: was after A”.</text>
+      </svg>
+      <h3>Every shape of change, and where it shows</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>The change</th>
+            <th>Wears the mark today</th>
+            <th>Proposed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Words in a paragraph</td>
+            <td>The paragraph. Right size.</td>
+            <td>The same.</td>
+          </tr>
+          <tr>
+            <td>A new element with an ID</td>
+            <td>It, as new. Right size.</td>
+            <td>The same.</td>
+          </tr>
+          <tr>
+            <td>A new table row</td>
+            <td>The row. Right size.</td>
+            <td>The same.</td>
+          </tr>
+          <tr>
+            <td>An element removed</td>
+            <td>Its parent, whole. Too big.</td>
+            <td>A mark where it was.</td>
+          </tr>
+          <tr>
+            <td>Elements in a new order</td>
+            <td>Their parent, whole. Too big.</td>
+            <td>The ones that moved.</td>
+          </tr>
+          <tr>
+            <td>A new element inside a parent marked for a removal or a move</td>
+            <td>Nothing: the parent's mark covers it.</td>
+            <td>Its own mark. Flipping shows it first, then the parent.</td>
+          </tr>
+          <tr>
+            <td>Loose text right inside a big container, with no paragraph around it</td>
+            <td>The container.</td>
+            <td>
+              The same. Our pages put text in paragraphs; if this shows up, the formatter can wrap it.
+            </td>
+          </tr>
+          <tr>
+            <td>A top-level section removed or moved</td>
+            <td>Nothing: body wears no mark.</td>
+            <td>Covered by the removal and move marks.</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3 id="recs">Recommendations</h3>
+      <ol>
+        <li>
+          <strong>Give <code>tr</code> an ID</strong>, as <code>hr</code> and svg elements have: a unit, not a scope you pick. A new row wears one mark. A click between cells still picks the table, and a directive whose cell is gone lands on the table. Rows keep their IDs through a markdown edit of the table. <span class="state-done">Built.</span>
+        </li>
+        <li>
+          <strong>A parent's own content leaves out which children it holds and their order.</strong> It keeps its tag, attributes, and the text and inline elements right in it. Removals and moves get marks of their own (3 and 4), so the parent wears a mark only for a change to itself. It goes in with 3, since alone it would leave a removal with no mark anywhere.
+        </li>
+        <li>
+          <strong>Show a removal where it was.</strong> Drawn above as a green line in the gap, with its own check, placed by the parent and the sibling before it that is still there. A line between siblings doesn't read right everywhere: not in an svg, a sentence, or a nested section. Another way: show the original in place, grayed out. <a href="#research">The research</a> recommends a tombstone drawn from the element's old box on screen.
+        </li>
+        <li>
+          <strong>A move marks what moved.</strong> The fewest children that moved, from the order you saw and the order now; its tip says where it was. Not needed, so build it only if it's cheap. One shape: a removed spot where it was, which the move points to.
+        </li>
+        <li>
+          <strong>A new element covers what's inside it, and nothing else does.</strong> Everything inside something new is new, so one mark is right there. Inside a changed element, a new one wears its own mark, and flipping goes inner first. The yak “Notices: a scope changed only by a removal or reorder covers the new elements inside it” holds it.
+        </li>
+      </ol>
+      <p>
+        Order: 5 is small and changes only the domain, so it goes before the first release of notices. 2 and 3 go together. 4 waits.
+      </p>
+      <h3 id="research">Research</h3>
+      <ul>
+        <li>
+          <strong>HTML editing by command:</strong> <a href="research/html-editing-by-command.html">the report</a>. The field splits two questions: what can be named (identity) and what may go where (the HTML content model). A scope answers a third: what you pick. Our replace, add, remove, and move are the field's update, insert, delete, and move, and addressing by an ID kept in the file is the choice that survives edits by others. Its recommendations: say “unit” for what the command addresses and keep “scope” for what you pick; phrasing elements and text never addressable; and maybe an <code>edit &lt;id&gt;</code> that swaps one string for another inside a unit. <a href="research/html-editing-by-command.html#questions">Its questions for you</a>.
+        </li>
+        <li>
+          <strong>Showing changes to an HTML document:</strong> <a href="research/showing-changes.html">the report</a>, with drawings. Tools put a removal in one of three places: in place, struck through or faded; as a marker where it was; or in the margin. A move is a linked pair, from and to, wherever it's handled. A gap line doesn't generalize: it fails in an svg. What does generalize is the element's old box on screen, which the tab can measure just before the swap takes it out. Its recommendation: a tombstone in the overlay, a line in the gap or a dashed outline of the old box, with its own check and the first words of what went; a click on it shows the original in place, grayed out, for one look; a move is a tombstone at the old spot paired with a mark at the new one, one notice, one ack. It rejects keeping ghosts in the page until you ack: the page would stop matching the file. <a href="research/showing-changes.html#recs">Its options drawn</a>, and <a href="research/showing-changes.html#questions">its questions for you</a>.
+        </li>
+      </ul>
+    </section>
+    <section id="not-shown">
+      <h2>Planned: marked, not shown</h2>
+      <p>
+        Step 5 of <a href="CONCURRENCY.html#steps">the plan</a>. Nothing moves under you. A changed element wears its mark and keeps showing what you last saw until you click show. Once shown, the change offers ack and view previous, and later reject. Ack takes the mark off. A reload shows the newest of everything, each change still marked and waiting for its ack.
+      </p>
+      <p>
+        When you edit content the agent changed and you haven't shown, yours wins, and the agent's change is passed over. The green crop marks go when you start changing the content, and come back if you undo your way to where you started; then you can still show the agent's change. A directive there is no conflict.
+      </p>
+      <p class="note">Magenta words are your actions.</p>
+      <svg viewBox="0 0 900 260" role="img" aria-label="An agent change goes to the server, lands in the file while the tab says changes are waiting, is loaded and shown with a mark, and is acked to a plain page or rejected back to the previous content.">
+        <defs>
+          <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" class="head"></path>
+          </marker>
+          <marker id="danger-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" class="danger-head"></path>
+          </marker>
+        </defs>
+        <rect class="box agent-box" x="20" y="40" width="170" height="70" rx="8"></rect>
+        <text x="105" y="70" text-anchor="middle">Agent hands the</text>
+        <text x="105" y="90" text-anchor="middle">server one scope</text>
+        <rect class="box server-box" x="250" y="40" width="170" height="70" rx="8"></rect>
+        <text x="335" y="70" text-anchor="middle">New: marked, not shown</text>
+        <text x="335" y="90" text-anchor="middle" class="muted">you see what you last saw</text>
+        <rect class="box agent-box" x="480" y="40" width="170" height="70" rx="8"></rect>
+        <text x="565" y="70" text-anchor="middle">Shown, still marked</text>
+        <text x="565" y="90" text-anchor="middle" class="muted">ack · previous · reject</text>
+        <rect class="box" x="710" y="40" width="170" height="70" rx="8"></rect>
+        <text x="795" y="70" text-anchor="middle">Plain page</text>
+        <text x="795" y="90" text-anchor="middle" class="muted">mark gone</text>
+        <path class="arrow" d="M190 75 L248 75" marker-end="url(#head)"></path>
+        <path class="arrow" d="M420 75 L478 75" marker-end="url(#head)"></path>
+        <text x="449" y="62" text-anchor="middle" class="you-text">Show</text>
+        <text x="449" y="130" text-anchor="middle" class="muted">or a reload</text>
+        <path class="arrow" d="M650 75 L708 75" marker-end="url(#head)"></path>
+        <text x="679" y="62" text-anchor="middle" class="you-text">Ack</text>
+        <path class="arrow danger" d="M105 110 L105 168" marker-end="url(#danger-head)"></path>
+        <text x="20" y="190" class="danger-text">Refused</text>
+        <text x="20" y="210" class="muted">you changed that scope meanwhile;</text>
+        <text x="20" y="228" class="muted">the agent reads it again and redoes</text>
+        <path class="arrow" d="M565 110 L565 168" marker-end="url(#head)"></path>
+        <text x="575" y="145" class="you-text">Reject</text>
+        <rect class="box" x="480" y="170" width="170" height="70" rx="8"></rect>
+        <text x="565" y="200" text-anchor="middle">Previous content back</text>
+        <text x="565" y="220" text-anchor="middle" class="muted">the agent is told</text>
+      </svg>
+      <p class="note">
+        This needs design work in DESIGN.html, and a tab that holds what you see apart from what the page is.
+      </p>
+    </section>
+    <section id="questions">
+      <h2>Questions for you</h2>
+      <p class="note">Answer on the question, or change my guess where it's wrong.</p>
+      <div class="question">
+        <p>
+          Is “unit” the word for an element with an ID? You can pick a scope and edit it as markdown. A unit is wider: every scope, and also an <code>hr</code>, a table row, each svg element, and a form field. It is what a notice sits on and what the agent's command takes. The word came from the editing research, and it is in <code>domain/notices.mjs</code> and the README's Design section. You haven't said yes to it.
+        </p>
+        <p class="guess">
+          My guess: yes, or a word you like better; the concept needs one. If it stands, the README's Contract changes too: it says element IDs go “on each element you can pick”, which is loose for <code>hr</code>, svg parts, and rows, and it says the command takes a “scope”. A Contract change goes out to iterate-on-docs.
+        </p>
+      </div>
+      <div class="question">
+        <p>Build recommendation 5 before the first release of notices?</p>
+        <p class="guess">
+          My guess is yes. Without it, a removal in a section hides the marks on anything new in that section.
+        </p>
+      </div>
+      <div class="question">
+        <p>
+          A directive also counts as seen the new elements a cleared mark was covering, so a directive on a new section doesn't make its heading and paragraphs sprout marks of their own. Right?
+        </p>
+        <p class="guess">My guess: yes. It is built that way.</p>
+      </div>
+      <div class="question">
+        <p>
+          When the agent adds a table row, the command answers with the table's ID and version, though the row has its own ID. That keeps the answer something the agent can <code>replace</code>. OK?
+        </p>
+        <p class="guess">My guess: yes. It is built that way.</p>
+      </div>
+    </section>
+  </body>
+</html>

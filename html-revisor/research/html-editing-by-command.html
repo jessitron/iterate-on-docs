@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>HTML editing by command: research for html-revisor</title>
+    <style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; line-height: 1.5; color: #222; }
+  h1 { font-size: 1.7em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: .2em; }
+  h3 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .95em; }
+  th, td { border: 1px solid #ccc; padding: .35em .5em; text-align: left; vertical-align: top; }
+  th { background: #f3f3f3; }
+  code { background: #f3f3f3; padding: 0 .2em; border-radius: 3px; }
+  pre { background: #f6f6f6; padding: .7em; overflow-x: auto; }
+  .rec { background: #eef6ee; border-left: 4px solid #4a4; padding: .5em 1em; margin: 1em 0; }
+  .warn { background: #fff4e5; border-left: 4px solid #e90; padding: .5em 1em; margin: 1em 0; }
+  .small { font-size: .9em; color: #555; }
+</style>
+  </head>
+  <body>
+    <h1>HTML editing by command</h1>
+    <p class="small">
+      Research for html-revisor, 2026-11-12. Question: which elements should the agent's command (<code>change.mjs</code>) address, with which operations, and how should positions and identity work? Grounded in README.md ("The agent's command"), CONCURRENCY.html (#model, #interface, #where-marks), SCOPES-DESIGN.html's Decided tables, and <code>domain/scopes.mjs</code>, <code>identity.mjs</code>, <code>agent-change.mjs</code>, <code>notices.mjs</code>.
+    </p>
+    <h2 id="short">The short answer</h2>
+    <ul>
+      <li>
+        The field splits this into two questions. <strong>What can be named</strong> (identity, addressing). <strong>What may go where</strong> (the schema, or in HTML, the content model). Scope answers a third question: what a human can pick. Keep the three apart.
+      </li>
+      <li>
+        Address by <strong>stable ID</strong>, not by path or offset. Every system that edits while someone else edits does this, or pays for transforming positions. html-revisor already does it.
+      </li>
+      <li>
+        The set of addressable elements should be the elements with an ID, which <code>notices.mjs</code> already calls a <strong>unit</strong>. Today that is scopes, <code>hr</code>, svg elements, and checkboxes. The command already takes any of them; the README says "scope". Add <code>tr</code> to the units. Do not add phrasing elements (<code>strong</code>, <code>em</code>, <code>code</code>) or text nodes.
+      </li>
+      <li>
+        The four operations (replace, add, remove, move) are the classic tree edit set: update, insert, delete, move. Keep them. Consider a fifth, a string edit inside one unit, shaped like <code>str_replace</code>.
+      </li>
+      <li>
+        Check every change against the HTML content model and <strong>refuse</strong> what breaks it. Do not repair. This is what ProseMirror steps and the Google Docs API do.
+      </li>
+    </ul>
+    <h2 id="vocab">Vocabulary the field uses</h2>
+    <p>
+      Words that carry the same meaning across DOM, XML, editors, and tree diff. Where html-revisor has its own word, it is in the last column.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Term</th>
+          <th>Meaning</th>
+          <th>Used by</th>
+          <th>html-revisor today</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>node</td>
+          <td>
+            Anything in the tree: element, text, comment, attribute (in XPath), processing instruction.
+          </td>
+          <td>DOM, XPath, RFC 5261</td>
+          <td>Not a domain word.</td>
+        </tr>
+        <tr>
+          <td>element</td>
+          <td>A node with a tag. The industry word Jess named.</td>
+          <td>DOM, HTML</td>
+          <td>element</td>
+        </tr>
+        <tr>
+          <td>content model</td>
+          <td>
+            The rule for what children an element may hold. Each element also lists the contexts it may sit in.
+          </td>
+          <td>WHATWG HTML</td>
+          <td><code>PARENTS</code> and <code>CHILDREN</code> in agent-change.mjs</td>
+        </tr>
+        <tr>
+          <td>schema, content expression</td>
+          <td>The editor's own content model, as a grammar: <code>"heading paragraph+"</code>.</td>
+          <td>ProseMirror, Tiptap</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>mark</td>
+          <td>Inline formatting held as an attribute of a text run, not as a node: bold, link.</td>
+          <td>ProseMirror, Peritext, Quill</td>
+          <td>Phrasing elements that "belong to their block"</td>
+        </tr>
+        <tr>
+          <td>block</td>
+          <td>A unit of document structure: paragraph, heading, list item, table.</td>
+          <td>Notion, Gutenberg, Automerge, Lexical</td>
+          <td>Block element; scope</td>
+        </tr>
+        <tr>
+          <td>identity, key, XID</td>
+          <td>A name for a node that lasts across edits.</td>
+          <td>XyDiff (XID), Lexical (NodeKey), Notion (block ID), nbformat (cell id)</td>
+          <td>element ID, <code>data-hrv</code></td>
+        </tr>
+        <tr>
+          <td>path, pointer</td>
+          <td>
+            The node's place as a list of child indexes: <code>[0, 2, 1]</code>, <code>/a/0/b</code>.
+          </td>
+          <td>Slate, JSON Pointer, XPath position</td>
+          <td>Not used, on purpose</td>
+        </tr>
+        <tr>
+          <td>position, offset</td>
+          <td>An integer count of tokens or characters from the start.</td>
+          <td>ProseMirror, Quill, Google Docs</td>
+          <td>Not used</td>
+        </tr>
+        <tr>
+          <td>anchor, reference node</td>
+          <td>The node a relative position names: insert after <em>this</em>.</td>
+          <td>
+            DOM (<code>insertBefore(new, ref)</code>), Yjs <code>insertAfter(ref)</code>, Notion <code>after_block</code>
+          </td>
+          <td>The <code>&lt;id&gt;</code> in <code>add after &lt;id&gt;</code></td>
+        </tr>
+        <tr>
+          <td>target, selector, locator</td>
+          <td>What an operation acts on, and how you name it.</td>
+          <td>RFC 5261 <code>sel</code>, JSON Patch <code>path</code></td>
+          <td><code>id</code></td>
+        </tr>
+        <tr>
+          <td>edit script, delta, patch</td>
+          <td>A list of operations that turns one tree into another.</td>
+          <td>Chawathe, XyDiff, GumTree, JSON Patch</td>
+          <td>None; one change per request</td>
+        </tr>
+        <tr>
+          <td>step, operation, transaction</td>
+          <td>One atomic change; a transaction groups steps.</td>
+          <td>ProseMirror (step, transform), Slate (operation), Lexical (update)</td>
+          <td>change</td>
+        </tr>
+        <tr>
+          <td>slice, fragment</td>
+          <td>A piece of content to insert, possibly with open ends.</td>
+          <td>ProseMirror Slice, DOM DocumentFragment</td>
+          <td>The HTML on stdin</td>
+        </tr>
+        <tr>
+          <td>precondition, test</td>
+          <td>A check that must hold for the operation to apply.</td>
+          <td>JSON Patch <code>test</code>, HTTP <code>If-Match</code>/412</td>
+          <td>version</td>
+        </tr>
+        <tr>
+          <td>mapping, rebase, transform</td>
+          <td>Adjusting positions or operations for changes made meanwhile.</td>
+          <td>ProseMirror Mapping, OT</td>
+          <td>None needed: IDs don't shift</td>
+        </tr>
+        <tr>
+          <td>normalization</td>
+          <td>Fixing a tree into the schema's shape after a change.</td>
+          <td>Slate normalizing, ProseMirror <code>fit</code></td>
+          <td>The formatter (canonical form)</td>
+        </tr>
+        <tr>
+          <td>tombstone</td>
+          <td>A record of a deleted node kept so others can still find where it was.</td>
+          <td>CRDTs, Peritext</td>
+          <td>None; threads move to the holder</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      The edit-operation vocabulary is old and stable. Zhang and Shasha (1989) use <strong>insert, delete, relabel</strong>. Chawathe et al. (1996) add <strong>move</strong> and call relabel <strong>update</strong>. GumTree and XyDiff use <strong>insert, delete, update, move</strong>. html-revisor's replace, add, remove, move map to update, insert, delete, move.
+    </p>
+    <h2 id="systems">What each system chose, and why</h2>
+    <h3>DOM mutation APIs</h3>
+    <ul>
+      <li>
+        Node model: element, text, comment, and more. Every node is addressable in memory by reference. Nothing is addressable across sessions except by an <code>id</code> attribute, which the author maintains.
+      </li>
+      <li>
+        Operations: <code>before()</code>, <code>after()</code>, <code>append()</code>, <code>prepend()</code>, <code>replaceWith()</code>, <code>remove()</code>. <code>insertAdjacentHTML</code> names four positions: <code>beforebegin</code>, <code>afterbegin</code>, <code>beforeend</code>, <code>afterend</code>.
+      </li>
+      <li>
+        The DOM had no real move. <code>appendChild</code> of an attached node is remove then insert, and state is lost. <code>moveBefore()</code> was added for "state-preserving atomic move" (shipped in Chrome 133). Lesson: a move that keeps identity is its own operation. Delete-plus-insert is not the same thing.
+      </li>
+      <li>
+        The DOM API itself does not enforce the content model. The parser does. A <code>&lt;div&gt;</code> inside a <code>&lt;p&gt;</code> survives a DOM call and breaks on the next parse. This is why html-revisor reparses and compares.
+      </li>
+    </ul>
+    <h3>XML Patch (RFC 5261) and XUpdate</h3>
+    <ul>
+      <li>
+        Three operations: <code>add</code>, <code>replace</code>, <code>remove</code>. No move; the RFC leaves it to a future extension.
+      </li>
+      <li>
+        Target by <code>sel</code>, a subset of XPath 1.0. Any node type is a target: element, attribute, text, comment, namespace, processing instruction.
+      </li>
+      <li>
+        <code>pos</code> on add: <code>before</code>, <code>after</code>, <code>prepend</code>; with none, append as last child.
+      </li>
+      <li>The selector must match exactly one node, or the patch fails.</li>
+      <li>
+        The root element can't be removed or get a sibling. Same rule as html-revisor's body.
+      </li>
+      <li>
+        XUpdate (XML:DB, 2000) has insert-before, insert-after, append, update, remove, rename, all addressed by XPath.
+      </li>
+      <li>
+        Why XPath: XML had no identity layer. The cost: a positional path like <code>/doc/p[3]</code> goes stale the moment someone inserts a <code>p</code> above it.
+      </li>
+    </ul>
+    <h3>JSON Patch (RFC 6902)</h3>
+    <ul>
+      <li>
+        Six operations: <code>add</code>, <code>remove</code>, <code>replace</code>, <code>move</code>, <code>copy</code>, <code>test</code>. Addressed by JSON Pointer (RFC 6901): a path with array indexes.
+      </li>
+      <li>
+        <code>test</code> is the precondition: the patch fails unless a value matches. It plays the role of html-revisor's version.
+      </li>
+      <li>Array indexes shift. JSON Patch assumes one writer, or a lock around the patch.</li>
+    </ul>
+    <h3>Tree diff algorithms</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Algorithm</th>
+          <th>Operations</th>
+          <th>Identity</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Zhang-Shasha (1989)</td>
+          <td>insert, delete, relabel</td>
+          <td>None; finds the cheapest mapping</td>
+          <td>
+            Ordered trees, O(n^4) worst. No move: a moved subtree costs a delete plus an insert of every node.
+          </td>
+        </tr>
+        <tr>
+          <td>Chawathe et al. (1996)</td>
+          <td>insert, delete, update, move</td>
+          <td>Matching by label and value</td>
+          <td>Defined the edit script most later tools emit.</td>
+        </tr>
+        <tr>
+          <td>XyDiff (ICDE 2002)</td>
+          <td>insert, delete, update, move</td>
+          <td>Uses ID attributes first, then XIDs, persistent node IDs</td>
+          <td>
+            Near-linear. Matching by ID attributes first is what html-revisor's <code>data-hrv</code> gives for free.
+          </td>
+        </tr>
+        <tr>
+          <td>X-Diff (ICDE 2003)</td>
+          <td>insert, delete, update</td>
+          <td>Node signatures</td>
+          <td>Unordered trees: order carries no meaning, so no move.</td>
+        </tr>
+        <tr>
+          <td>GumTree (ASE 2014)</td>
+          <td>insert, delete, update, move</td>
+          <td>Top-down match on identical subtrees, then bottom-up on containers</td>
+          <td>
+            Optimal diff with moves is NP-hard; GumTree uses a heuristic. html-revisor's <code>reconcile</code> is a small cousin: identical siblings first, then alike ones with the same tag.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Lesson: diffing guesses identity. When you can carry identity in the document, you skip the guess. Diff remains the fallback for content that comes back without IDs, which is what <code>reconcile</code> does on replace.
+    </p>
+    <h3>Collaborative structured editors</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>System</th>
+          <th>Addressing</th>
+          <th>Operations</th>
+          <th>Schema</th>
+          <th>Identity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ProseMirror</td>
+          <td>
+            Integer positions. Entering or leaving a node is one token; each character is one.
+          </td>
+          <td>
+            Steps: ReplaceStep, ReplaceAroundStep, AddMarkStep, RemoveMarkStep, attribute steps
+          </td>
+          <td>
+            Content expressions per node type. A step that breaks the schema fails and returns an error; it does not repair. Higher-level transforms do the fitting.
+          </td>
+          <td>None. "Nodes are simply values." Positions map through each step.</td>
+        </tr>
+        <tr>
+          <td>Slate</td>
+          <td>Paths, arrays of indexes: <code>[0, 2]</code>, plus offsets in text</td>
+          <td>
+            insert_node, remove_node, move_node, set_node, split_node, merge_node, insert_text, remove_text, set_selection
+          </td>
+          <td>No schema; normalization functions fix the tree after each change</td>
+          <td>None by default. Paths transform through operations.</td>
+        </tr>
+        <tr>
+          <td>Lexical</td>
+          <td>NodeKey</td>
+          <td>Node methods inside an update</td>
+          <td>Node classes</td>
+          <td>Keys are stable through a node's life but "never serialized". New keys on load.</td>
+        </tr>
+        <tr>
+          <td>Quill Delta</td>
+          <td>Character offsets: retain, insert, delete</td>
+          <td>retain / insert / delete</td>
+          <td>A newline carries the block's attributes; blocks are not nodes</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>Google Docs API</td>
+          <td>UTF-16 index ranges</td>
+          <td>insertText, deleteContentRange, insertTableRow, and more</td>
+          <td>
+            "You cannot execute edits that cause the invalid structure." Text goes only inside a paragraph. You can't delete a table row by range, or part of a table.
+          </td>
+          <td>None for paragraphs. Named ranges as a workaround.</td>
+        </tr>
+        <tr>
+          <td>Notion API</td>
+          <td>Block ID</td>
+          <td>Append children (<code>position</code>: start, end, after_block), update, delete</td>
+          <td>Block types</td>
+          <td>
+            Persistent block IDs. The page says existing blocks "can't be moved" through the API.
+          </td>
+        </tr>
+        <tr>
+          <td>Yjs XmlFragment</td>
+          <td>Child index, or <code>insertAfter(ref)</code></td>
+          <td>insert, delete</td>
+          <td>None</td>
+          <td>CRDT item IDs inside; no move, so a move is a delete and an insert</td>
+        </tr>
+        <tr>
+          <td>Peritext / Automerge</td>
+          <td>
+            Character IDs (the op that inserted it). Marks anchor before or after a character.
+          </td>
+          <td>
+            Text insert and delete; marks; Automerge adds block markers (<code>splitBlock</code>, <code>updateBlock</code>)
+          </td>
+          <td>Blocks are markers in the text with a <code>parents</code> list, not a tree</td>
+          <td>Every character has one. Peritext names block nesting future work.</td>
+        </tr>
+        <tr>
+          <td>Jupyter nbformat 4.5</td>
+          <td>Cell <code>id</code></td>
+          <td>Cells added, removed, reordered</td>
+          <td>Cell types</td>
+          <td>Persistent, 1 to 64 characters, unique per notebook</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Patterns across this table:</p>
+    <ul>
+      <li>
+        <strong>Inline formatting is not a node</strong> in the editors built for collaboration. ProseMirror, Peritext, Quill, and Google Docs treat bold and links as marks on text. Nobody addresses a <code>strong</code> by ID.
+      </li>
+      <li>
+        <strong>Persistent IDs live at block granularity</strong>: Notion blocks, Jupyter cells, Gutenberg blocks. Below that, systems use offsets inside the block.
+      </li>
+      <li>
+        <strong>The schema refuses</strong>; the step does not repair. Repair lives in a higher layer that the user's intent drives.
+      </li>
+      <li>
+        <strong>Tables are the hard case</strong> everywhere. Google Docs has row and column operations of their own and forbids row deletion by range.
+      </li>
+    </ul>
+    <h3>OT and CRDTs for trees, and move</h3>
+    <ul>
+      <li>
+        OT transforms positions through concurrent operations. It needs a transform for every pair of operation types. Tree OT with move is hard to get right; the literature has many broken proofs.
+      </li>
+      <li>
+        CRDTs give each node a unique ID, so positions never shift. Kleppmann et al., "A highly-available move operation for replicated trees" (IEEE TPDS 2021): nodes are named by unique ID; move is the core operation; concurrent moves that would make a cycle are undone and redone in timestamp order. Two concurrent moves of one node: one wins, the node does not duplicate.
+      </li>
+      <li>
+        Kleppmann, "Moving elements in list CRDTs" (PaPoC 2020): delete plus insert duplicates an element when two replicas move it at once. Move must be its own operation.
+      </li>
+      <li>
+        html-revisor has one server taking every change in turn (<code>oneAtATime</code>). It does not need OT or a CRDT. It needs what they agree on: IDs, not positions, and a move that keeps identity. It has both. The cycle check (<code>a scope can't move inside itself</code>) is the serial form of Kleppmann's rule.
+      </li>
+    </ul>
+    <h3>Agent-facing editing interfaces</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>How it addresses</th>
+          <th>Precondition</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Anthropic text editor tool (<code>str_replace</code>)</td>
+          <td>An exact string that must occur once in the file</td>
+          <td>
+            The match. Zero or several matches: error, "provide more context to make a unique match."
+          </td>
+        </tr>
+        <tr>
+          <td>Aider edit formats</td>
+          <td>whole file; SEARCH/REPLACE blocks; a simplified unified diff</td>
+          <td>The search text must match</td>
+        </tr>
+        <tr>
+          <td>Serena (MCP, LSP-backed)</td>
+          <td>
+            Symbol name: <code>replace_symbol_body</code>, <code>insert_before_symbol</code>, <code>insert_after_symbol</code>
+          </td>
+          <td>The symbol exists</td>
+        </tr>
+        <tr>
+          <td>html-revisor <code>change.mjs</code></td>
+          <td>Element ID; before / after / into</td>
+          <td>Version on replace and remove</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>
+        Agents edit text, not trees. Content-addressed edits (the old string) work for them: the model copies what it sees. Line numbers and offsets fail, because the model miscounts and the file moves.
+      </li>
+      <li>
+        A unique-match edit carries its own precondition. If the old string is gone, someone changed it. That is optimistic concurrency at the size of the edit, not the size of the element.
+      </li>
+      <li>
+        Serena is the closest analog. Symbols are the addressable unit for code, the way scopes are for documents. Its operations are replace body, insert before, insert after. Serena has no symbol-level move.
+      </li>
+      <li>
+        Whole-unit replace costs output tokens in proportion to the unit. A 4 KB section replaced for one word is the agent's version of aider's "whole" format.
+      </li>
+    </ul>
+    <h2 id="which">Which elements should be addressable</h2>
+    <h3>Scope, unit, element: three sets</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Set</th>
+          <th>Question it answers</th>
+          <th>Where it lives</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>element</td>
+          <td>What HTML has. Industry term.</td>
+          <td>The parser</td>
+        </tr>
+        <tr>
+          <td>unit (an element with an ID)</td>
+          <td>What can be named across edits. What a notice marks. What the command addresses.</td>
+          <td><code>identifiable()</code> in identity.mjs; named "unit" in notices.mjs</td>
+        </tr>
+        <tr>
+          <td>scope</td>
+          <td>What a human picks to direct or edit as markdown.</td>
+          <td>
+            <code>scopeElements</code> in scopes.mjs, plus the client's <code>data-no-revise</code> rule
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Every scope is a unit. Not every unit is a scope: <code>hr</code>, svg shapes, and checkboxes have IDs but are not scopes. The command's code already takes any unit: <code>elementById</code> finds any <code>data-hrv</code>. The README and CONCURRENCY.html call the target "the scope". The code is ahead of the words.
+    </p>
+    <div class="rec">
+      Recommendation: the command addresses <strong>units</strong>. Write that in the README. The human picks scopes; the agent names units. Scope stays the human's word. If "unit" doesn't fit as a public word, the field's neutral word for an addressable node is <strong>target</strong> (what you act on) and <strong>anchor</strong> (what you place beside).
+    </div>
+    <h3>Case by case</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Element kind</th>
+          <th>Today</th>
+          <th>If addressable</th>
+          <th>If not</th>
+          <th>Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Block (<code>section</code>, <code>p</code>, <code>h2</code>, <code>div</code>)</td>
+          <td>Scope, unit</td>
+          <td>The common case. Works.</td>
+          <td>n/a</td>
+          <td>Unit. No change.</td>
+        </tr>
+        <tr>
+          <td>List item <code>li</code>, <code>dt</code>, <code>dd</code></td>
+          <td>Scope, unit</td>
+          <td>
+            Add after an <code>li</code> with an <code>li</code> works. A <code>p</code> after an <code>li</code> is refused by <code>PARENTS</code>.
+          </td>
+          <td>
+            Every item edit replaces the whole list, and any edit to any item makes it stale.
+          </td>
+          <td>Unit. No change.</td>
+        </tr>
+        <tr>
+          <td>Table row <code>tr</code></td>
+          <td>Not a unit. "Replace the table."</td>
+          <td>
+            Add, remove, move, replace one row. The notice can mark one row (CONCURRENCY #where-marks proposes this). Reconcile has to keep row IDs across a markdown save of the table.
+          </td>
+          <td>
+            A one-row change replaces the table. The table's version covers every cell, so your edit to any cell makes the agent's row add stale; and add has no version, so it can't even say so. The table's notice is the whole table.
+          </td>
+          <td>
+            <strong>Make <code>tr</code> a unit, not a scope.</strong> Same standing as <code>hr</code>. Matches Google Docs, which gives rows their own operations.
+          </td>
+        </tr>
+        <tr>
+          <td><code>thead</code>, <code>tbody</code>, <code>tfoot</code></td>
+          <td>Not units</td>
+          <td>IDs on parser-made wrappers the agent never wrote.</td>
+          <td>
+            "add into table" with a <code>tr</code> is refused: <code>table</code> holds <code>tbody</code>, not <code>tr</code>.
+          </td>
+          <td>
+            Not units. Let <code>add into &lt;table&gt;</code> with rows land in the last <code>tbody</code>, a normalization the formatter already does in spirit (canonical form puts rows in <code>thead</code>/<code>tbody</code>). Or refuse with "add into the tbody, or after a row". See open question 3.
+          </td>
+        </tr>
+        <tr>
+          <td>Cell <code>td</code>, <code>th</code></td>
+          <td>Scope, unit</td>
+          <td>
+            Replace a cell's content works. Moving a cell to another row is legal HTML and wrecks the column.
+          </td>
+          <td>n/a</td>
+          <td>Unit. Consider refusing a move of a cell out of its row.</td>
+        </tr>
+        <tr>
+          <td>Link <code>a</code>, image <code>img</code>, <code>span</code></td>
+          <td>Scope, unit</td>
+          <td>
+            Replace a link works. Add after a link puts inline content in a sentence. Move a link into another paragraph works.
+          </td>
+          <td>Edits to links go through the paragraph.</td>
+          <td>
+            Unit, since they are scopes and carry directives. Inline adds are the risky ones: an <code>add after &lt;a&gt;</code> with a <code>&lt;p&gt;</code> must be refused (the reparse check catches it).
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Phrasing: <code>strong</code>, <code>em</code>, <code>code</code>, <code>br</code>
+          </td>
+          <td>Not units</td>
+          <td>
+            Every bold word gets an ID. Markdown saves rebuild them, so IDs churn. <code>read</code> output fills with IDs. Notices get too fine.
+          </td>
+          <td>Change it by replacing its block. The field agrees: these are marks, not nodes.</td>
+          <td>Not units.</td>
+        </tr>
+        <tr>
+          <td>Text node</td>
+          <td>Not addressable</td>
+          <td>
+            Can't hold an attribute. Would need offsets or character IDs (Peritext), which an agent can't count.
+          </td>
+          <td>Text edits go through the block, or through a string edit (below).</td>
+          <td>Never a target. Reach text through a string edit inside a unit.</td>
+        </tr>
+        <tr>
+          <td>svg and its elements</td>
+          <td>Every svg element is a unit; svg <code>text</code> is a scope</td>
+          <td>
+            Fine-grained: move a shape, relabel one text. HTML from the agent is parsed as svg inside an svg. A big diagram carries hundreds of IDs, all in <code>read</code> output.
+          </td>
+          <td>A one-label change replaces the whole drawing.</td>
+          <td>
+            Keep as is. Agents redraw diagrams whole more often than they nudge a shape; replace on the <code>svg</code> covers that, and reconcile keeps IDs on what came back the same. Watch the ID noise in <code>read</code>.
+          </td>
+        </tr>
+        <tr>
+          <td><code>hr</code>, checkbox</td>
+          <td>Units, not scopes</td>
+          <td>
+            Remove an <code>hr</code>, add before it: fine. <code>into</code> is refused (void).
+          </td>
+          <td>n/a</td>
+          <td>Unit. No change.</td>
+        </tr>
+        <tr>
+          <td><code>body</code></td>
+          <td>Unit; no replace, remove, move, before, after</td>
+          <td>n/a</td>
+          <td>n/a</td>
+          <td>Same as RFC 5261's root rule. Keep.</td>
+        </tr>
+        <tr>
+          <td>Inside <code>data-no-revise</code></td>
+          <td>Units; the human can't pick them</td>
+          <td>The agent marked them; the agent may change them</td>
+          <td>n/a</td>
+          <td>Addressable. The mark limits the human, not the agent.</td>
+        </tr>
+        <tr>
+          <td>head, script, style</td>
+          <td>Not units</td>
+          <td>The agent could break the page's behavior.</td>
+          <td>Edit the file.</td>
+          <td>Not units. Out of scope for the command.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3>What goes wrong either way</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Choice</th>
+          <th>What breaks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Only scopes are addressable</td>
+          <td>
+            Rows can't be named. Coarse targets mean more false conflicts: a change to one cell makes the whole table's version stale. Bigger replaces cost more tokens and more reconcile guessing. Notices mark too much.
+          </td>
+        </tr>
+        <tr>
+          <td>Every element is addressable</td>
+          <td>
+            IDs on <code>strong</code> and <code>em</code> churn on every markdown save. Parser-made elements (<code>tbody</code>) get IDs nobody wrote. <code>read</code> output gets noisy, and the agent copies IDs into places they don't belong. Notices get too fine to read. Text nodes still can't be named, so the set is never "every node".
+          </td>
+        </tr>
+        <tr>
+          <td>Units, with <code>tr</code> added (recommended)</td>
+          <td>
+            Two words to teach: scope (pick) and unit (name). Reconcile has to pair rows across a markdown save of a table. One more ID kind in <code>identifiable()</code>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <h2 id="ops">Which operations</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Operation</th>
+          <th>Field name</th>
+          <th>Today</th>
+          <th>Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>replace</td>
+          <td>update (with relabel)</td>
+          <td>
+            Version required. Root keeps the ID whatever its tag. Reconcile pairs the children.
+          </td>
+          <td>
+            Keep. Keeping the ID through a tag change (<code>p</code> to <code>h2</code>) is Zhang-Shasha's relabel, and it keeps the thread on it.
+          </td>
+        </tr>
+        <tr>
+          <td>add before / after / into</td>
+          <td>insert</td>
+          <td>No version. <code>into</code> means last child.</td>
+          <td>
+            Keep. The positions match DOM <code>insertAdjacentHTML</code>, RFC 5261 <code>pos</code>, Notion <code>position</code>, Serena's insert-before/after. Missing: <strong>first child</strong> (RFC 5261 <code>prepend</code>, DOM <code>afterbegin</code>). Today the agent writes "before &lt;first child&gt;", which fails when the parent is empty or its first child is bare text.
+          </td>
+        </tr>
+        <tr>
+          <td>remove</td>
+          <td>delete</td>
+          <td>Version required. Threads move to the holder.</td>
+          <td>Keep. The thread rule is html-revisor's answer to the tombstone.</td>
+        </tr>
+        <tr>
+          <td>move</td>
+          <td>move</td>
+          <td>No version. Carries ID, content, threads.</td>
+          <td>
+            Keep. It is the identity-preserving move that DOM <code>moveBefore()</code>, Chawathe, and Kleppmann each treat as its own operation.
+          </td>
+        </tr>
+        <tr>
+          <td>(new) edit text in a unit</td>
+          <td><code>str_replace</code>, scoped</td>
+          <td>None</td>
+          <td>
+            Consider <code>edit &lt;id&gt; &lt; {old, new}</code>: an exact string, once, inside one unit. The match is the precondition, so no version. Small changes stop costing whole-scope replaces, and stop going stale when the human edited a different sentence of the same scope. The result must reparse to the same structure, as today.
+          </td>
+        </tr>
+        <tr>
+          <td>(not recommended) set attribute</td>
+          <td>set_node, XML Patch on <code>@attr</code></td>
+          <td>None; replace does it</td>
+          <td>
+            Leave out. Replace covers it, and attribute-only changes are rare in these pages.
+          </td>
+        </tr>
+        <tr>
+          <td>(not recommended) copy</td>
+          <td>JSON Patch <code>copy</code></td>
+          <td>None</td>
+          <td>Leave out. Add with new HTML does it, and copied IDs get retired anyway.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3>Preconditions</h3>
+    <p>
+      Replace and remove carry a version. Add and move carry none, on the reasoning that they change no scope's content. Two cases that reasoning misses:
+    </p>
+    <ul>
+      <li>
+        <strong>Add after a paragraph the human just rewrote.</strong> The anchor still exists, so the add lands, next to text that may no longer fit it. Notion and Yjs <code>insertAfter</code> make the same choice. ProseMirror would map the position and land it too. The field accepts this; the notice is the safety net.
+      </li>
+      <li>
+        <strong>Move into a section the human just deleted.</strong> The anchor is gone; the move is refused. Correct.
+      </li>
+    </ul>
+    <p>
+      An optional version on add and move (the anchor's, or for <code>into</code>, the parent's) would let a careful agent ask for the strict form. JSON Patch's <code>test</code> is that idea as a separate operation.
+    </p>
+    <h3>Schema: refuse, don't repair</h3>
+    <p>
+      html-revisor checks three things: <code>PARENTS</code> (where an element may sit), <code>CHILDREN</code> (what a list, table, or row may hold), and a reparse that must give back the same text. That is a content-model check, the job a ProseMirror schema does. ProseMirror's step fails; Google Docs refuses; html-revisor refuses with a reason. The agent can read the reason and retry. Repair, where it happens (ProseMirror's <code>fit</code>, Slate's normalizers), belongs to a layer where the user's intent is known. An agent's command has no such layer.
+    </p>
+    <div class="rec">
+      Name it. The two tables plus the reparse are the page's <strong>content model</strong>. Pulled into a domain module of its own (say <code>domain/content-model.mjs</code>), it gets one home, tests by case, and a name that matches the WHATWG spec's. The tables cover lists, tables, and definition lists. The reparse catches the rest (a <code>div</code> in a <code>p</code>). One known gap the reparse can't see: an element HTML allows but the page's own rules don't, such as a scope under 4 KB that grows past it through an add.
+    </div>
+    <h2 id="identity">Positions and identity</h2>
+    <ul>
+      <li>
+        <strong>Address by ID.</strong> Paths (Slate, JSON Pointer, XPath positions) and offsets (ProseMirror, Quill, Google Docs) shift when anyone inserts above. They need a single writer, a transform, or a mapping. html-revisor has a human and an agent writing at once, with no transform layer. IDs are right.
+      </li>
+      <li>
+        <strong>Persist IDs in the file.</strong> Lexical keys are not serialized and come back new on load. That works for one editor session; it fails for an agent who reads now and writes in ten minutes. Notion, Jupyter, and XyDiff's XIDs persist. So does <code>data-hrv</code>.
+      </li>
+      <li>
+        <strong>Positions relative to an anchor:</strong> before, after, into (last), and maybe first. This is the vocabulary of DOM, RFC 5261, Notion, and Serena. It is also what an agent can say without counting.
+      </li>
+      <li>
+        <strong>ID rules on a change</strong> (today): an ID kept from inside the replaced unit stays; an ID from elsewhere, made up, or written twice comes off; an ID missing from content that came back the same is restored by reconcile. This follows XyDiff: trust explicit IDs first, then match by content.
+      </li>
+      <li>
+        <strong>ID through a move</strong>: kept. Through a copy: retired, every copy gets a fresh one. Through a tag change on replace: kept by the root.
+      </li>
+    </ul>
+    <h2 id="recs">Recommendations, in order</h2>
+    <ol>
+      <li>
+        <strong>Say "unit" (or "element with an ID") for what the command addresses.</strong> Update README's "The agent's command" and CONCURRENCY.html. Scope stays the human's word. This is a words change; the code already does it. It is a Contract question if the skills in iterate-on-docs say "scope" for the command's target.
+      </li>
+      <li>
+        <strong>Give <code>tr</code> an ID</strong>, as a unit and not a scope. Reconcile rows across a table's markdown save. Then "a table row has no ID: replace the table" goes away. CONCURRENCY #where-marks recommends the same for notices.
+      </li>
+      <li>
+        <strong>Keep phrasing elements and text nodes out.</strong> Reach them through their block, or through recommendation 5.
+      </li>
+      <li>
+        <strong>Pull the content model into its own domain module</strong> and name it. Keep refusing.
+      </li>
+      <li>
+        <strong>Consider a scoped string edit</strong>, <code>edit &lt;id&gt;</code> with an old and a new string, the match as its precondition. It lowers token cost and false conflicts on big scopes.
+      </li>
+      <li>
+        <strong>Consider "first" as a position</strong>, or document "before &lt;first child&gt;" and its gap.
+      </li>
+      <li>
+        <strong>Consider an optional version on add and move</strong> for agents that want the strict form.
+      </li>
+    </ol>
+    <h2 id="questions">Open questions for Jess</h2>
+    <ol>
+      <li>
+        Should the public word for what the command addresses be "unit", "element", or something else? The code and notices say unit; the README says scope.
+      </li>
+      <li>
+        Should <code>tr</code> become a unit now, with the notice work in CONCURRENCY #where-marks, or as its own yak?
+      </li>
+      <li>
+        For <code>add into &lt;table&gt;</code> with rows: land them in the last <code>tbody</code>, or refuse and say where to add?
+      </li>
+      <li>
+        Do you want a scoped string edit (<code>edit &lt;id&gt;</code>) for the agent? It would be a minor release and a skill update in iterate-on-docs.
+      </li>
+      <li>Should a cell be allowed to move out of its row?</li>
+      <li>
+        svg: keep an ID on every shape, or only on the <code>svg</code> and its <code>text</code> labels? Fewer IDs means less noise in <code>read</code>, and fewer things the agent can name.
+      </li>
+      <li>
+        Should add and move take an optional version, or is the notice enough of a safety net?
+      </li>
+    </ol>
+    <h2 id="sources">Sources</h2>
+    <ul>
+      <li>
+        WHATWG DOM: <a href="https://dom.spec.whatwg.org/">dom.spec.whatwg.org</a>; <code>moveBefore()</code>: <a href="https://developer.chrome.com/blog/movebefore-api">Chrome blog</a>, <a href="https://github.com/whatwg/dom/pull/1307">whatwg/dom PR #1307</a>
+      </li>
+      <li>
+        WHATWG HTML content models: <a href="https://html.spec.whatwg.org/multipage/dom.html#content-models">html.spec.whatwg.org, content models</a>
+      </li>
+      <li>
+        MDN <code>insertAdjacentHTML</code>: <a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML">developer.mozilla.org</a>
+      </li>
+      <li>
+        RFC 5261, XML Patch: <a href="https://www.rfc-editor.org/rfc/rfc5261">rfc-editor.org/rfc/rfc5261</a>
+      </li>
+      <li>
+        XUpdate working draft: <a href="https://xmldb-org.sourceforge.net/xupdate/xupdate-wd.html">xmldb-org.sourceforge.net/xupdate</a>
+      </li>
+      <li>
+        RFC 6902, JSON Patch: <a href="https://www.rfc-editor.org/rfc/rfc6902">rfc-editor.org/rfc/rfc6902</a>; RFC 6901, JSON Pointer: <a href="https://www.rfc-editor.org/rfc/rfc6901">rfc-editor.org/rfc/rfc6901</a>
+      </li>
+      <li>
+        Zhang and Shasha, "Simple fast algorithms for the editing distance between trees and related problems", SIAM J. Computing 18(6), 1989: <a href="https://doi.org/10.1137/0218082">doi.org/10.1137/0218082</a>
+      </li>
+      <li>
+        Chawathe, Rajaraman, Garcia-Molina, Widom, "Change detection in hierarchically structured information", SIGMOD 1996: <a href="https://doi.org/10.1145/233269.233366">doi.org/10.1145/233269.233366</a>
+      </li>
+      <li>
+        Cobéna, Abiteboul, Marian, "Detecting changes in XML documents" (XyDiff), ICDE 2002: <a href="https://gitee.com/dancesoul/xydiff">xydiff source</a>
+      </li>
+      <li>
+        Wang, DeWitt, Cai, "X-Diff: an effective change detection algorithm for XML documents", ICDE 2003: <a href="https://www.academia.edu/23394615/X_Diff_An_Effective_Change_Detection_Algorithm_for_XML_Documents">academia.edu</a>
+      </li>
+      <li>
+        Falleri et al., "Fine-grained and accurate source code differencing" (GumTree), ASE 2014: <a href="https://www.labri.fr/perso/xblanc/data/papers/ASE14.pdf">labri.fr PDF</a>; <a href="https://github.com/GumTreeDiff/gumtree">GumTreeDiff/gumtree</a>
+      </li>
+      <li>
+        ProseMirror guide: <a href="https://prosemirror.net/docs/guide/">prosemirror.net/docs/guide</a>
+      </li>
+      <li>
+        Slate operations: <a href="https://docs.slatejs.org/concepts/05-operations">docs.slatejs.org</a>
+      </li>
+      <li>
+        Lexical key management: <a href="https://lexical.dev/docs/concepts/key-management">lexical.dev</a>
+      </li>
+      <li>Quill Delta: <a href="https://quilljs.com/docs/delta">quilljs.com/docs/delta</a></li>
+      <li>
+        Google Docs API structure: <a href="https://developers.google.com/workspace/docs/api/concepts/structure">structure</a>; edit rules: <a href="https://developers.google.com/workspace/docs/api/concepts/rules-behavior">rules and behavior</a>
+      </li>
+      <li>
+        Notion API, append block children: <a href="https://developers.notion.com/reference/patch-block-children">developers.notion.com</a>
+      </li>
+      <li>
+        Yjs XmlFragment: <a href="https://docs.yjs.dev/api/shared-types/y.xmlfragment">docs.yjs.dev</a>
+      </li>
+      <li>
+        Peritext (Litt, Lim, Kleppmann, van Hardenberg), Ink &amp; Switch 2021: <a href="https://www.inkandswitch.com/peritext/">inkandswitch.com/peritext</a>
+      </li>
+      <li>
+        Automerge rich text schema: <a href="https://automerge.org/docs/under-the-hood/rich_text_schema">automerge.org</a>; Kleppmann's notes on block elements in rich text CRDTs: <a href="https://martinkl.notion.site/Block-elements-in-rich-text-CRDT-a3b69f886dbc4ad1abe81cea0b3e6623">martinkl.notion.site</a>
+      </li>
+      <li>
+        Kleppmann, Mulligan, Gomes, Beresford, "A highly-available move operation for replicated trees", IEEE TPDS 2021: <a href="https://martin.kleppmann.com/papers/move-op.pdf">martin.kleppmann.com/papers/move-op.pdf</a>
+      </li>
+      <li>
+        Kleppmann, "Moving elements in list CRDTs", PaPoC 2020: <a href="https://martin.kleppmann.com/papers/list-move-papoc20.pdf">martin.kleppmann.com/papers/list-move-papoc20.pdf</a>
+      </li>
+      <li>
+        Jupyter nbformat, cell ids: <a href="https://nbformat.readthedocs.io/en/latest/format_description.html">nbformat.readthedocs.io</a>
+      </li>
+      <li>
+        Anthropic text editor tool: <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/text-editor-tool">platform.claude.com</a>
+      </li>
+      <li>
+        Aider edit formats: <a href="https://aider.chat/docs/more/edit-formats.html">aider.chat</a>
+      </li>
+      <li>
+        Serena symbol tools: <a href="https://github.com/oraios/serena">oraios/serena</a>; tool listing: <a href="https://glama.ai/mcp/servers/@oraios/serena/tools/insert_after_symbol">glama.ai</a>
+      </li>
+    </ul>
+    <p class="small">
+      Not verified by fetch: the Kleppmann move paper's PDF did not render as text; its claims here are from the published abstract. GumTree's and XyDiff's operation sets are from search results and the papers' known abstracts. Notion's "can't be moved" is from its append-children page; a later API may differ.
+    </p>
+  </body>
+</html>

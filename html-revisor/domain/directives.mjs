@@ -161,6 +161,31 @@ export function attachComments(el, comments) {
   for (const comment of comments) parent.insertBefore(comment, next);
 }
 
+// Every turn in the document with the element it is about, in file order: what repinTurns
+// puts back after a change moves or takes out elements around them.
+export function pinTurns(document, author) {
+  return allComments(document).filter((c) => isTurn(c, author)).map((comment) => ({ comment, owner: directiveOwner(comment) }));
+}
+
+// Each pinned turn back on its element, or, when its element left the page, on the element
+// home(element) names. A turn its element still reads where it sits stays there; the others go
+// after the turns already on their element, in file order. No turn is dropped.
+export function repinTurns(pins, home, author) {
+  const moving = new Map(); // element → its turns to place, in order
+  for (const { comment, owner } of pins) {
+    const target = owner.isConnected ? owner : home(owner);
+    if (comment.isConnected && directiveOwner(comment) === target) continue;
+    comment.remove();
+    if (!moving.has(target)) moving.set(target, []);
+    moving.get(target).push(comment);
+  }
+  for (const [target, comments] of moving) {
+    const last = turnsOn(target, author).at(-1);
+    if (last) last.after(...comments);
+    else attachComments(target, comments);
+  }
+}
+
 // Directives ride with their element through a rewrite: markdown doesn't show them, so each
 // comment in the prior scope goes onto its element's partner (reconcile in identity.mjs pairs
 // them). One whose element the edit deleted goes with it (Jess,

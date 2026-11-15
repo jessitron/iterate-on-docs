@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize } from '../domain/format.mjs';
 import { parse } from '../domain/canonical.mjs';
+import { scopeElements } from '../domain/scopes.mjs';
 
 const idsOf = (html) => {
   const document = parse(html);
@@ -23,6 +24,14 @@ test('every scope gets an ID, in document order; strong does not', () => {
 test('hr and every element of an svg take IDs too, as they took directives before', () => {
   const ids = idsOf(normalize('<hr><svg><g><rect></rect><text>label</text></g></svg>'));
   assert.ok(ids.of('hr, svg, g, rect, text').every((id) => /^\d+$/.test(id)));
+});
+
+test('every table row takes an ID and is no scope; thead and tbody take none', () => {
+  const html = normalize('<table><thead><tr><th>k</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>');
+  const ids = idsOf(html);
+  assert.ok(ids.of('tr').every((id) => /^\d+$/.test(id)));
+  assert.deepEqual(ids.of('thead, tbody'), [null, null]);
+  assert.ok(!scopeElements(parse(html)).some((el) => el.localName === 'tr'), 'you pick a cell or the table, not a row');
 });
 
 test('existing IDs never change; a new element gets the next number', () => {

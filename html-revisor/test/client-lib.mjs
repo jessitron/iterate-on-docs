@@ -122,7 +122,7 @@ export async function openTab(s, name, { storage = new Map() } = {}) {
     clearTimeout: (t) => { timers.delete(t); clearTimeout(t); },
     crypto, performance, Blob, Uint8Array, JSON,
   };
-  Object.assign(window, { scrollX: 0, scrollY: 0, EventSource: context.EventSource });
+  Object.assign(window, { scrollX: 0, scrollY: 0, innerHeight: 800, EventSource: context.EventSource });
   vm.createContext(context);
   vm.runInContext(clientSource, context);
   const layer = document.getElementById('hrv-layer');

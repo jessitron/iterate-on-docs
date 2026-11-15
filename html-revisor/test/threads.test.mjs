@@ -168,14 +168,15 @@ test('an Announcement carries the base of its thread; a revision with no thread 
   assert.equal(announcementOf(document, idOf(document, 'p'), { directive: '' }, '@AI').thread, thread);
   const again = page(serialize(document));
   const plainId = plain.getAttribute('data-hrv');
-  assert.equal(announcementOf(again, plainId, { directive: '', markdown: 'before' }, '@AI').thread, undefined);
+  assert.equal(announcementOf(again, plainId, { directive: '' }, '@AI', { session: { content: { id: plainId, before: 'before', after: 'plain' } } }).thread, undefined);
 });
 
 test('an Announcement of a Resolve carries the turns that went, even with nothing else changed', () => {
   const document = page('<h1>Title</h1><p>text</p>');
   const id = idOf(document, 'p');
   const ended = turns(['@AI', 'one'], ['@Human', 'two']);
-  assert.deepEqual(announcementOf(document, id, { directive: '' }, '@AI', ended), { id, element: 'p', heading: 'Title', resolved: ended });
+  const version = baseOf(elementById(document, id), '@AI');
+  assert.deepEqual(announcementOf(document, id, { directive: '' }, '@AI', { resolved: ended }), { id, element: 'p', heading: 'Title', resolved: ended, version });
   assert.equal(announcementOf(document, id, { directive: '' }, '@AI'), null, 'no Resolve, nothing changed');
 });
 

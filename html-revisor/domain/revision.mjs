@@ -3,10 +3,12 @@
 // the file, writes what comes back, and answers; server.mjs names the bodies these take.
 import { parse, serialize } from './canonical.mjs';
 import { ID, elementById, assignIds } from './identity.mjs';
-import { collectDirectives, threadOf, removeThreads, removeThread, setDirective, placeReply, replyCount } from './directives.mjs';
-import { editable, scopeElements } from './scopes.mjs';
+import { collectDirectives, threadOf, removeThreads, removeThread, setDirective, placeReply, replyCount, escapeDirectiveText } from './directives.mjs';
+import { scopeElements, editable } from './scopes.mjs';
+import { scopeMarkdown } from './to-markdown.mjs';
 import { fingerprint, baseOf, basesOf, threadBaseOf, around } from './bases.mjs';
-import { markdownsOf, saveMarkdown, spillOf, settle, spillIds, servedHTML, holderOf } from './markdown-edits.mjs';
+import { markdownsNear, saveMarkdown, spillOf, settle, spillIds, servedHTML, holderOf } from './markdown-edits.mjs';
+import { isField, fieldType, fieldValueOf, fitsField, fieldShape, setField } from './fields.mjs';
 
 // The step port: step(name, fn) runs fn and returns what it returns. The caller supplies it to
 // observe each step, as a span, and hands fn a note(attributes) for what the step found out;
@@ -28,11 +30,18 @@ export function readRevision(text, step = justRun) {
   });
 }
 
-// A change holds when it starts from the element as it stands: the base matches, the spill sits
-// beside the element, and no reply came since the turn was typed. Gives the spill's elements, or
-// a conflict.
+// A change to content holds when it starts from the element as it stands: the base matches and
+// the spill sits beside the element. A directive is a turn, not a change to content: no base
+// refuses it, and it holds unless a reply came since it was typed. Gives the spill's elements,
+// or a conflict.
 function check(el, { id, base, replies, spill = [] }, kind, author) {
   if (!el) return conflict('no such element', 'that element is gone from the file', `conflict on element ${id} (no such element)`);
+  if (kind === 'directive') {
+    // A turn typed before a reply came in: the tab catches up and sends what's left after the reply.
+    const repliesNow = replies === undefined ? replies : replyCount(el, author);
+    if (repliesNow !== replies) return conflict('replied since', 'a reply came in on that thread', undefined, { replies: repliesNow });
+    return { spilled: [] };
+  }
   if (baseOf(el, author) !== base) {
     return conflict('changed on disk', 'that element changed on disk', `conflict on element ${id} (it changed on disk)`);
   }
@@ -40,10 +49,37 @@ function check(el, { id, base, replies, spill = [] }, kind, author) {
   if (!spilled) {
     return conflict('spill moved', 'what the last save made changed on disk', `conflict on element ${id} (what its last save made changed on disk)`);
   }
-  // A turn typed before a reply came in: the tab catches up and sends what's left after the reply.
-  const repliesNow = kind === 'directive' && replies !== undefined ? replyCount(el, author) : replies;
-  if (repliesNow !== replies) return conflict('replied since', 'a reply came in on that thread', undefined, { replies: repliesNow });
   return { spilled };
+}
+
+// Where a directive lands on an element that is gone: the nearest of its ancestors, nearest
+// first, that the page still holds. Null when none is.
+function nearest(document, ancestors = []) {
+  for (const id of ancestors) {
+    const el = elementById(document, id);
+    if (el) return el;
+  }
+  return null;
+}
+
+// A directive moved to an ancestor joins after the directive already there. said is what this
+// box session last landed: it comes off the end first, so each draft replaces the one before,
+// whether this session or the agent's change moved it there.
+function joined(document, holder, text, said, author) {
+  const there = collectDirectives(document, author)[holder.getAttribute(ID)] ?? '';
+  let rest = there;
+  if (said && there === said) rest = '';
+  else if (said && there.endsWith(`\n${said}`)) rest = there.slice(0, -said.length - 1);
+  return [rest, escapeDirectiveText(text.trim())].filter(Boolean).join('\n');
+}
+
+// The scope's markdown as the file holds it, threads left out. Undefined for a scope that
+// doesn't edit as markdown.
+function contentOf(el, author) {
+  if (!editable(el)) return undefined;
+  const copy = el.cloneNode(true);
+  removeThreads(copy, author);
+  return scopeMarkdown(copy);
 }
 
 // Replace a scope, and its spill, with its markdown. Null when the scope can't take it.
@@ -60,34 +96,50 @@ function reviseMarkdown(document, el, { id, markdown }, spilled, author, step) {
   return { document: settled.document, changed, answer };
 }
 
-// change: {id, base, directive, replies?} | {id, base, markdown, spill?} | {id, base}, by kind:
-// "directive", "markdown", "resolve", or "check" (change.checked: true or false, for an input
-// marked data-hrv-check).
+// change: {id, base, directive, replies?, ancestors?} | {id, base, markdown, spill?} | {id, base},
+// by kind: "directive", "markdown", "resolve", or "field" (change.field: the field's value, as
+// fields.mjs says, for an input, textarea, or select). A directive on an element that is gone lands on the nearest of
+// its ancestors the page holds (ancestors: their IDs, nearest first), after the directive there;
+// said is what the directive's box session last landed, as the file holds it.
 // Gives one of:
 //   {conflict}: see conflict above
 //   {refused}: why the change can't be made at all
 //   the revision, for answerOf: {written, wrote, ended, answer, …}. written is the text to write
-//   when wrote is true. ended: the turns a Resolve took. answer: what a markdown save adds to it.
-export function revise(text, change, kind, author, step = justRun) {
+//   when wrote is true. ended: the turns a Resolve took. answer: what a markdown save adds to it,
+//   or for a directive that moved, {id, from, directive}: where it landed, the ID it was typed
+//   on, and the directive there now. contentBefore: a markdown save's scope before it.
+//   fieldBefore: a field save's value before it.
+export function revise(text, change, kind, author, step = justRun, said = '') {
   const document = readRevision(text, step);
-  const el = elementById(document, change.id);
-  const checked = check(el, change, kind, author);
+  const typedOn = elementById(document, change.id);
+  const holder = !typedOn && kind === 'directive' ? nearest(document, change.ancestors) : null;
+  const el = typedOn ?? holder;
+  const checked = check(el, holder ? { ...change, replies: undefined } : change, kind, author);
   if (checked.conflict) return checked;
   const ended = kind === 'resolve' ? threadOf(el, author) : [];
-  if (kind === 'directive') setDirective(el, change.directive, author);
+  const contentBefore = kind === 'markdown' ? contentOf(el, author) : undefined;
+  if (kind === 'directive' && holder) setDirective(el, joined(document, el, change.directive, said, author), author);
+  else if (kind === 'directive') setDirective(el, change.directive, author);
   if (kind === 'resolve') step('resolve', () => removeThread(el, author));
-  if (kind === 'check') {
-    if (!el.matches('input[data-hrv-check]')) return { refused: 'only an input marked data-hrv-check takes a checked state' };
-    if (change.checked) el.setAttribute('checked', '');
-    else el.removeAttribute('checked');
+  let touched = [el];
+  const fieldBefore = kind === 'field' && isField(el) ? fieldValueOf(el) : undefined;
+  if (kind === 'field') {
+    if (!isField(el)) return { refused: 'only an input, textarea, or select takes a field value' };
+    if (!fitsField(el, change.field)) return { refused: `a ${fieldType(el)} field takes ${fieldShape(el)}` };
+    touched = setField(el, change.field);
   }
-  const revised = kind === 'markdown' ? reviseMarkdown(document, el, change, checked.spilled, author, step) : { document, changed: around([el]), answer: {} };
+  const moved = holder ? { id: holder.getAttribute(ID), from: change.id, directive: collectDirectives(document, author)[holder.getAttribute(ID)] ?? '' } : {};
+  const revised = kind === 'markdown' ? reviseMarkdown(document, el, change, checked.spilled, author, step) : { document, changed: around(touched), answer: moved };
   if (!revised) return { refused: 'markdown edits need a scope under 4 KB and non-blank markdown' };
   const written = step('serialize', () => serialize(revised.document));
   // A save the canonical file can't tell from what it holds writes nothing: a directive
   // differing only in edge whitespace (it's trimmed), markdown differing only in a trailing space.
-  return { ...revised, kind, ended, text, written, wrote: written !== text };
+  return { ...revised, kind, ended, text, written, wrote: written !== text, ...(contentBefore === undefined ? {} : { contentBefore }), ...(fieldBefore === undefined ? {} : { fieldBefore }) };
 }
+
+// What a directive save lands, as the file holds it: trimmed, escaped. A box session keeps it,
+// so the next draft on an element that is gone replaces it (revise's said).
+export const landed = (directive) => escapeDirectiveText(directive.trim());
 
 // The answer to a change that landed, with bases and markdown as a reload would serve them: from
 // the file in canonical layout. Orchestration calls it after the write, so a trace shows the steps
@@ -106,15 +158,6 @@ export function answerOf({ document, changed, answer, kind, text, written }, aut
   });
   const markdowns = kind === 'markdown' ? { markdowns: step('markdowns', (note) => markdownsNear(served, now, note)) } : {};
   return { ok: true, count, ...answer, bases, ...markdowns, before: fingerprint(text), after: fingerprint(written) };
-}
-
-function markdownsNear(served, elements, note) {
-  const scopes = new Set(scopeElements(served));
-  const mine = elements.filter((e) => scopes.has(e));
-  note({ 'hrv.scope.count': mine.length });
-  // A scope the save grew past the limit loses its Content field: null tells the tab.
-  const grown = mine.filter((e) => e.hasAttribute(ID) && e.localName !== 'body' && !editable(e));
-  return { ...Object.fromEntries(grown.map((e) => [e.getAttribute(ID), null])), ...markdownsOf(mine) };
 }
 
 // The agent's reply: {id, thread, reply}, thread being the thread base it started from. A turn

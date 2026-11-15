@@ -103,7 +103,7 @@
       The agent answers in the page. Each element carries its own small conversation, and many run at once while you keep reviewing.
     </p>
     <p>
-      Built as a prototype: it proved useful, and it breaks when the agent and the browser change one page at once. It runs only with <code>--replies</code> on the server; without it, you and the agent take turns. The yak "Get your concurrency together" holds what broke.
+      Built as a prototype: it proved useful, and it breaks when the agent and the browser change one page at once. It runs only with <code>--replies</code> on the server; without it, you and the agent take turns. The yak "Get your concurrency together" holds what broke, and <a href="CONCURRENCY.html">CONCURRENCY.html</a> is the plan that fixes it, in steps. Replies come out from behind the flag after its step 4, when the server owns the page.
     </p>
     <h2 id="status">Where it stands</h2>
     <svg class="flow road" viewBox="0 0 900 340" role="img" aria-label="Build road for replies: ten pieces built, the iterate-on-docs side and the deploy waiting on Jess, five later">
@@ -159,12 +159,14 @@
       <rect class="later" x="700" y="102" width="190" height="46" rx="6"></rect>
       <text x="710" y="121">Modes</text>
       <text class="sub" x="710" y="138">a page with no agent</text>
-      <rect class="later" x="700" y="160" width="190" height="46" rx="6"></rect>
-      <text x="710" y="179">Disk edits, live</text>
+      <rect class="built" x="700" y="160" width="190" height="46" rx="6"></rect>
+      <text x="710" y="179">✓ Disk edits, live</text>
       <text class="sub" x="710" y="196">content swaps in, no reload</text>
-      <rect class="later" x="700" y="218" width="190" height="46" rx="6"></rect>
-      <text x="710" y="237">Who edits the live file</text>
-      <text class="sub" x="710" y="254">agent and server, at once</text>
+      <a href="CONCURRENCY.html">
+        <rect class="later" x="700" y="218" width="190" height="46" rx="6"></rect>
+        <text x="710" y="237">The server owns the page</text>
+        <text class="sub" x="710" y="254">CONCURRENCY.html, step 4</text>
+      </a>
       <rect class="later" x="700" y="276" width="190" height="46" rx="6"></rect>
       <text x="710" y="295">Lighter reply loop</text>
       <text class="sub" x="710" y="312">one commit per reply</text>
@@ -867,9 +869,33 @@
           <td><a href="#flow">flow</a></td>
         </tr>
         <tr>
+          <td>How does the agent change content it was asked to change?</td>
+          <td>
+            Through the server too: <code>change.mjs</code>, one scope per command. A thread rides with its element by ID; when the agent's HTML drops that element, the thread moves up to the scope the agent replaced.
+          </td>
+          <td>✓</td>
+          <td><a href="CONCURRENCY.html">CONCURRENCY.html</a></td>
+        </tr>
+        <tr>
+          <td>Is a directive or a reply a change?</td>
+          <td>
+            No. They are turns: a conversation about a scope. A turn moves no version, so your turns never make the agent's content change stale, and a content change never makes a reply stale. A directive's Announcement carries <code>saw</code>, the version of the content you were looking at.
+          </td>
+          <td>✓</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>What do replies wait on?</td>
+          <td>
+            The server owning the page. Then each turn has an ID, and the agent names the turn its reply or its change answers.
+          </td>
+          <td>CONCURRENCY step 4</td>
+          <td><a href="CONCURRENCY.html#step-4">step 4</a></td>
+        </tr>
+        <tr>
           <td>Who commits?</td>
           <td>
-            The agent, each time it adds a reply, in whatever way it commits. The server never commits. A commit may catch half an edit of yours; the next one picks up the rest. So every turn is in history before Resolve removes its thread.
+            The agent, each time it adds a reply, in whatever way it commits. The server never commits; step 4 of CONCURRENCY.html has the server commit, by a setting. A commit may catch half an edit of yours; the next one picks up the rest. So every turn is in history before Resolve removes its thread.
           </td>
           <td>on a branch</td>
           <td><a href="#flow">flow</a></td>
