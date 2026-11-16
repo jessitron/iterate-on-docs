@@ -15,6 +15,8 @@ Run in the background: `node ../../html-revisor/server.mjs <file> --port 0`. It 
 follows holds the formatting, so later diffs show only the user's changes. If formatting fails,
 the server exits 1 with `<file>: <problem>` on stderr; fix that and start it again.
 
+The server prints announcements to stdout on each change by the user. You can read that as a source of user action.
+
 ## Hand off
 
 Give the user the page URL instead of the file path. If you changed just one section, link them
@@ -36,26 +38,21 @@ stderr and run it again.
 Leave `data-hrv` and `data-hrv-next` attributes alone: don't change, copy, or remove them. A new
 element needs none; the formatter gives it one. An open browser tab saves by these IDs.
 
-After the first Tidy, every pickable tag carries `data-hrv`, so a script that finds `<p><strong>…`
-finds nothing and changes nothing, silently. Match on text inside the tag, or assert the match before
-replacing.
-
-On an element with interaction of its own, like a widget your script drives, add the HTML
+On an element with interaction of its own, like a widget your script drives or a link to another internal document, add the HTML
 attribute `data-no-revise` to its tag: `<div data-no-revise>`. That element and all inside it
 can't be picked for a directive, and clicks there go to the page.
 
 To ask the user for answers, write a form with plain fields: `<input>`, `<textarea>`, `<select>`,
 checkboxes, radios. Each change saves into the file: `checked` on a checkbox or radio, `value` on
-an input, a textarea's text, `selected` on an option. Each also prints a field Announcement on the
-server's stdout. Read the answers from the file or `git diff`. Set starting values as in HTML. A
-form submits nowhere, so it needs no `action` and no submit button.
+an input, a textarea's text, `selected` on an option. Each also prints an announcement on the
+server's stdout. Read the answers from stdout, the HTML file, or `git diff`. Set starting values as in HTML. The
+form needs no `action` and no submit button.
 
 ## Find directives
 
 Run `grep -n '<!-- *@AI:' <file>`. A page that talks about directives holds the bare `@AI:` in
 its text, so grep for the HTML comment form. Each directive is about the element that contains
-it as its first child — or, just before a void or raw-text element, about that next element. The
-full list of those elements is under "Directive format" in `../../html-revisor/README.md`.
+it as its first child — or, just before a void or raw-text element, about that next element.
 
 ## End
 
